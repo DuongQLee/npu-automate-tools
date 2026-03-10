@@ -32,5 +32,5 @@ jobs:
           API_TOKEN: ${{ secrets.API_TOKEN }} 
         run: |
           uv sync
-          uv run generate_daily_report_html.py
-          uv run generate_daily_report_for_atlassian.py
+          uv run auto_create_report.py
+          uv run auto_create_jira_daily_report.py
