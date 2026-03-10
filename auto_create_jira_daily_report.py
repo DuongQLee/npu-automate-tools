@@ -20,7 +20,7 @@ CONFLUENCE_SPACE = "MV"
 CONFLUENCE_PARENT_ID = "2282618932"
 
 DATE = None  # None (Today), -1 (Yesterday), or "YYYY-MM-DD"
-MAX_HISTORY_COMMENTS = 20  # Max number of historical comments to show per task
+MAX_HISTORY_COMMENTS = 20
 
 CORE_JQL = 'component = "MV-NPU"'
 # ==============================================================================
@@ -39,6 +39,7 @@ confluence_base_url = f"https://{ATLASSIAN_DOMAIN}/wiki/rest/api/content"
 
 
 def convert_adf_to_html(node, attachment_map):
+    """Converts Jira's Atlassian Document Format (JSON) into Atlassian XML."""
     if not isinstance(node, dict):
         return ""
     node_type = node.get("type")
@@ -55,14 +56,14 @@ def convert_adf_to_html(node, attachment_map):
                 text = f"<code>{text}</code>"
             elif m_type == "link":
                 href = mark.get("attrs", {}).get("href", "#")
-                text = f'<a href="{href}" target="_blank">{text}</a>'
+                text = f'<a href="{href}">{text}</a>'
         return text
 
     if node_type == "hardBreak":
         return "<br/>"
     if node_type == "inlineCard":
         url = node.get("attrs", {}).get("url", "")
-        return f'<a href="{url}" target="_blank">{url}</a>'
+        return f'<a href="{url}">{url}</a>'
 
     inner_html = "".join([convert_adf_to_html(child, attachment_map)
                          for child in node.get("content", [])])
@@ -70,9 +71,9 @@ def convert_adf_to_html(node, attachment_map):
     if node_type == "doc":
         return inner_html
     elif node_type == "paragraph":
-        return f"<p style='margin: 5px 0;'>{inner_html}</p>"
+        return f"<p>{inner_html}</p>"
     elif node_type == "codeBlock":
-        return f'<pre style="background: #f4f5f7; padding: 12px; border-radius: 4px; overflow-x: auto; font-family: monospace;"><code>{inner_html}</code></pre>'
+        return f"<pre><code>{inner_html}</code></pre>"
     elif node_type == "bulletList":
         return f"<ul>{inner_html}</ul>"
     elif node_type == "orderedList":
@@ -80,11 +81,11 @@ def convert_adf_to_html(node, attachment_map):
     elif node_type == "listItem":
         return f"<li>{inner_html}</li>"
     elif node_type in ["mediaSingle", "mediaGroup"]:
-        return f'<div>{inner_html}</div>'
+        return f"<div>{inner_html}</div>"
     elif node_type == "media":
         attrs = node.get("attrs", {})
         alt_text = attrs.get("alt", "Attachment")
-        return f'<p>📎 <strong>{alt_text}</strong></p>'
+        return f"<p>📎 <strong>{alt_text}</strong></p>"
     return inner_html
 
 
@@ -98,103 +99,70 @@ def extract_structured_comment(html_text):
         return None, None, html_text
 
     sum_match = re.search(
-        r'Summary:\s*(.*?)(?:<br>|</p>|<div|Tags:|Body:|$)', text, re.IGNORECASE)
+        r'Summary:\s*(.*?)(?:<br/>|</p>|<div|Tags:|Body:|$)', text, re.IGNORECASE)
     c_summary = re.sub(r'<[^>]+>', '', sum_match.group(1)
                        ).strip() if sum_match else "Update"
+
     tags_match = re.search(
-        r'Tags:\s*(.*?)(?:<br>|</p>|<div|Body:|$)', text, re.IGNORECASE)
+        r'Tags:\s*(.*?)(?:<br/>|</p>|<div|Body:|$)', text, re.IGNORECASE)
     c_tags = re.sub(r'<[^>]+>', '', tags_match.group(1)
                     ).strip() if tags_match else ""
 
     if "Body:" in text:
         body_match = re.search(
-            r'Body:\s*(?:</p>|<br>|</div>)?(.*)', text, re.IGNORECASE | re.DOTALL)
+            r'Body:\s*(?:</p>|<br/>|</div>)?(.*)', text, re.IGNORECASE | re.DOTALL)
         c_body = body_match.group(1).strip() if body_match else ""
     else:
-        c_body = re.sub(r'^(?:<[^>]+>)*\s*Summary:.*?(?:<br>|</p>|</div>)',
+        c_body = re.sub(r'^(?:<[^>]+>)*\s*Summary:.*?(?:<br/>|</p>|</div>)',
                         '', html_text, count=1, flags=re.IGNORECASE)
-        c_body = re.sub(r'^(?:<[^>]+>)*\s*Tags:.*?(?:<br>|</p>|</div>)',
+        c_body = re.sub(r'^(?:<[^>]+>)*\s*Tags:.*?(?:<br/>|</p>|</div>)',
                         '', c_body, count=1, flags=re.IGNORECASE)
         c_body = c_body.strip()
 
     return c_summary, c_tags, c_body
 
-
-def build_comment_ui(author, dt_local, parsed_html, color_hex, is_history=False):
-    c_summary, c_tags, c_body = extract_structured_comment(parsed_html)
-    bg_color = "#ffffff" if is_history else "#f9fafb"
-
-    html = f"<div style='margin-bottom: 15px; padding: 10px; border-left: 3px solid {
-        color_hex}; background: {bg_color};'>"
-    html += f"<strong>🗣️ {author}</strong> <span style='color: #666; font-size: 0.85em;'>({
-        dt_local.strftime('%Y-%m-%d %H:%M')})</span>"
-    if c_summary:
-        tags_html = ""
-        if c_tags:
-            clean_tags_str = re.sub(r'<[^>]+>', '', c_tags)
-            individual_tags = [tag.strip()
-                               for tag in clean_tags_str.split(',')]
-            for tag in individual_tags:
-                if tag:
-                    tags_html += f"<span style='color: #0052cc; font-size: 0.85em; font-family: monospace; background: #e9eaf0; padding: 2px 8px; border-radius: 12px; margin-left: 6px; white-space: nowrap;'>{
-                        tag}</span>"
-
-        html += f"<div style='margin-top: 10px; border: 1px solid #dfe1e6; border-radius: 4px; background: white;'>"
-        html += f"<details><summary style='cursor: pointer; padding: 10px; outline: none; background: #f4f5f7;'>"
-        html += f"<div style='display: inline-flex; justify-content: space-between; align-items: center; width: calc(100% - 20px); vertical-align: middle;'>"
-        html += f"<span style='font-weight: 600; color: #172b4d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 15px;'>{
-            c_summary}</span>"
-        html += f"<div style='flex-shrink: 0;'>{
-            tags_html}</div></div></summary>"
-        html += f"<div style='padding: 15px; border-top: 1px solid #dfe1e6;'>{
-            c_body}</div></details></div>"
-    else:
-        html += f"<div style='margin-top: 5px;'>{c_body}</div>"
-
-    html += f"</div>"
-    return html
-
 # ==============================================================================
-# 🌐 3. CONFLUENCE API INTEGRATION
+# 🌐 3. CONFLUENCE API INTEGRATION (Enhanced Error Logging)
 # ==============================================================================
 
 
-def get_confluence_page_version(page_id):
+def update_confluence_page(page_id, xml_content):
+    print(f"\n🔍 Fetching Confluence page info for ID: {page_id}...")
     url = f"{confluence_base_url}/{page_id}?expand=version"
+
+    # 1. Test GET Request
     resp = requests.get(url, headers=headers, auth=auth)
-    if resp.status_code == 200:
-        return resp.json().get("version", {}).get("number", 1)
-    return 1
 
-
-def update_confluence_page(page_id, title, html_content):
-    version = get_confluence_page_version(page_id)
-    url = f"{confluence_base_url}/{page_id}"
-    payload = {
-        "version": {"number": version + 1},
-        "title": title,
-        "type": "page",
-        "body": {"storage": {"value": html_content, "representation": "storage"}}
-    }
-    resp = requests.put(url, json=payload, headers=headers, auth=auth)
-    print(f"🔄 Confluence Update [{page_id}]: Status {resp.status_code}")
-
-
-def create_confluence_child_page(space, parent_id, title, html_content):
-    check_url = f"{confluence_base_url}?spaceKey={space}&title={title}"
-    check_resp = requests.get(check_url, headers=headers, auth=auth)
-    if check_resp.status_code == 200 and check_resp.json().get("results"):
-        print(f"⚠️ Child page '{title}' already exists. Overwriting...")
-        existing_id = check_resp.json()["results"][0]["id"]
-        update_confluence_page(existing_id, title, html_content)
+    if resp.status_code != 200:
+        print(f"❌ CONFLUENCE GET FAILED - Status {resp.status_code}")
+        print(f"🛑 Reason: {resp.text}")
         return
+
+    data = resp.json()
+    current_version = data.get("version", {}).get("number", 1)
+    current_title = data.get("title", "Daily Report")
+
+    print(f"📄 Found page: '{
+          current_title}' (Current Version: {current_version})")
+    print(f"🚀 Pushing update as Version {current_version + 1}...")
+
+    # 2. Test PUT Request
     payload = {
-        "type": "page", "title": title, "ancestors": [{"id": parent_id}],
-        "space": {"key": space}, "body": {"storage": {"value": html_content, "representation": "storage"}}
+        "id": str(page_id),
+        "type": "page",
+        "title": current_title,
+        "version": {"number": current_version + 1},
+        "body": {"storage": {"value": xml_content, "representation": "storage"}}
     }
-    resp = requests.post(confluence_base_url, json=payload,
-                         headers=headers, auth=auth)
-    print(f"✅ Confluence Create '{title}': Status {resp.status_code}")
+
+    put_resp = requests.put(
+        f"{confluence_base_url}/{page_id}", json=payload, headers=headers, auth=auth)
+
+    if put_resp.status_code == 200:
+        print(f"✅ Successfully updated Confluence page!")
+    else:
+        print(f"❌ CONFLUENCE PUT FAILED - Status {put_resp.status_code}")
+        print(f"🛑 Reason: {put_resp.text}")
 
 # ==============================================================================
 # 🚀 4. HELPER FUNCTIONS
@@ -237,9 +205,9 @@ def fetch_comments(issue_key):
 # ==============================================================================
 
 
-def run_daily_snapshot():
+def run_atlassian_snapshot():
     today_str, yesterday_str = resolve_dates(DATE)
-    print(f"🗓️ Generating Snapshot | Today: {
+    print(f"🗓️ Generating Atlassian XML Snapshot | Today: {
           today_str} | Yesterday: {yesterday_str}\n" + "-"*60)
 
     # Fetch Data
@@ -270,76 +238,58 @@ def run_daily_snapshot():
     epics_map = build_epic_map(active_epics, active_tasks)
     yest_epics_map = build_epic_map(yesterday_epics, yesterday_tasks)
 
-    # Helper function to generate sections cleanly
-    def generate_html_section(title, emap, target_date):
-        section_html = f"<h2 style='background: #0052cc; color: white; padding: 10px; border-radius: 4px;'>{
-            title}</h2>"
+    # ----------------------------------------------------------------------
+    # GENERATE CONFLUENCE XML (Strict Atlassian Storage Format)
+    # ----------------------------------------------------------------------
+    def generate_confluence_xml(emap, target_date):
+        xml = ""
         for epic_key, epic_data in emap.items():
             if epic_key == "OTHER" and not epic_data["tasks"]:
                 continue
-            epic_link = f"<a href='https://{ATLASSIAN_DOMAIN}/browse/{
-                epic_key}' target='_blank'>[{epic_key}]</a>" if epic_key != "OTHER" else "📌"
-            e_status = epic_data.get("status", "")
-            e_sum_display = f"{epic_data['summary']} ✅" if e_status.lower(
-            ) == "done" else epic_data['summary']
+            e_sum = f"{epic_data['summary']} ✅" if epic_data.get(
+                "status", "").lower() == "done" else epic_data['summary']
+            epic_link = f'<a href="https://{ATLASSIAN_DOMAIN}/browse/{
+                epic_key}">{epic_key}</a>' if epic_key != "OTHER" else "📌"
 
-            section_html += f"<details open style='margin-bottom: 20px; border: 2px solid #0052cc; border-radius: 6px;'><summary style='padding: 15px; background-color: #deebff; font-weight: bold;'>🔷 {
-                epic_link} {e_sum_display} ({len(epic_data['tasks'])} tasks)</summary><div style='padding: 15px;'>"
+            xml += f"<h3>🔷 {epic_link} - {
+                e_sum} ({len(epic_data['tasks'])} tasks)</h3>"
 
-            if epic_key != "OTHER":
-                parsed_epic_desc = convert_adf_to_html(epic_data["description"], {
-                }) if epic_data["description"] else "<em>No description.</em>"
-                section_html += f"<details><summary>📄 View Epic Description</summary><div>{
-                    parsed_epic_desc}</div></details>"
+            if epic_key != "OTHER" and epic_data["description"]:
+                parsed_desc = convert_adf_to_html(epic_data["description"], {})
+                xml += f'<ac:structured-macro ac:name="expand"><ac:parameter ac:name="title">View Epic Description</ac:parameter><ac:rich-text-body>{
+                    parsed_desc}</ac:rich-text-body></ac:structured-macro>'
 
-            for task in epic_data["tasks"]:
-                t_key, t_sum = task["key"], task["fields"]["summary"]
-                t_status = task["fields"].get("status", {}).get("name", "")
-                t_sum_display = f"{
-                    t_sum} ✅" if t_status.lower() == "done" else t_sum
+            if epic_data["tasks"]:
+                xml += "<ul>"
+                for task in epic_data["tasks"]:
+                    t_key, t_sum = task["key"], task["fields"]["summary"]
+                    t_display = f"{t_sum} ✅" if task["fields"].get(
+                        "status", {}).get("name", "").lower() == "done" else t_sum
+                    xml += f"<li><strong><a href='https://{ATLASSIAN_DOMAIN}/browse/{
+                        t_key}'>[{t_key}]</a> {t_display}</strong>"
 
-                section_html += f"<details style='margin-bottom: 10px; border: 1px solid #dfe1e6; border-radius: 4px;'><summary style='padding: 10px; background-color: #f4f5f7;'>🛠️ <a href='https://{
-                    ATLASSIAN_DOMAIN}/browse/{t_key}'>[{t_key}]</a> {t_sum_display}</summary><div style='padding: 10px;'>"
+                    comments = fetch_comments(t_key)
+                    for c in comments:
+                        dt_local = datetime.strptime(
+                            c["created"], "%Y-%m-%dT%H:%M:%S.%f%z").astimezone()
+                        if dt_local.strftime('%Y-%m-%d') == target_date:
+                            c_sum, c_tags, c_body = extract_structured_comment(
+                                convert_adf_to_html(c["body"], {}))
+                            xml += f"<blockquote><strong>🗣️ {c['author']['displayName']}: {
+                                c_sum or 'Update'}</strong><br/>{c_body}</blockquote>"
+                    xml += "</li>"
+                xml += "</ul>"
+        return xml or "<p><em>No active items.</em></p>"
 
-                comments = fetch_comments(t_key)
-                todays_comments = "".join([build_comment_ui(c["author"]["displayName"], datetime.strptime(c["created"], "%Y-%m-%dT%H:%M:%S.%f%z").astimezone(), convert_adf_to_html(
-                    c["body"], {}), "#36b37e") for c in comments if datetime.strptime(c["created"], "%Y-%m-%dT%H:%M:%S.%f%z").astimezone().strftime('%Y-%m-%d') == target_date])
+    confluence_xml = f"<h1>🚀 NPU Daily Sync Snapshot ({today_str})</h1><hr/>"
+    confluence_xml += f"<h2>📅 TODAY ({today_str})</h2>" + \
+        generate_confluence_xml(epics_map, today_str)
+    confluence_xml += f"<h2>⏪ YESTERDAY ({yesterday_str})</h2>" + \
+        generate_confluence_xml(yest_epics_map, yesterday_str)
 
-                section_html += todays_comments or "<p><em>No comments.</em></p>"
-                section_html += "</div></details>"
-
-            section_html += "</div></details>"
-        return section_html
-
-    # Build Final HTML Document
-    html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Daily Sync Snapshot ({today_str})</title>
-          <style>body {{ font-family: Arial, sans-serif; max-width: 900px; margin: 40px auto; line-height: 1.6; color: #333; }}
-          .history-btn {{ background-color: #e9eaf0; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 0.9em; font-weight: bold; color: #172b4d; margin-top: 10px; width: 100%; text-align: left; }}
-          .desc-collapse {{ margin-bottom: 15px; border: 1px dashed #dfe1e6; border-radius: 4px; }}
-          #searchInput {{ width: 100%; padding: 14px 20px; font-size: 16px; border: 2px solid #dfe1e6; border-radius: 8px; outline: none; background-color: #fafbfc; }}</style>
-          </head><body><h1>🚀 Nested Daily Snapshot</h1><hr/>"""
-
-    html += generate_html_section(f"📅 TODAY ({today_str})",
-                                  epics_map, today_str)
-    html += generate_html_section(
-        f"⏪ YESTERDAY ({yesterday_str})", yest_epics_map, yesterday_str)
-    html += "</body></html>"
-
-    # --- SAVE LOCAL FILE ---
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    filename = os.path.join(
-        script_dir, f"MV-NPU_Daily_Report_{today_str}.html")
-    with open(filename, "w", encoding="utf-8") as f:
-        f.write(html)
-    print(f"🏁 Saved securely to: {filename}")
-
-    # --- PUSH TO CONFLUENCE ---
-    # Strip dangerous tags for Confluence
-    confluence_html = re.sub(
-        r'<head>.*?</head>|<!DOCTYPE html>|<html>|</html>|<body>|</body>|<script.*?>.*?</script>', '', html, flags=re.IGNORECASE | re.DOTALL)
-    update_confluence_page(CONFLUENCE_PARENT_ID,
-                           "Daily Report", confluence_html)
+    # Push to Confluence API
+    update_confluence_page(CONFLUENCE_PARENT_ID, confluence_xml)
 
 
 if __name__ == "__main__":
-    run_daily_snapshot()
+    run_atlassian_snapshot()
