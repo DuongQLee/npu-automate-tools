@@ -1,0 +1,29 @@
+name: Jira Daily Report Schedule
+
+on:
+  schedule:
+    # GitHub uses UTC. 15,30,45 * * * *
+    - cron: '15,30,45 * * * *'
+    # 01:00 to 23:00 every hour
+    - cron: '0 1-23 * * *'
+    # 23:59 and 00:01 snapshots
+    - cron: '59 23 * * *'
+    - cron: '1 0 * * *'
+  workflow_dispatch: # Allows you to trigger it manually via a button!
+
+jobs:
+  run-report:
+    runs-on: self-hosted  # This tells it to run on your Rocky VM, not GitHub Cloud
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Run Snapshot Script
+        env:
+          API_TOKEN: ${{ secrets.API_TOKEN }} # We'll set this in step 4
+        run: |
+          uv sync
+          uv run auto_create_report.py

@@ -242,78 +242,80 @@ def run_daily_snapshot():
     # B. BUILD HTML
     # --------------------------------------------------------------------------
     html = f"""
-    <html>
-    <head>
-        <title>Daily Sync Snapshot ({today_str})</title>
-        <style>
-            body {{ font-family: Arial, sans-serif; max-width: 900px; margin: 40px auto; line-height: 1.6; color: #333; }}
-            .history-btn {{ background-color: #e9eaf0; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 0.9em; font-weight: bold; color: #172b4d; margin-top: 10px; width: 100%; text-align: left; }}
-            .history-btn:hover {{ background-color: #dfe1e6; }}
-            .desc-collapse summary {{ cursor: pointer; padding: 8px 10px; background-color: #fafbfc; font-size: 0.9em; outline: none; border-bottom: 1px dashed #dfe1e6; color: #505f79; }}
-            .desc-collapse {{ margin-bottom: 15px; border: 1px dashed #dfe1e6; border-radius: 4px; }}
+      <!DOCTYPE html>
+      <html>
+      <head>
+          <meta charset="UTF-8">
+          <title>Daily Sync Snapshot ({today_str})</title>
+          <style>
+          body {{ font-family: Arial, sans-serif; max-width: 900px; margin: 40px auto; line-height: 1.6; color: #333; }}
+              .history-btn {{ background-color: #e9eaf0; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 0.9em; font-weight: bold; color: #172b4d; margin-top: 10px; width: 100%; text-align: left; }}
+              .history-btn:hover {{ background-color: #dfe1e6; }}
+              .desc-collapse summary {{ cursor: pointer; padding: 8px 10px; background-color: #fafbfc; font-size: 0.9em; outline: none; border-bottom: 1px dashed #dfe1e6; color: #505f79; }}
+              .desc-collapse {{ margin-bottom: 15px; border: 1px dashed #dfe1e6; border-radius: 4px; }}
 
-            /* Search Bar Styling */
-            #searchInput {{ width: 100%; padding: 14px 20px; font-size: 16px; border: 2px solid #dfe1e6; border-radius: 8px; outline: none; box-sizing: border-box; background-color: #fafbfc; color: #172b4d; transition: all 0.2s ease; }}
-            #searchInput:focus {{ border-color: #0052cc; background-color: #fff; box-shadow: 0 0 0 3px rgba(0,82,204,0.1); }}
-        </style>
-        <script>
-            function toggleHistory(id) {{
-                var el = document.getElementById(id);
-                var btn = document.getElementById('btn-' + id);
-                if (el.style.display === "none") {{
-                    el.style.display = "block";
-                    btn.innerHTML = "🔽 Hide Historical Comments";
-                }} else {{
-                    el.style.display = "none";
-                    btn.innerHTML = "▶️ Show Historical Comments";
-                }}
-            }}
+              /* Search Bar Styling */
+              #searchInput {{ width: 100%; padding: 14px 20px; font-size: 16px; border: 2px solid #dfe1e6; border-radius: 8px; outline: none; box-sizing: border-box; background-color: #fafbfc; color: #172b4d; transition: all 0.2s ease; }}
+              #searchInput:focus {{ border-color: #0052cc; background-color: #fff; box-shadow: 0 0 0 3px rgba(0,82,204,0.1); }}
+          </style>
+          <script>
+              function toggleHistory(id) {{
+                  var el = document.getElementById(id);
+                  var btn = document.getElementById('btn-' + id);
+                  if (el.style.display === "none") {{
+                      el.style.display = "block";
+                      btn.innerHTML = "🔽 Hide Historical Comments";
+                  }} else {{
+                      el.style.display = "none";
+                      btn.innerHTML = "▶️ Show Historical Comments";
+                  }}
+              }}
 
-            function filterReport() {{
-                const query = document.getElementById('searchInput').value.toLowerCase();
-                const epics = document.querySelectorAll('.epic-block');
+              function filterReport() {{
+                  const query = document.getElementById('searchInput').value.toLowerCase();
+                  const epics = document.querySelectorAll('.epic-block');
 
-                epics.forEach(epic => {{
-                    const summaryText = epic.querySelector('summary').textContent.toLowerCase();
-                    const descEl = epic.querySelector('.epic-desc');
-                    const descText = descEl ? descEl.textContent.toLowerCase() : '';
-                    const epicMatchesDirectly = summaryText.includes(query) || descText.includes(query);
+                  epics.forEach(epic => {{
+                      const summaryText = epic.querySelector('summary').textContent.toLowerCase();
+                      const descEl = epic.querySelector('.epic-desc');
+                      const descText = descEl ? descEl.textContent.toLowerCase() : '';
+                      const epicMatchesDirectly = summaryText.includes(query) || descText.includes(query);
 
-                    const tasks = epic.querySelectorAll('.task-block');
-                    let epicHasMatchingTask = false;
+                      const tasks = epic.querySelectorAll('.task-block');
+                      let epicHasMatchingTask = false;
 
-                    tasks.forEach(task => {{
-                        const taskMatches = task.textContent.toLowerCase().includes(query);
-                        if (taskMatches || epicMatchesDirectly) {{
-                            task.style.display = 'block';
-                            epicHasMatchingTask = true;
-                            // Auto-open task if it directly matches the search query
-                            if (query !== '' && taskMatches) task.open = true;
-                        }} else {{
-                            task.style.display = 'none';
-                        }}
-                    }});
+                      tasks.forEach(task => {{
+                          const taskMatches = task.textContent.toLowerCase().includes(query);
+                          if (taskMatches || epicMatchesDirectly) {{
+                              task.style.display = 'block';
+                              epicHasMatchingTask = true;
+                              // Auto-open task if it directly matches the search query
+                              if (query !== '' && taskMatches) task.open = true;
+                          }} else {{
+                              task.style.display = 'none';
+                          }}
+                      }});
 
-                    // Show the Epic if it matched directly, or if one of its tasks matched
-                    if (epicMatchesDirectly || epicHasMatchingTask || (tasks.length === 0 && epicMatchesDirectly)) {{
-                        epic.style.display = 'block';
-                        // Auto-open epic if searching
-                        if (query !== '') epic.open = true;
-                    }} else {{
-                        epic.style.display = 'none';
-                    }}
-                }});
-            }}
-        </script>
-    </head>
-    <body>
-        <h1>🚀 Nested Daily Snapshot</h1>
+                      // Show the Epic if it matched directly, or if one of its tasks matched
+                      if (epicMatchesDirectly || epicHasMatchingTask || (tasks.length === 0 && epicMatchesDirectly)) {{
+                          epic.style.display = 'block';
+                          // Auto-open epic if searching
+                          if (query !== '') epic.open = true;
+                      }} else {{
+                          epic.style.display = 'none';
+                      }}
+                  }});
+              }}
+          </script>
+      </head>
+      <body>
+          <h1>🚀 Nested Daily Snapshot</h1>
 
-        <div style="margin: 20px 0 30px 0; position: sticky; top: 10px; z-index: 100;">
-            <input type="text" id="searchInput" onkeyup="filterReport()" placeholder="🔍 Search tags, authors, tickets, or comments..." autocomplete="off">
-        </div>
-        <hr/>
-    """
+          <div style="margin: 20px 0 30px 0; position: sticky; top: 10px; z-index: 100;">
+              <input type="text" id="searchInput" onkeyup="filterReport()" placeholder="🔍 Search tags, authors, tickets, or comments..." autocomplete="off">
+          </div>
+          <hr/>
+      """
 
     # ==========================================================================
     # SECTION 1: TODAY
