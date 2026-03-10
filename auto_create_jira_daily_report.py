@@ -12,8 +12,10 @@ from requests.auth import HTTPBasicAuth
 # ==============================================================================
 load_dotenv()
 ATLASSIAN_DOMAIN = "moreh.atlassian.net"
-ATLASSIAN_EMAIL = "duong.le@moreh.com.vn"
-ATLASSIAN_API_TOKEN = os.getenv("API_TOKEN")
+
+# .strip() added to prevent hidden spaces from breaking Tomcat Auth
+ATLASSIAN_EMAIL = "duong.le@moreh.com.vn".strip()
+ATLASSIAN_API_TOKEN = os.getenv("API_TOKEN", "").strip()
 
 # Confluence Configuration
 CONFLUENCE_SPACE = "MV"
@@ -28,7 +30,9 @@ CORE_JQL = 'component = "MV-NPU"'
 auth = HTTPBasicAuth(ATLASSIAN_EMAIL, ATLASSIAN_API_TOKEN)
 headers = {
     "Accept": "application/json",
-    "Content-Type": "application/json"
+    "Content-Type": "application/json",
+    # Added Standard User-Agent to bypass Atlassian Cloud WAF blocking python-requests
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 jira_base_url = f"https://{ATLASSIAN_DOMAIN}/rest/api/3"
 confluence_base_url = f"https://{ATLASSIAN_DOMAIN}/wiki/rest/api/content"
@@ -122,7 +126,7 @@ def extract_structured_comment(html_text):
     return c_summary, c_tags, c_body
 
 # ==============================================================================
-# 🌐 3. CONFLUENCE API INTEGRATION (Enhanced Error Logging)
+# 🌐 3. CONFLUENCE API INTEGRATION
 # ==============================================================================
 
 
@@ -130,7 +134,6 @@ def update_confluence_page(page_id, xml_content):
     print(f"\n🔍 Fetching Confluence page info for ID: {page_id}...")
     url = f"{confluence_base_url}/{page_id}?expand=version"
 
-    # 1. Test GET Request
     resp = requests.get(url, headers=headers, auth=auth)
 
     if resp.status_code != 200:
@@ -146,7 +149,6 @@ def update_confluence_page(page_id, xml_content):
           current_title}' (Current Version: {current_version})")
     print(f"🚀 Pushing update as Version {current_version + 1}...")
 
-    # 2. Test PUT Request
     payload = {
         "id": str(page_id),
         "type": "page",
