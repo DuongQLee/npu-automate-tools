@@ -2,18 +2,24 @@ name: Jira Daily Report Schedule
 
 on:
   schedule:
-    # GitHub uses UTC. 15,30,45 * * * *
+    # 1. Every hour at minutes 15, 30, and 45 (Minutes are the same in UTC and Local)
     - cron: '15,30,45 * * * *'
-    # 01:00 to 23:00 every hour
-    - cron: '0 1-23 * * *'
-    # 23:59 and 00:01 snapshots
-    - cron: '59 23 * * *'
-    - cron: '1 0 * * *'
+    
+    # 2. On the hour (minute 0), EXCEPT at local midnight. 
+    # Local 00:00 is UTC 17:00. So we skip hour 17 in UTC.
+    - cron: '0 0-16,18-23 * * *'
+    
+    # 3. End of day snapshot: 23:59 Local Time (Which is 16:59 UTC)
+    - cron: '59 16 * * *'
+    
+    # 4. Start of new day snapshot: 00:01 Local Time (Which is 17:01 UTC)
+    - cron: '1 17 * * *'
+    
   workflow_dispatch: # Allows you to trigger it manually via a button!
 
 jobs:
   run-report:
-    runs-on: self-hosted  # This tells it to run on your Rocky VM, not GitHub Cloud
+    runs-on: self-hosted  # Runs on your Rocky 9 VM!
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -23,7 +29,7 @@ jobs:
 
       - name: Run Snapshot Script
         env:
-          API_TOKEN: ${{ secrets.API_TOKEN }} # We'll set this in step 4
+          API_TOKEN: ${{ secrets.API_TOKEN }} 
         run: |
           uv sync
           uv run auto_create_report.py

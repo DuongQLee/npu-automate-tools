@@ -126,16 +126,18 @@ def build_comment_ui(author, dt_local, parsed_html, color_hex, is_history=False)
         color_hex}; background: {bg_color};'>"
     html += f"<strong>🗣️ {author}</strong> <span style='color: #666; font-size: 0.85em;'>({
         dt_local.strftime('%Y-%m-%d %H:%M')})</span>"
-
-    if c_summary and c_tags:
-        clean_tags_str = re.sub(r'<[^>]+>', '', c_tags)
-        individual_tags = [tag.strip() for tag in clean_tags_str.split(',')]
-
+    # Changed: Only require c_summary to build the block. Tags are now optional!
+    if c_summary:
         tags_html = ""
-        for tag in individual_tags:
-            if tag:
-                tags_html += f"<span style='color: #0052cc; font-size: 0.85em; font-family: monospace; background: #e9eaf0; padding: 2px 8px; border-radius: 12px; margin-left: 6px; white-space: nowrap;'>{
-                    tag}</span>"
+        # Only build the tags if they exist
+        if c_tags:
+            clean_tags_str = re.sub(r'<[^>]+>', '', c_tags)
+            individual_tags = [tag.strip()
+                               for tag in clean_tags_str.split(',')]
+            for tag in individual_tags:
+                if tag:
+                    tags_html += f"<span style='color: #0052cc; font-size: 0.85em; font-family: monospace; background: #e9eaf0; padding: 2px 8px; border-radius: 12px; margin-left: 6px; white-space: nowrap;'>{
+                        tag}</span>"
 
         html += f"<div style='margin-top: 10px; border: 1px solid #dfe1e6; border-radius: 4px; background: white;'>"
         html += f"<details>"
@@ -174,8 +176,9 @@ def resolve_dates(user_date):
 def fetch_issues(jql):
     search_url = f"{jira_base_url}/search/jql"
     print(f"Calling GET: {search_url} | JQL: {jql}")
+    # Added "status" to the fields list so we can check if it is done
     response = requests.get(search_url, headers=headers, auth=auth, params={
-                            "jql": jql, "fields": "summary,issuetype,attachment,parent,description", "maxResults": 100})
+                            "jql": jql, "fields": "summary,issuetype,attachment,parent,description,status", "maxResults": 100})
     if response.status_code != 200:
         return []
     return response.json().get("issues", [])
@@ -203,16 +206,17 @@ def fetch_comments(issue_key):
 
 def run_daily_snapshot():
     today_str, yesterday_str = resolve_dates(DATE)
-    print(f"🗓️  Generating Snapshot | Today: {
+    print(f"🗓️  Generating Snapshot | Today: {t
           today_str} | Yesterday: {yesterday_str}\n" + "-"*60)
-
     # --------------------------------------------------------------------------
     # A. FETCH & ORGANIZE DATA
     # --------------------------------------------------------------------------
+
+    # Changed JQL to include items that changed to Done today
     active_epics = fetch_issues(
-        f'{CORE_JQL} AND issuetype = Epic AND status = "In Progress"')
+        f'{CORE_JQL} AND issuetype = Epic AND (status = "In Progress" OR status changed to "Done" on "{today_str}")')
     active_tasks = fetch_issues(
-        f'{CORE_JQL} AND issuetype != Epic AND status = "In Progress"')
+        f'{CORE_JQL} AND issuetype != Epic AND (status = "In Progress" OR status changed to "Done" on "{today_str}")')
 
     yesterday_epics = fetch_issues(
         f'{CORE_JQL} AND issuetype = Epic AND status WAS "In Progress" ON "{yesterday_str}"')
@@ -222,10 +226,12 @@ def run_daily_snapshot():
     def build_epic_map(epics, tasks):
         emap = {}
         for e in epics:
-            emap[e["key"]] = {"summary": e["fields"]["summary"], "description": e["fields"].get(
-                "description"), "attachments": e["fields"].get("attachment", []), "tasks": []}
+            # Added status capturing here
+            emap[e["key"]] = {"summary": e["fields"]["summary"], "status": e["fields"].get("status", {}).get(
+                "name", ""), "description": e["fields"].get("description"), "attachments": e["fields"].get("attachment", []), "tasks": []}
+
         emap["OTHER"] = {
-            "summary": "Standalone Tasks (No Active Epic Parent)", "description": None, "attachments": [], "tasks": []}
+            "summary": "Standalone Tasks (No Active Epic Parent)", "status": "", "description": None, "attachments": [], "tasks": []}
 
         for t in tasks:
             parent_key = t["fields"].get("parent", {}).get("key")
@@ -320,9 +326,8 @@ def run_daily_snapshot():
     # ==========================================================================
     # SECTION 1: TODAY
     # ==========================================================================
-    html += f"<h2 style='background: #0052cc; color: white; padding: 10px; border-radius: 4px;'>📅 TODAY ({
-        today_str})</h2>"
-
+    html += f"<h2 style='background: #0052cc; color: white; padding: 10px; border-radius: 4px;'>📅 TODAY ({t
+                                                                                                          today_str})</h2>"
     for epic_key, epic_data in epics_map.items():
         if epic_key == "OTHER" and not epic_data["tasks"]:
             continue
@@ -330,12 +335,15 @@ def run_daily_snapshot():
         epic_link = f"<a href='https://{ATLASSIAN_DOMAIN}/browse/{
             epic_key}' target='_blank'>[{epic_key}]</a>" if epic_key != "OTHER" else "📌"
 
-        # Added class 'epic-block' for the JS filter
+        # Added logic to append the Done checkmark for Epics
+        e_status = epic_data.get("status", "")
+        e_sum_display = f"{epic_data['summary']} ✅" if e_status.lower(
+        ) == "done" else epic_data['summary']
+
         html += f"<details open class='epic-block' style='margin-bottom: 20px; border: 2px solid #0052cc; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);'>"
         html += f"<summary style='cursor: pointer; padding: 15px; background-color: #deebff; font-weight: bold; font-size: 1.2em; border-bottom: 1px solid #0052cc; outline: none;'>"
-        html += f"🔷 {epic_link} {epic_data['summary']} <span style='font-weight: normal; font-size: 0.8em; color: #0052cc;'>({
-            len(epic_data['tasks'])} tasks)</span>"
-        html += f"</summary>"
+        html += f"🔷 {epic_link} {e_sum_display} <span style='font-weight: normal; font-size: 0.8em; color: #0052cc;'>({l
+                                                                                                                       len(epic_data['tasks'])} tasks)</span>"        html += f"</summary>"
         html += f"<div style='padding: 15px; background-color: #ffffff;'>"
 
         if epic_key != "OTHER":
@@ -343,30 +351,31 @@ def run_daily_snapshot():
                             for att in epic_data["attachments"]}
             parsed_epic_desc = convert_adf_to_html(
                 epic_data["description"], epic_att_map) if epic_data["description"] else "<em>No description provided.</em>"
-            # Added class 'epic-desc' for the JS filter
-            html += f"<details class='desc-collapse epic-desc'><summary>📄 View Epic Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{
-                parsed_epic_desc}</div></details>"
-
+            html += f"<details class='desc-collapse epic-desc'><summary>📄 View Epic Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{p
+                                                                                                                                                                                         parsed_epic_desc}</div></details>"
         if not epic_data["tasks"]:
             html += "<p style='color: #7a869a;'><em>No active tasks currently linked to this Epic.</em></p>"
 
         for task in epic_data["tasks"]:
             t_key, t_sum = task["key"], task["fields"]["summary"]
 
-            # Added class 'task-block' for the JS filter
+            # Added logic to append the Done checkmark for Tasks
+            t_status = task["fields"].get("status", {}).get("name", "")
+            t_sum_display = f"{
+                t_sum} ✅" if t_status.lower() == "done" else t_sum
+
             html += f"<details class='task-block' style='margin-bottom: 15px; border: 1px solid #dfe1e6; border-radius: 4px;'>"
-            html += f"<summary style='cursor: pointer; padding: 10px; background-color: #f4f5f7; font-weight: bold; font-size: 1.0em; outline: none;'>🛠️ <a href='https://{
-                ATLASSIAN_DOMAIN}/browse/{t_key}' target='_blank'>[{t_key}]</a> {t_sum}</summary>"
-            html += f"<div style='padding: 15px; background-color: #ffffff;'>"
+            html += f"<summary style='cursor: pointer; padding: 10px; background-color: #f4f5f7; font-weight: bold; font-size: 1.0em; outline: none;'>🛠️ <a href='https://{A
+                                                                                                                                                                           # ffffff;'>"
+                                                                                                                                                                           ATLASSIAN_DOMAIN}/browse/{t_key}' target='_blank'>[{t_key}]</a> {t_sum_display}</summary>"            html += f"<div style='padding: 15px; background-color:
 
             att_map = {att["filename"]: att["content"]
                        for att in task["fields"].get("attachment", [])}
             task_desc_adf = task["fields"].get("description")
             parsed_task_desc = convert_adf_to_html(
                 task_desc_adf, att_map) if task_desc_adf else "<em>No description provided.</em>"
-            html += f"<details class='desc-collapse'><summary>📄 View Task Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{
-                parsed_task_desc}</div></details>"
-
+            html += f"<details class='desc-collapse'><summary>📄 View Task Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{p
+                                                                                                                                                                               parsed_task_desc}</div></details>"
             comments = fetch_comments(t_key)
             todays_comments_html, hist_comments_list = "", []
 
@@ -416,13 +425,15 @@ def run_daily_snapshot():
 
         epic_link = f"<a href='https://{ATLASSIAN_DOMAIN}/browse/{
             epic_key}' target='_blank'>[{epic_key}]</a>" if epic_key != "OTHER" else "📌"
+        # Apply checkmark logic to Yesterday's Epics as well
+        e_status = epic_data.get("status", "")
+        e_sum_display = f"{epic_data['summary']} ✅" if e_status.lower(
+        ) == "done" else epic_data['summary']
 
-        # Added class 'epic-block'
         html += f"<details class='epic-block' style='margin-bottom: 20px; border: 2px solid #6554c0; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);'>"
         html += f"<summary style='cursor: pointer; padding: 15px; background-color: #eae6ff; font-weight: bold; font-size: 1.2em; border-bottom: 1px solid #6554c0; outline: none;'>"
-        html += f"🔷 {epic_link} {epic_data['summary']} <span style='font-weight: normal; font-size: 0.8em; color: #6554c0;'>({
-            len(epic_data['tasks'])} tasks)</span>"
-        html += f"</summary>"
+        html += f"🔷 {epic_link} {e_sum_display} <span style='font-weight: normal; font-size: 0.8em; color: #6554c0;'>({l
+                                                                                                                       len(epic_data['tasks'])} tasks)</span>"        html += f"</summary>"
         html += f"<div style='padding: 15px; background-color: #ffffff;'>"
 
         if epic_key != "OTHER":
@@ -430,30 +441,31 @@ def run_daily_snapshot():
                             for att in epic_data["attachments"]}
             parsed_epic_desc = convert_adf_to_html(
                 epic_data["description"], epic_att_map) if epic_data["description"] else "<em>No description provided.</em>"
-            # Added class 'epic-desc'
-            html += f"<details class='desc-collapse epic-desc'><summary>📄 View Epic Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{
-                parsed_epic_desc}</div></details>"
-
+            html += f"<details class='desc-collapse epic-desc'><summary>📄 View Epic Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{p
+                                                                                                                                                                                         parsed_epic_desc}</div></details>"
         if not epic_data["tasks"]:
             html += "<p style='color: #7a869a;'><em>No active tasks currently linked to this Epic.</em></p>"
 
         for task in epic_data["tasks"]:
             t_key, t_sum = task["key"], task["fields"]["summary"]
 
-            # Added class 'task-block'
+            # Apply checkmark logic to Yesterday's Tasks as well
+            t_status = task["fields"].get("status", {}).get("name", "")
+            t_sum_display = f"{
+                t_sum} ✅" if t_status.lower() == "done" else t_sum
+
             html += f"<details class='task-block' style='margin-bottom: 15px; border: 1px solid #dfe1e6; border-radius: 4px;'>"
-            html += f"<summary style='cursor: pointer; padding: 10px; background-color: #f4f5f7; font-weight: bold; font-size: 1.0em; outline: none;'>🛠️ <a href='https://{
-                ATLASSIAN_DOMAIN}/browse/{t_key}' target='_blank'>[{t_key}]</a> {t_sum}</summary>"
-            html += f"<div style='padding: 15px; background-color: #ffffff;'>"
+            html += f"<summary style='cursor: pointer; padding: 10px; background-color: #f4f5f7; font-weight: bold; font-size: 1.0em; outline: none;'>🛠️ <a href='https://{A
+                                                                                                                                                                           #ffffff;'>"
+                                                                                                                                                                           ATLASSIAN_DOMAIN}/browse/{t_key}' target='_blank'>[{t_key}]</a> {t_sum_display}</summary>"            html += f"<div style='padding: 15px; background-color:
 
             att_map = {att["filename"]: att["content"]
                        for att in task["fields"].get("attachment", [])}
             task_desc_adf = task["fields"].get("description")
             parsed_task_desc = convert_adf_to_html(
                 task_desc_adf, att_map) if task_desc_adf else "<em>No description provided.</em>"
-            html += f"<details class='desc-collapse'><summary>📄 View Task Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{
-                parsed_task_desc}</div></details>"
-
+            html += f"<details class='desc-collapse'><summary>📄 View Task Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{p
+                                                                                                                                                                               parsed_task_desc}</div></details>"
             comments = fetch_comments(t_key)
             yest_comments_html, hist_comments_list = "", []
 
@@ -501,7 +513,6 @@ def run_daily_snapshot():
         for epic in pending_epics:
             e_key, e_sum = epic["key"], epic["fields"]["summary"]
 
-            # Added class 'epic-block'
             html += f"<details class='epic-block' style='margin-bottom: 10px; border: 1px solid #dfe1e6; border-radius: 4px;'>"
             html += f"<summary style='cursor: pointer; padding: 10px; background-color: #fff0b3; font-weight: bold; outline: none;'>"
             html += f"⏳ <a href='https://{ATLASSIAN_DOMAIN}/browse/{
@@ -515,12 +526,23 @@ def run_daily_snapshot():
             parsed_epic_desc = convert_adf_to_html(
                 epic_desc_adf, att_map) if epic_desc_adf else "<em>No description provided.</em>"
 
-            # Added class 'epic-desc'
-            html += f"<details class='desc-collapse epic-desc'><summary>📄 View Epic Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{
-                parsed_epic_desc}</div></details>"
-            html += f"</div></details>"
+            html += f"<details class='desc-collapse epic-desc'><summary>📄 View Epic Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{p
+                                                                                                                                                                                         parsed_epic_desc}</div></details>"            html += f"</div></details>"
     else:
         html += "<p><em>No Epics are currently To Do or On Hold.</em></p>"
+
+    html += "</body></html>"
+
+    # --- SAVE ---
+    filename = f"nested_snapshot_{today_str}.html"
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(html)
+    print(
+        "-" * 60 + f"\n🏁 Snapshot complete! Open '{filename}' to view the report.")
+
+
+if __name__ == "__main__":
+    run_daily_snapshot()
 
     html += "</body></html>"
 
