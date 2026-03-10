@@ -27,9 +27,10 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
 
-      - name: Run Snapshot Script
+      - name: Run Snapshot Scripts
         env:
           API_TOKEN: ${{ secrets.API_TOKEN }} 
         run: |
           uv sync
-          uv run auto_create_report.py
+          uv run generate_daily_report_html.py
+          uv run generate_daily_report_for_atlassian.py
