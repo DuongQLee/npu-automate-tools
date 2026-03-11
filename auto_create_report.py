@@ -348,19 +348,22 @@ def run_daily_snapshot():
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(html)
     
-    # 👇 NEW: Create/Update the 'today.html' Symlink
-    symlink_path = os.path.join(save_dir, "today.html")
+    # 👇 NEW: The Clean URL Setup
+    # 2. Create a folder named 'today'
+    today_dir = os.path.join(save_dir, "today")
+    os.makedirs(today_dir, exist_ok=True)
     
-    # Delete the old shortcut if it exists
+    # 3. Create an 'index.html' symlink inside the 'today' folder
+    symlink_path = os.path.join(today_dir, "index.html")
+    
     if os.path.exists(symlink_path) or os.path.islink(symlink_path):
         os.remove(symlink_path)
         
-    # Create a new shortcut pointing to today's file
-    # We use a relative target so it works perfectly in the web server
-    os.symlink(target_filename, symlink_path)
+    # Link it back up one level (../) to the actual report file
+    os.symlink(f"../{target_filename}", symlink_path)
     
     print("-" * 60 + f"\n🏁 HTML Snapshot complete! Saved securely to:\n{file_path}")
-    print(f"🔗 Updated symlink: {symlink_path} -> {target_filename}")
+    print(f"🔗 Clean URL active: /today -> {target_filename}")
 
 if __name__ == "__main__":
     run_daily_snapshot()
