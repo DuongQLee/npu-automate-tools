@@ -33,4 +33,5 @@ jobs:
         run: |
           uv sync
           uv run auto_create_report.py
-          uv run auto_create_jira_daily_report.py
+          # Disable jira report
+          # uv run auto_create_jira_daily_report.py

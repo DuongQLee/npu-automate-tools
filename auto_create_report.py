@@ -12,8 +12,11 @@ from requests.auth import HTTPBasicAuth
 # ==============================================================================
 load_dotenv()
 ATLASSIAN_DOMAIN = "moreh.atlassian.net"
-ATLASSIAN_EMAIL = "duong.le@moreh.com.vn"
-ATLASSIAN_API_TOKEN = os.getenv("API_TOKEN")
+ATLASSIAN_EMAIL = "duong.le@moreh.com.vn".strip()
+ATLASSIAN_API_TOKEN = os.getenv("API_TOKEN", "").strip()
+
+# Set the result folder (Defaults to ./mv-npu_daily_report)
+RESULT_FOLDER = os.getenv("RESULT_FOLDER", "./mv-npu_daily_report")
 
 DATE = None  # None (Today), -1 (Yesterday), or "YYYY-MM-DD"
 MAX_HISTORY_COMMENTS = 20  # Max number of historical comments to show per task
@@ -31,9 +34,7 @@ jira_base_url = f"https://{ATLASSIAN_DOMAIN}/rest/api/3"
 
 def convert_adf_to_html(node, attachment_map):
     """Converts Jira's Atlassian Document Format (JSON) into clean HTML."""
-    if not isinstance(node, dict):
-        return ""
-
+    if not isinstance(node, dict): return ""
     node_type = node.get("type")
 
     if node_type == "text":
@@ -53,8 +54,7 @@ def convert_adf_to_html(node, attachment_map):
         url = node.get("attrs", {}).get("url", "")
         return f'<a href="{url}" target="_blank">{url}</a>'
 
-    inner_html = "".join([convert_adf_to_html(child, attachment_map)
-                         for child in node.get("content", [])])
+    inner_html = "".join([convert_adf_to_html(child, attachment_map) for child in node.get("content", [])])
 
     if node_type == "doc": return inner_html
     elif node_type == "paragraph": return f"<p style='margin: 5px 0;'>{inner_html}</p>"
@@ -76,8 +76,7 @@ def extract_structured_comment(html_text):
     text = re.sub(r'<[^>]+>\s*(Summary|Tags|Body):\s*<[^>]+>', r'\1:', html_text, flags=re.IGNORECASE)
     text = re.sub(r'<strong>\s*(Summary|Tags|Body):\s*</strong>', r'\1:', text, flags=re.IGNORECASE)
 
-    if "Summary:" not in text:
-        return None, None, html_text
+    if "Summary:" not in text: return None, None, html_text
 
     sum_match = re.search(r'Summary:\s*(.*?)(?:<br>|</p>|<div|Tags:|Body:|$)', text, re.IGNORECASE)
     c_summary = re.sub(r'<[^>]+>', '', sum_match.group(1)).strip() if sum_match else "Update"
@@ -108,8 +107,7 @@ def build_comment_ui(author, dt_local, parsed_html, color_hex, is_history=False)
             clean_tags_str = re.sub(r'<[^>]+>', '', c_tags)
             individual_tags = [tag.strip() for tag in clean_tags_str.split(',')]
             for tag in individual_tags:
-                if tag:
-                    tags_html += f"<span style='color: #0052cc; font-size: 0.85em; font-family: monospace; background: #e9eaf0; padding: 2px 8px; border-radius: 12px; margin-left: 6px; white-space: nowrap;'>{tag}</span>"
+                if tag: tags_html += f"<span style='color: #0052cc; font-size: 0.85em; font-family: monospace; background: #e9eaf0; padding: 2px 8px; border-radius: 12px; margin-left: 6px; white-space: nowrap;'>{tag}</span>"
 
         html += f"<div style='margin-top: 10px; border: 1px solid #dfe1e6; border-radius: 4px; background: white;'>"
         html += f"<details><summary style='cursor: pointer; padding: 10px; outline: none; background: #f4f5f7;'>"
@@ -334,8 +332,19 @@ def run_daily_snapshot():
     html += "</body></html>"
 
     # --- SAVE ---
+    # Determine absolute path to the script's directory
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    filename = os.path.join(script_dir, f"MV-NPU_Daily_Report_{today_str}.html")
+    
+    # Resolve the RESULT_FOLDER path cleanly
+    if os.path.isabs(RESULT_FOLDER):
+        save_dir = RESULT_FOLDER
+    else:
+        save_dir = os.path.normpath(os.path.join(script_dir, RESULT_FOLDER))
+
+    # Ensure the folder actually exists before we try to write into it
+    os.makedirs(save_dir, exist_ok=True)
+
+    filename = os.path.join(save_dir, f"MV-NPU_Daily_Report_{today_str}.html")
     
     with open(filename, "w", encoding="utf-8") as f:
         f.write(html)
