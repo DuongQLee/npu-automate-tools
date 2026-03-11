@@ -332,24 +332,35 @@ def run_daily_snapshot():
     html += "</body></html>"
 
     # --- SAVE ---
-    # Determine absolute path to the script's directory
     script_dir = os.path.dirname(os.path.abspath(__file__))
     
-    # Resolve the RESULT_FOLDER path cleanly
     if os.path.isabs(RESULT_FOLDER):
         save_dir = RESULT_FOLDER
     else:
         save_dir = os.path.normpath(os.path.join(script_dir, RESULT_FOLDER))
 
-    # Ensure the folder actually exists before we try to write into it
     os.makedirs(save_dir, exist_ok=True)
 
-    filename = os.path.join(save_dir, f"MV-NPU_Daily_Report_{today_str}.html")
+    # 1. Save the actual daily file
+    target_filename = f"MV-NPU_Daily_Report_{today_str}.html"
+    file_path = os.path.join(save_dir, target_filename)
     
-    with open(filename, "w", encoding="utf-8") as f:
+    with open(file_path, "w", encoding="utf-8") as f:
         f.write(html)
     
-    print("-" * 60 + f"\n🏁 HTML Snapshot complete! Saved securely to:\n{filename}")
+    # 👇 NEW: Create/Update the 'today.html' Symlink
+    symlink_path = os.path.join(save_dir, "today.html")
+    
+    # Delete the old shortcut if it exists
+    if os.path.exists(symlink_path) or os.path.islink(symlink_path):
+        os.remove(symlink_path)
+        
+    # Create a new shortcut pointing to today's file
+    # We use a relative target so it works perfectly in the web server
+    os.symlink(target_filename, symlink_path)
+    
+    print("-" * 60 + f"\n🏁 HTML Snapshot complete! Saved securely to:\n{file_path}")
+    print(f"🔗 Updated symlink: {symlink_path} -> {target_filename}")
 
 if __name__ == "__main__":
     run_daily_snapshot()
