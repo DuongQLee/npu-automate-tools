@@ -10,7 +10,9 @@ from requests.auth import HTTPBasicAuth
 # ==============================================================================
 # 🛠️ 1. CONFIGURATION
 # ==============================================================================
-load_dotenv()
+# Force the script to read your specific local .env file!
+load_dotenv("/home/moreh/npu-automate-tools/.env")
+
 ATLASSIAN_DOMAIN = "moreh.atlassian.net"
 ATLASSIAN_EMAIL = "duong.le@moreh.com.vn".strip()
 ATLASSIAN_API_TOKEN = os.getenv("API_TOKEN", "").strip()
