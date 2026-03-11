@@ -21,8 +21,12 @@ jobs:
   run-report:
     runs-on: self-hosted  # Runs on your Rocky 9 VM!
     steps:
-      - name: Checkout Code
+      - name: Checkout Latest Main
         uses: actions/checkout@v4
+        with:
+          ref: main       # Forces it to explicitly target the main branch
+          clean: true     # Wipes any leftover/modified files on the VM from previous runs
+          fetch-depth: 1  # Only pulls the latest commit to save time/bandwidth
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
