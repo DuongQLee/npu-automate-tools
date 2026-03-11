@@ -11,3 +11,6 @@ wheels/
 *.html
 .env
 .venv/
+
+# Repo hidden files
+mv-npu_daily_report/
