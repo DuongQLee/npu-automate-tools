@@ -144,7 +144,12 @@ def resolve_dates(user_date):
     elif isinstance(user_date, int): target = datetime.now() + timedelta(days=user_date)
     elif isinstance(user_date, str): target = datetime.strptime(user_date, '%Y-%m-%d')
     else: raise ValueError("Invalid DATE format.")
-    return target.strftime('%Y-%m-%d'), (target - timedelta(days=1)).strftime('%Y-%m-%d')
+    
+    return (
+        target.strftime('%Y-%m-%d'), 
+        (target - timedelta(days=1)).strftime('%Y-%m-%d'),
+        (target + timedelta(days=1)).strftime('%Y-%m-%d')
+    )
 
 def fetch_issues(jql):
     search_url = f"{jira_base_url}/search/jql"
@@ -178,8 +183,14 @@ def fetch_comments(issue_key):
 # ==============================================================================
 
 def run_daily_snapshot(target_user_date):
-    today_str, yesterday_str = resolve_dates(target_user_date)
+    today_str, yesterday_str, next_str = resolve_dates(target_user_date)
     print(f"🗓️  Generating HTML Snapshot | Target: {today_str} | Target Yesterday: {yesterday_str}\n" + "-"*60)
+
+    # Check if target date is actually today to disable the 'Next' button
+    actual_system_today = datetime.now().strftime('%Y-%m-%d')
+    is_latest = (today_str >= actual_system_today)
+    disabled_class = "disabled" if is_latest else ""
+    disabled_attr = "disabled" if is_latest else ""
 
     active_epics = fetch_issues(f'{CORE_JQL} AND issuetype = Epic AND (status = "In Progress" OR status changed to "Done" on "{today_str}")')
     active_tasks = fetch_issues(f'{CORE_JQL} AND issuetype != Epic AND (status = "In Progress" OR status changed to "Done" on "{today_str}")')
@@ -226,10 +237,15 @@ def run_daily_snapshot(target_user_date):
               
               /* 🎛️ Header Navigation */
               .header-container {{ display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px solid var(--border-color); }}
-              .header-left {{ display: flex; align-items: center; gap: 20px; }}
+              .nav-left, .nav-right {{ flex: 1; display: flex; }}
+              .nav-left {{ justify-content: flex-start; }}
+              .nav-right {{ justify-content: flex-end; }}
+              .header-title {{ flex: 2; text-align: center; }}
               h1 {{ margin: 0; font-size: 1.8em; color: var(--text-main); }}
-              .nav-btn {{ background: #ffffff; border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.9em; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: background 0.2s; color: var(--text-main); display: inline-flex; align-items: center; }}
-              .nav-btn:hover {{ background: #f9fafb; text-decoration: none; }}
+              
+              .nav-btn {{ font-family: inherit; background: #ffffff; border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.9em; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: background 0.2s; color: var(--text-main); display: inline-flex; align-items: center; cursor: pointer; }}
+              .nav-btn:hover:not(.disabled) {{ background: #f9fafb; }}
+              .nav-btn.disabled {{ opacity: 0.4; cursor: not-allowed; background: #f4f5f7; border-color: #dfe1e6; box-shadow: none; }}
 
               /* 🔍 Search Bar */
               .search-container {{ margin-bottom: 30px; position: sticky; top: 10px; z-index: 100; }}
@@ -272,6 +288,16 @@ def run_daily_snapshot(target_user_date):
               .history-btn:hover {{ background-color: #f4f5f7; color: var(--text-main); }}
           </style>
           <script>
+              // Fixes the URL resolution whether accessed from '/today' or '/MV-NPU_Daily_Report_...html'
+              function goToReport(dateStr) {{
+                  let path = window.location.pathname;
+                  if (path.match(/\/today\/?(index\.html)?$/)) {{
+                      window.location.href = '../MV-NPU_Daily_Report_' + dateStr + '.html';
+                  }} else {{
+                      window.location.href = 'MV-NPU_Daily_Report_' + dateStr + '.html';
+                  }}
+              }}
+
               function toggleHistory(id) {{
                   var el = document.getElementById(id);
                   var btn = document.getElementById('btn-' + id);
@@ -283,6 +309,7 @@ def run_daily_snapshot(target_user_date):
                       btn.innerHTML = "▶️ Show Historical Comments";
                   }}
               }}
+
               function filterReport() {{
                   const query = document.getElementById('searchInput').value.toLowerCase();
                   const epics = document.querySelectorAll('.epic-block');
@@ -311,11 +338,17 @@ def run_daily_snapshot(target_user_date):
       </head>
       <body>
           <div class="header-container">
-              <div class="header-left">
-                  <a href="MV-NPU_Daily_Report_{yesterday_str}.html" class="nav-btn">⬅️ Yesterday's Report</a>
+              <div class="nav-left">
+                  <button onclick="goToReport('{yesterday_str}')" class="nav-btn">⬅️ Yesterday</button>
+              </div>
+              <div class="header-title">
                   <h1>MV-NPU Daily Report {today_str}</h1>
               </div>
+              <div class="nav-right">
+                  <button onclick="goToReport('{next_str}')" class="nav-btn {disabled_class}" {disabled_attr}>Next ➡️</button>
+              </div>
           </div>
+          
           <div class="search-container">
               <input type="text" id="searchInput" onkeyup="filterReport()" placeholder="🔍 Search tags, authors, tickets, or comments..." autocomplete="off">
           </div>
@@ -457,8 +490,7 @@ def run_daily_snapshot(target_user_date):
     print("-" * 60 + f"\n🏁 HTML Snapshot complete! Saved securely to:\n{file_path}")
 
     # 2. SYMLINK PROTECTION: Only update `/today` if the target date is ACTUALLY today.
-    actual_system_today = datetime.now().strftime('%Y-%m-%d')
-    if today_str == actual_system_today:
+    if is_latest:
         today_dir = os.path.join(save_dir, "today")
         os.makedirs(today_dir, exist_ok=True)
         
@@ -479,7 +511,7 @@ if __name__ == "__main__":
 
     for d in dates_to_run:
         try:
-            target_str, _ = resolve_dates(d)
+            target_str, _, _ = resolve_dates(d)
             if target_str not in processed_date_strings:
                 run_daily_snapshot(d)
                 processed_date_strings.add(target_str)
