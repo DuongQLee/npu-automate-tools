@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import requests
 from dotenv import load_dotenv
@@ -25,10 +25,13 @@ DATE = [None, -1]
 MAX_HISTORY_COMMENTS = 20  # Max number of historical comments to show per task
 
 CORE_JQL = 'component = "MV-NPU"'
+
+# 🌍 Define Vietnam Timezone (UTC+7)
+VN_TZ = timezone(timedelta(hours=7), name="ICT")
+
 # ==============================================================================
 
 auth = HTTPBasicAuth(ATLASSIAN_EMAIL, ATLASSIAN_API_TOKEN)
-# REVERTED: Removed the spoofed User-Agent that triggers Atlassian's Firewall
 headers = {"Accept": "application/json"}
 jira_base_url = f"https://{ATLASSIAN_DOMAIN}/rest/api/3"
 
@@ -191,12 +194,13 @@ def build_comment_ui(author, dt_local, parsed_html, color_hex, is_history=False)
 
 
 def resolve_dates(user_date):
+    # FORCE everything to run in Vietnam Time (VN_TZ)
     if user_date is None:
-        target = datetime.now()
+        target = datetime.now(VN_TZ)
     elif isinstance(user_date, int):
-        target = datetime.now() + timedelta(days=user_date)
+        target = datetime.now(VN_TZ) + timedelta(days=user_date)
     elif isinstance(user_date, str):
-        target = datetime.strptime(user_date, "%Y-%m-%d")
+        target = datetime.strptime(user_date, "%Y-%m-%d").replace(tzinfo=VN_TZ)
     else:
         raise ValueError("Invalid DATE format.")
 
@@ -222,8 +226,19 @@ def fetch_issues(jql):
     )
 
     if response.status_code == 200:
-        print(f"  └─ Status: ✅ 200 OK")
-        return response.json().get("issues", [])
+        data = response.json()
+        issues = data.get("issues", [])
+        total = data.get("total", 0)
+
+        print(
+            f"  └─ Status: ✅ 200 OK (Returned {len(issues)} issues. Total available: {total})"
+        )
+        if len(issues) == 0:
+            print(
+                f"  └─ ⚠️ WARNING: 0 issues found! Check JQL syntax, permissions, or Jira dates."
+            )
+
+        return issues
     else:
         print(f"  └─ Status: ❌ {response.status_code} ERROR")
         print(f"  └─ Reason: {response.text}")
@@ -240,17 +255,17 @@ def fetch_comments(issue_key):
     print(f"Calling GET: {comments_url}")
     response = requests.get(comments_url, headers=headers, auth=auth)
 
-    # RESTORED: Explicit logging to catch any 403 API blocking immediately
     if response.status_code == 200:
-        print(f"  └─ Status: ✅ 200 OK")
-        comments = response.json().get("comments", [])
+        data = response.json()
+        comments = data.get("comments", [])
+        print(f"  └─ Status: ✅ 200 OK (Found {len(comments)} comments)")
+        COMMENT_CACHE[issue_key] = comments
+        return comments
     else:
         print(f"  └─ Status: ❌ {response.status_code} ERROR")
         print(f"  └─ Reason: {response.text}")
-        comments = []
-
-    COMMENT_CACHE[issue_key] = comments
-    return comments
+        COMMENT_CACHE[issue_key] = []
+        return []
 
 
 # ==============================================================================
@@ -261,12 +276,12 @@ def fetch_comments(issue_key):
 def run_daily_snapshot(target_user_date):
     today_str, yesterday_str, next_str = resolve_dates(target_user_date)
     print(
-        f"🗓️  Generating HTML Snapshot | Target: {today_str} | Target Yesterday: {yesterday_str}\n"
+        f"🗓️  Generating HTML Snapshot | Target (Vietnam): {today_str} | Target Yesterday (Vietnam): {yesterday_str}\n"
         + "-" * 60
     )
 
-    # Check if target date is actually today to disable the 'Next' button
-    actual_system_today = datetime.now().strftime("%Y-%m-%d")
+    # Check if target date is actually today in Vietnam to disable the 'Next' button
+    actual_system_today = datetime.now(VN_TZ).strftime("%Y-%m-%d")
     is_latest = today_str >= actual_system_today
     disabled_class = "disabled" if is_latest else ""
     disabled_attr = "disabled" if is_latest else ""
@@ -519,17 +534,19 @@ def run_daily_snapshot(target_user_date):
                 hist_comments_data = []
 
                 for comment in comments:
-                    # FIX: Removed .astimezone()
-                    # This guarantees we look at the exact calendar day Jira recorded,
-                    # ignoring whether your VM OS thinks it is currently UTC time.
-                    dt_local = datetime.strptime(
+                    # 1. Parse Jira's strict format (Includes +0900 Korean timezone)
+                    dt_jira = datetime.strptime(
                         comment["created"], "%Y-%m-%dT%H:%M:%S.%f%z"
                     )
 
-                    if dt_local.strftime("%Y-%m-%d") == target_date_str:
-                        target_comments_data.append((comment, dt_local))
-                    elif dt_local.strftime("%Y-%m-%d") < target_date_str:
-                        hist_comments_data.append((comment, dt_local))
+                    # 2. CONVERT TO VIETNAM TIME (UTC+7)
+                    dt_vn = dt_jira.astimezone(VN_TZ)
+
+                    # 3. Check dates specifically against the Vietnam Date string
+                    if dt_vn.strftime("%Y-%m-%d") == target_date_str:
+                        target_comments_data.append((comment, dt_vn))
+                    elif dt_vn.strftime("%Y-%m-%d") < target_date_str:
+                        hist_comments_data.append((comment, dt_vn))
 
                 # Build dynamic badge
                 update_count = len(target_comments_data)
@@ -561,11 +578,11 @@ def run_daily_snapshot(target_user_date):
 
                 # Render Target Date Comments
                 target_comments_html = ""
-                for c, dt_local in target_comments_data:
+                for c, dt_vn in target_comments_data:
                     parsed_body = convert_adf_to_html(c["body"], att_map)
                     target_comments_html += build_comment_ui(
                         c["author"]["displayName"],
-                        dt_local,
+                        dt_vn,  # Pass the Vietnam-adjusted time to the UI
                         parsed_body,
                         border_color,
                         is_history=False,
@@ -585,11 +602,11 @@ def run_daily_snapshot(target_user_date):
                 if hist_comments_data:
                     hist_comments_data = hist_comments_data[-MAX_HISTORY_COMMENTS:]
                     final_hist_html = ""
-                    for c, dt_local in hist_comments_data:
+                    for c, dt_vn in hist_comments_data:
                         parsed_body = convert_adf_to_html(c["body"], att_map)
                         final_hist_html += build_comment_ui(
                             c["author"]["displayName"],
-                            dt_local,
+                            dt_vn,  # Pass the Vietnam-adjusted time to the UI
                             parsed_body,
                             "#a5adba",
                             True,
