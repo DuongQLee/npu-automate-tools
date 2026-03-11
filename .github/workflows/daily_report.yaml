@@ -34,6 +34,8 @@ jobs:
       - name: Run Snapshot Scripts
         env:
           API_TOKEN: ${{ secrets.API_TOKEN }} 
+          # Force the script to save OUTSIDE the hidden runner workspace
+          RESULT_FOLDER: /home/moreh/mv-npu_daily_report 
         run: |
           uv sync
           uv run auto_create_report.py
