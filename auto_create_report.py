@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import sys
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 
@@ -11,44 +12,64 @@ from requests.auth import HTTPBasicAuth
 # ==============================================================================
 # 🛠️ 1. CONFIGURATION
 # ==============================================================================
-# FIXED: Must point to the absolute path and override the blank GitHub action env var!
-load_dotenv("/home/moreh/npu-automate-tools/.env", override=True)
+script_dir = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(script_dir, ".env")
+load_dotenv(env_path, override=True)
 
 ATLASSIAN_DOMAIN = "moreh.atlassian.net"
 ATLASSIAN_EMAIL = "duong.le@moreh.com.vn".strip()
 ATLASSIAN_API_TOKEN = os.getenv("API_TOKEN", "").strip()
+print("ATLASSIAN_API_TOKEN:", ATLASSIAN_API_TOKEN)
 
-# Set the result folder (Defaults to ./mv-npu_daily_report)
 RESULT_FOLDER = os.getenv("RESULT_FOLDER", "./mv-npu_daily_report")
-
-# Supports a single value OR a list of values
 DATE = None
-
-MAX_HISTORY_COMMENTS = 20  # Max number of historical comments to show per task
-
+MAX_HISTORY_COMMENTS = 100
 CORE_JQL = 'component = "MV-NPU"'
-
-# 🌍 Define Vietnam Timezone (UTC+7)
 VN_TZ = timezone(timedelta(hours=7), name="ICT")
 
 # ==============================================================================
 
 auth = HTTPBasicAuth(ATLASSIAN_EMAIL, ATLASSIAN_API_TOKEN)
 
-# FIXED: Added standard browser User-Agent back to bypass WAF blocks
-headers = {
-    "Accept": "application/json",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-}
+# STRIPPED User-Agent: We want Atlassian to treat this as a raw API script, not a browser.
+headers = {"Accept": "application/json"}
 jira_base_url = f"https://{ATLASSIAN_DOMAIN}/rest/api/3"
 
 # ==============================================================================
-# 🧠 2. PARSERS & CONVERTERS
+# 🔐 2. AUTHENTICATION DIAGNOSTIC
+# ==============================================================================
+
+
+def verify_authentication():
+    print("\n" + "=" * 60)
+    print("🔐 VERIFYING JIRA AUTHENTICATION...")
+    print("=" * 60)
+
+    myself_url = f"{jira_base_url}/myself"
+    response = requests.get(myself_url, headers=headers, auth=auth)
+
+    if response.status_code == 200:
+        user_data = response.json()
+        print(f"✅ Auth SUCCESS!")
+        print(f"👤 Logged in as : {user_data.get('displayName')}")
+        print(f"📧 Email        : {user_data.get('emailAddress')}")
+        print(f"✔️ Active       : {user_data.get('active')}")
+        print("=" * 60 + "\n")
+    else:
+        print(f"❌ Auth FAILED!")
+        print(f"⚠️ Status Code: {response.status_code}")
+        print(f"⚠️ Response   : {response.text}")
+        print("🚨 CRITICAL ERROR: Your API token or Email is invalid.")
+        print("=" * 60 + "\n")
+        sys.exit(1)  # Stop the script immediately if auth is broken
+
+
+# ==============================================================================
+# 🧠 3. PARSERS & CONVERTERS
 # ==============================================================================
 
 
 def convert_adf_to_html(node, attachment_map):
-    """Converts Jira's Atlassian Document Format (JSON) into clean HTML."""
     if not isinstance(node, dict):
         return ""
     node_type = node.get("type")
@@ -107,7 +128,6 @@ def convert_adf_to_html(node, attachment_map):
 
 def extract_structured_comment(html_text):
     text = html_text
-
     text = re.sub(
         r"<(?:strong|b|em|i)[^>]*>\s*(Summary|Tags|Body)\s*</(?:strong|b|em|i)>\s*:",
         r"\1:",
@@ -163,7 +183,6 @@ def extract_structured_comment(html_text):
 
     if not c_body:
         c_body = "<em>No additional details provided.</em>"
-
     return c_summary, c_tags, c_body
 
 
@@ -196,12 +215,11 @@ def build_comment_ui(author, dt_local, parsed_html, color_hex, is_history=False)
 
 
 # ==============================================================================
-# 🚀 3. HELPER FUNCTIONS WITH ENHANCED LOGGING
+# 🚀 4. HELPER FUNCTIONS
 # ==============================================================================
 
 
 def resolve_dates(user_date):
-    # FORCE everything to run in Vietnam Time (VN_TZ)
     if user_date is None:
         target = datetime.now(VN_TZ)
     elif isinstance(user_date, int):
@@ -226,10 +244,8 @@ def fetch_issues(jql):
         "maxResults": 100,
     }
 
-    # Generate the 100% complete, URL-encoded URL for easy browser pasting
     query_string = urllib.parse.urlencode(params)
     full_url = f"{search_url}?{query_string}"
-
     print(f"Calling GET: {full_url}")
 
     response = requests.get(search_url, headers=headers, auth=auth, params=params)
@@ -260,9 +276,7 @@ COMMENT_CACHE = {}
 def fetch_comments(issue_key):
     if issue_key in COMMENT_CACHE:
         return COMMENT_CACHE[issue_key]
-
     comments_url = f"{jira_base_url}/issue/{issue_key}/comment"
-
     print(f"Calling GET: {comments_url}")
 
     response = requests.get(comments_url, headers=headers, auth=auth)
@@ -281,7 +295,7 @@ def fetch_comments(issue_key):
 
 
 # ==============================================================================
-# 🎯 4. MAIN EXECUTION
+# 🎯 5. MAIN EXECUTION
 # ==============================================================================
 
 
@@ -292,7 +306,6 @@ def run_daily_snapshot(target_user_date):
         + "-" * 60
     )
 
-    # Check if target date is actually today in Vietnam to disable the 'Next' button
     actual_system_today = datetime.now(VN_TZ).strftime("%Y-%m-%d")
     is_latest = today_str >= actual_system_today
     disabled_class = "disabled" if is_latest else ""
@@ -385,7 +398,7 @@ def run_daily_snapshot(target_user_date):
               .epic-block[open] {{ box-shadow: 0 4px 12px rgba(9, 30, 66, 0.12); }}
               .epic-summary {{ padding: 16px 20px; font-weight: 600; font-size: 1.15em; cursor: pointer; user-select: none; display: flex; align-items: center; border-bottom: 1px solid transparent; }}
               .epic-block[open] .epic-summary {{ border-bottom: 1px solid var(--border-color); }}
-              .epic-summary::-webkit-details-marker {{ display: none; }} /* Hide default arrow */
+              .epic-summary::-webkit-details-marker {{ display: none; }}
               .epic-content {{ padding: 20px; }}
               
               /* 📝 Task Blocks (Level 2) */
@@ -399,7 +412,7 @@ def run_daily_snapshot(target_user_date):
               /* 🏷️ Updates Badge */
               .update-badge {{ background: #e3fcef; color: #066637; padding: 4px 10px; border-radius: 12px; font-size: 0.85em; font-weight: bold; white-space: nowrap; }}
               .update-badge.zero {{ background: #f4f5f7; color: #5e6c84; font-weight: 500; }}
-              .update-badge.purple {{ background: #eae6ff; color: #403294; }} /* For yesterday */
+              .update-badge.purple {{ background: #eae6ff; color: #403294; }} 
 
               /* 💬 Comments Styling */
               .comment-card {{ margin-top: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: #ffffff; }}
@@ -416,7 +429,6 @@ def run_daily_snapshot(target_user_date):
               .history-btn:hover {{ background-color: #f4f5f7; color: var(--text-main); }}
           </style>
           <script>
-              // Fixes the URL resolution whether accessed from '/today' or '/MV-NPU_Daily_Report_...html'
               function goToReport(dateStr) {{
                   let path = window.location.pathname;
                   if (path.match(/\\/today\\/?(index\\.html)?$/)) {{
@@ -540,27 +552,21 @@ def run_daily_snapshot(target_user_date):
                 t_status = task["fields"].get("status", {}).get("name", "")
                 t_sum_display = f"{t_sum} ✅" if t_status.lower() == "done" else t_sum
 
-                # Pre-fetch comments to count target date updates
                 comments = fetch_comments(t_key)
                 target_comments_data = []
                 hist_comments_data = []
 
                 for comment in comments:
-                    # 1. Parse Jira's strict format (Includes +0900 Korean timezone)
                     dt_jira = datetime.strptime(
                         comment["created"], "%Y-%m-%dT%H:%M:%S.%f%z"
                     )
-
-                    # 2. CONVERT TO VIETNAM TIME (UTC+7)
                     dt_vn = dt_jira.astimezone(VN_TZ)
 
-                    # 3. Check dates specifically against the Vietnam Date string
                     if dt_vn.strftime("%Y-%m-%d") == target_date_str:
                         target_comments_data.append((comment, dt_vn))
                     elif dt_vn.strftime("%Y-%m-%d") < target_date_str:
                         hist_comments_data.append((comment, dt_vn))
 
-                # Build dynamic badge
                 update_count = len(target_comments_data)
                 badge_class = (
                     f"update-badge {badge_color_class}"
@@ -569,7 +575,6 @@ def run_daily_snapshot(target_user_date):
                 )
                 badge_text = f"{update_count} Update{'s' if update_count != 1 else ''}"
 
-                # Render Task block with right-aligned badge
                 html += f"<details class='task-block'>"
                 html += f"<summary class='task-summary'>"
                 html += f"<div style='display: flex; align-items: center; gap: 8px;'>🛠️ <a href='https://{ATLASSIAN_DOMAIN}/browse/{t_key}' target='_blank'>[{t_key}]</a> {t_sum_display}</div>"
@@ -588,13 +593,12 @@ def run_daily_snapshot(target_user_date):
                 )
                 html += f"<details class='desc-collapse'><summary>📄 View Task Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{parsed_task_desc}</div></details>"
 
-                # Render Target Date Comments
                 target_comments_html = ""
                 for c, dt_vn in target_comments_data:
                     parsed_body = convert_adf_to_html(c["body"], att_map)
                     target_comments_html += build_comment_ui(
                         c["author"]["displayName"],
-                        dt_vn,  # Pass the Vietnam-adjusted time to the UI
+                        dt_vn,
                         parsed_body,
                         border_color,
                         is_history=False,
@@ -610,7 +614,6 @@ def run_daily_snapshot(target_user_date):
                 else:
                     html += f"<p style='margin-top: 0; color: var(--text-muted); font-size: 0.9em;'><em>No comments made.</em></p>"
 
-                # Render Historical Comments
                 if hist_comments_data:
                     hist_comments_data = hist_comments_data[-MAX_HISTORY_COMMENTS:]
                     final_hist_html = ""
@@ -618,7 +621,7 @@ def run_daily_snapshot(target_user_date):
                         parsed_body = convert_adf_to_html(c["body"], att_map)
                         final_hist_html += build_comment_ui(
                             c["author"]["displayName"],
-                            dt_vn,  # Pass the Vietnam-adjusted time to the UI
+                            dt_vn,
                             parsed_body,
                             "#a5adba",
                             True,
@@ -631,15 +634,12 @@ def run_daily_snapshot(target_user_date):
                 html += "</div></details>"
             html += "</div></details>"
 
-    # 1. TODAY (Target Date)
     generate_section(
         f"<h2 style='color: var(--text-main); margin-bottom: 15px;'>📅 Activity on {today_str}</h2>",
         epics_map,
         today_str,
         False,
     )
-
-    # 2. YESTERDAY (Target Date - 1)
     generate_section(
         f"<h2 style='color: var(--text-main); margin-bottom: 15px; margin-top: 50px;'>⏪ Previous Day ({yesterday_str})</h2>",
         yest_epics_map,
@@ -647,7 +647,6 @@ def run_daily_snapshot(target_user_date):
         True,
     )
 
-    # 3. UPCOMING
     html += f"<h2 style='color: var(--text-main); margin-bottom: 15px; margin-top: 50px;'>⏸️ Upcoming & On Hold Epics</h2>"
     pending_epics = fetch_issues(
         f'{CORE_JQL} AND issuetype = Epic AND status IN ("To Do", "On Hold")'
@@ -674,9 +673,7 @@ def run_daily_snapshot(target_user_date):
 
     html += "</body></html>"
 
-    # --- SAVE ---
     script_dir = os.path.dirname(os.path.abspath(__file__))
-
     if os.path.isabs(RESULT_FOLDER):
         save_dir = RESULT_FOLDER
     else:
@@ -684,7 +681,6 @@ def run_daily_snapshot(target_user_date):
 
     os.makedirs(save_dir, exist_ok=True)
 
-    # 1. Save the actual daily file
     target_filename = f"MV-NPU_Daily_Report_{today_str}.html"
     file_path = os.path.join(save_dir, target_filename)
 
@@ -693,16 +689,12 @@ def run_daily_snapshot(target_user_date):
 
     print("-" * 60 + f"\n🏁 HTML Snapshot complete! Saved securely to:\n{file_path}")
 
-    # 2. SYMLINK PROTECTION: Only update `/today` if the target date is ACTUALLY today.
     if is_latest:
         today_dir = os.path.join(save_dir, "today")
         os.makedirs(today_dir, exist_ok=True)
-
         symlink_path = os.path.join(today_dir, "index.html")
-
         if os.path.exists(symlink_path) or os.path.islink(symlink_path):
             os.remove(symlink_path)
-
         os.symlink(f"../{target_filename}", symlink_path)
         print(f"🔗 Clean URL active: /today -> {target_filename}")
     else:
@@ -712,6 +704,9 @@ def run_daily_snapshot(target_user_date):
 
 
 if __name__ == "__main__":
+    # RUN THE DIAGNOSTIC FIRST!
+    verify_authentication()
+
     dates_to_run = DATE if isinstance(DATE, list) else [DATE]
     processed_date_strings = set()
 
