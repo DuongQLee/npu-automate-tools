@@ -19,7 +19,6 @@ load_dotenv(env_path, override=True)
 ATLASSIAN_DOMAIN = "moreh.atlassian.net"
 ATLASSIAN_EMAIL = "duong.le@moreh.com.vn".strip()
 ATLASSIAN_API_TOKEN = os.getenv("API_TOKEN", "").strip()
-print("ATLASSIAN_API_TOKEN:", ATLASSIAN_API_TOKEN)
 
 RESULT_FOLDER = os.getenv("RESULT_FOLDER", "./mv-npu_daily_report")
 DATE = None
@@ -396,7 +395,8 @@ def run_daily_snapshot(target_user_date):
               /* 📦 Epic Blocks (Level 1) */
               .epic-block {{ margin-bottom: 24px; border-radius: 8px; background: #ffffff; box-shadow: 0 2px 8px rgba(9, 30, 66, 0.08); overflow: hidden; transition: all 0.2s; }}
               .epic-block[open] {{ box-shadow: 0 4px 12px rgba(9, 30, 66, 0.12); }}
-              .epic-summary {{ padding: 16px 20px; font-weight: 600; font-size: 1.15em; cursor: pointer; user-select: none; display: flex; align-items: center; border-bottom: 1px solid transparent; }}
+              /* UPDATED: Added justify-content: space-between to push the badge right */
+              .epic-summary {{ padding: 16px 20px; font-weight: 600; font-size: 1.15em; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid transparent; }}
               .epic-block[open] .epic-summary {{ border-bottom: 1px solid var(--border-color); }}
               .epic-summary::-webkit-details-marker {{ display: none; }}
               .epic-content {{ padding: 20px; }}
@@ -528,9 +528,37 @@ def run_daily_snapshot(target_user_date):
             bg_color = "var(--epic-bg-yest)" if is_yesterday else "var(--epic-bg-today)"
             badge_color_class = "purple" if is_yesterday else ""
 
+            # PRE-CALCULATE TOTAL EPIC UPDATES
+            epic_total_updates = 0
+            for task in epic_data["tasks"]:
+                # fetch_comments is heavily cached, so this won't double your API calls!
+                comments = fetch_comments(task["key"])
+                for comment in comments:
+                    dt_jira = datetime.strptime(
+                        comment["created"], "%Y-%m-%dT%H:%M:%S.%f%z"
+                    )
+                    if (
+                        dt_jira.astimezone(VN_TZ).strftime("%Y-%m-%d")
+                        == target_date_str
+                    ):
+                        epic_total_updates += 1
+
+            epic_badge_class = (
+                f"update-badge {badge_color_class}"
+                if epic_total_updates > 0
+                else "update-badge zero"
+            )
+            epic_badge_text = (
+                f"{epic_total_updates} Update{'s' if epic_total_updates != 1 else ''}"
+            )
+
+            # BUILD EPIC HEADER WITH BADGE
             html += f"<details {'open' if not is_yesterday else ''} class='epic-block' style='border-top: 4px solid {border_color};'>"
             html += f"<summary class='epic-summary' style='background: {bg_color};'>"
-            html += f"<div>🔷 {epic_link} {e_sum_display} <span style='font-weight: normal; font-size: 0.85em; color: var(--text-muted); margin-left: 8px;'>({len(epic_data['tasks'])} tasks)</span></div></summary>"
+            html += f"<div style='display: flex; align-items: center;'>🔷&nbsp;{epic_link}&nbsp;{e_sum_display} <span style='font-weight: normal; font-size: 0.85em; color: var(--text-muted); margin-left: 8px;'>({len(epic_data['tasks'])} tasks)</span></div>"
+            html += (
+                f"<span class='{epic_badge_class}'>{epic_badge_text}</span></summary>"
+            )
             html += f"<div class='epic-content'>"
 
             if epic_key != "OTHER":
