@@ -74,24 +74,44 @@ def convert_adf_to_html(node, attachment_map):
     return inner_html
 
 def extract_structured_comment(html_text):
-    text = re.sub(r'<[^>]+>\s*(Summary|Tags|Body):\s*<[^>]+>', r'\1:', html_text, flags=re.IGNORECASE)
-    text = re.sub(r'<strong>\s*(Summary|Tags|Body):\s*</strong>', r'\1:', text, flags=re.IGNORECASE)
+    text = html_text
+    
+    # Normalize bolded labels where the colon is inside OR outside the bold tags
+    # Example: <strong>Summary</strong>: -> Summary:
+    text = re.sub(r'<(?:strong|b|em|i)[^>]*>\s*(Summary|Tags|Body)\s*</(?:strong|b|em|i)>\s*:', r'\1:', text, flags=re.IGNORECASE)
+    # Example: <strong>Summary:</strong> -> Summary:
+    text = re.sub(r'<(?:strong|b|em|i)[^>]*>\s*(Summary|Tags|Body)\s*:\s*</(?:strong|b|em|i)>', r'\1:', text, flags=re.IGNORECASE)
 
-    if "Summary:" not in text: return None, None, html_text
+    # If there is no Summary keyword, render as a plain comment
+    if "Summary:" not in text: 
+        return None, None, html_text
 
-    sum_match = re.search(r'Summary:\s*(.*?)(?:<br>|</p>|<div|Tags:|Body:|$)', text, re.IGNORECASE)
+    # Extract Summary (stops at paragraph end, break, Tags, or Body)
+    sum_match = re.search(r'Summary:\s*(.*?)(?:<br[^>]*>|</p>|</div>|Tags:|Body:|$)', text, re.IGNORECASE)
     c_summary = re.sub(r'<[^>]+>', '', sum_match.group(1)).strip() if sum_match else "Update"
 
-    tags_match = re.search(r'Tags:\s*(.*?)(?:<br>|</p>|<div|Body:|$)', text, re.IGNORECASE)
+    # Extract Tags (if present)
+    tags_match = re.search(r'Tags:\s*(.*?)(?:<br[^>]*>|</p>|</div>|Body:|$)', text, re.IGNORECASE)
     c_tags = re.sub(r'<[^>]+>', '', tags_match.group(1)).strip() if tags_match else ""
 
-    if "Body:" in text:
-        body_match = re.search(r'Body:\s*(?:</p>|<br>|</div>)?(.*)', text, re.IGNORECASE | re.DOTALL)
+    # Extract Body
+    if re.search(r'Body:', text, re.IGNORECASE):
+        # If "Body:" explicitly exists, take everything after it
+        body_match = re.search(r'Body:\s*(?:</p>|<br[^>]*>|</div>)?(.*)', text, re.IGNORECASE | re.DOTALL)
         c_body = body_match.group(1).strip() if body_match else ""
     else:
-        c_body = re.sub(r'^(?:<[^>]+>)*\s*Summary:.*?(?:<br>|</p>|</div>)', '', html_text, count=1, flags=re.IGNORECASE)
-        c_body = re.sub(r'^(?:<[^>]+>)*\s*Tags:.*?(?:<br>|</p>|</div>)', '', c_body, count=1, flags=re.IGNORECASE)
+        # If missing "Body:", dynamically remove the Summary and Tags lines to leave the rest as the body
+        c_body = text
+        if sum_match:
+            c_body = re.sub(r'(?:<p[^>]*>)?\s*Summary:\s*.*?(?:</p>|<br[^>]*>|</div>)', '', c_body, count=1, flags=re.IGNORECASE)
+        if tags_match:
+            c_body = re.sub(r'(?:<p[^>]*>)?\s*Tags:\s*.*?(?:</p>|<br[^>]*>|</div>)', '', c_body, count=1, flags=re.IGNORECASE)
+        
         c_body = c_body.strip()
+        
+    # Edge case: If there is no body left, add a fallback message
+    if not c_body:
+        c_body = "<em>No additional details provided.</em>"
 
     return c_summary, c_tags, c_body
 
