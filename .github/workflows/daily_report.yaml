@@ -39,7 +39,6 @@ jobs:
 
       - name: Run Snapshot Scripts
         env:
-          API_TOKEN: ${{ secrets.API_TOKEN }} 
           RESULT_FOLDER: /home/moreh/npu-automate-tools/mv-npu_daily_report 
         run: |
           uv sync
