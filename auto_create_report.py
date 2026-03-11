@@ -23,14 +23,19 @@ ATLASSIAN_API_TOKEN = os.getenv("API_TOKEN", "").strip()
 RESULT_FOLDER = os.getenv("RESULT_FOLDER", "./mv-npu_daily_report")
 DATE = None
 MAX_HISTORY_COMMENTS = 100
+
 CORE_JQL = 'component = "MV-NPU"'
+
+# 🚦 SMART STATUS BUCKETS
+ACTIVE_STATUSES = '"In Progress", "Fixed/Review", "Blocked", "BLOCKED"'
+PENDING_STATUSES = '"Open", "OPEN", "To Do", "TODO", "On Hold", "ON HOLD"'
+
+# 🌍 Define Vietnam Timezone (UTC+7)
 VN_TZ = timezone(timedelta(hours=7), name="ICT")
 
 # ==============================================================================
 
 auth = HTTPBasicAuth(ATLASSIAN_EMAIL, ATLASSIAN_API_TOKEN)
-
-# STRIPPED User-Agent: We want Atlassian to treat this as a raw API script, not a browser.
 headers = {"Accept": "application/json"}
 jira_base_url = f"https://{ATLASSIAN_DOMAIN}/rest/api/3"
 
@@ -60,7 +65,7 @@ def verify_authentication():
         print(f"⚠️ Response   : {response.text}")
         print("🚨 CRITICAL ERROR: Your API token or Email is invalid.")
         print("=" * 60 + "\n")
-        sys.exit(1)  # Stop the script immediately if auth is broken
+        sys.exit(1)
 
 
 # ==============================================================================
@@ -213,6 +218,27 @@ def build_comment_ui(author, dt_local, parsed_html, color_hex, is_history=False)
     return html
 
 
+# 🎨 DYNAMIC STATUS BADGE GENERATOR
+def get_status_html(status_name):
+    if not status_name:
+        return ""
+    s = status_name.lower()
+    bg, text = "#dfe1e6", "#42526e"  # Default Gray for Pending/Open
+
+    if s in ["done", "closed"]:
+        bg, text = "#e3fcef", "#066637"  # Green
+    elif s == "in progress":
+        bg, text = "#deebff", "#0052cc"  # Blue
+    elif s == "fixed/review":
+        bg, text = "#eae6ff", "#403294"  # Purple
+    elif s == "blocked":
+        bg, text = "#ffebe6", "#bf2600"  # Red
+    elif s == "on hold":
+        bg, text = "#fffae6", "#ff8b00"  # Yellow/Orange
+
+    return f"<span style='padding: 3px 8px; border-radius: 12px; font-size: 0.75em; font-weight: bold; margin-left: 8px; background: {bg}; color: {text}; white-space: nowrap;'>{status_name.upper()}</span>"
+
+
 # ==============================================================================
 # 🚀 4. HELPER FUNCTIONS
 # ==============================================================================
@@ -276,19 +302,15 @@ def fetch_comments(issue_key):
     if issue_key in COMMENT_CACHE:
         return COMMENT_CACHE[issue_key]
     comments_url = f"{jira_base_url}/issue/{issue_key}/comment"
-    print(f"Calling GET: {comments_url}")
 
     response = requests.get(comments_url, headers=headers, auth=auth)
 
     if response.status_code == 200:
         data = response.json()
         comments = data.get("comments", [])
-        print(f"  └─ Status: ✅ 200 OK (Found {len(comments)} comments)")
         COMMENT_CACHE[issue_key] = comments
         return comments
     else:
-        print(f"  └─ Status: ❌ {response.status_code} ERROR")
-        print(f"  └─ Reason: {response.text}")
         COMMENT_CACHE[issue_key] = []
         return []
 
@@ -310,18 +332,23 @@ def run_daily_snapshot(target_user_date):
     disabled_class = "disabled" if is_latest else ""
     disabled_attr = "disabled" if is_latest else ""
 
+    # SAFE DONE JQL string construction to avoid parsing errors
+    done_jql_today = f'(status changed to "Done" on "{today_str}" OR status changed to "Closed" on "{today_str}")'
+
+    # QUERY: Active Today
     active_epics = fetch_issues(
-        f'{CORE_JQL} AND issuetype = Epic AND (status = "In Progress" OR status changed to "Done" on "{today_str}")'
+        f"{CORE_JQL} AND issuetype = Epic AND (status IN ({ACTIVE_STATUSES}) OR {done_jql_today})"
     )
     active_tasks = fetch_issues(
-        f'{CORE_JQL} AND issuetype != Epic AND (status = "In Progress" OR status changed to "Done" on "{today_str}")'
+        f"{CORE_JQL} AND issuetype != Epic AND (status IN ({ACTIVE_STATUSES}) OR {done_jql_today})"
     )
 
+    # QUERY: Active Yesterday
     yesterday_epics = fetch_issues(
-        f'{CORE_JQL} AND issuetype = Epic AND status WAS "In Progress" ON "{yesterday_str}"'
+        f'{CORE_JQL} AND issuetype = Epic AND status WAS IN ({ACTIVE_STATUSES}) ON "{yesterday_str}"'
     )
     yesterday_tasks = fetch_issues(
-        f'{CORE_JQL} AND issuetype != Epic AND status WAS "In Progress" ON "{yesterday_str}"'
+        f'{CORE_JQL} AND issuetype != Epic AND status WAS IN ({ACTIVE_STATUSES}) ON "{yesterday_str}"'
     )
 
     def build_epic_map(epics, tasks):
@@ -395,7 +422,6 @@ def run_daily_snapshot(target_user_date):
               /* 📦 Epic Blocks (Level 1) */
               .epic-block {{ margin-bottom: 24px; border-radius: 8px; background: #ffffff; box-shadow: 0 2px 8px rgba(9, 30, 66, 0.08); overflow: hidden; transition: all 0.2s; }}
               .epic-block[open] {{ box-shadow: 0 4px 12px rgba(9, 30, 66, 0.12); }}
-              /* UPDATED: Added justify-content: space-between to push the badge right */
               .epic-summary {{ padding: 16px 20px; font-weight: 600; font-size: 1.15em; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid transparent; }}
               .epic-block[open] .epic-summary {{ border-bottom: 1px solid var(--border-color); }}
               .epic-summary::-webkit-details-marker {{ display: none; }}
@@ -513,12 +539,10 @@ def run_daily_snapshot(target_user_date):
                 if epic_key != "OTHER"
                 else "📌"
             )
+
+            # SMART STATUS DISPLAY FOR EPIC
             e_status = epic_data.get("status", "")
-            e_sum_display = (
-                f"{epic_data['summary']} ✅"
-                if e_status.lower() == "done"
-                else epic_data["summary"]
-            )
+            e_sum_display = f"{epic_data['summary']} {get_status_html(e_status)}"
 
             border_color = (
                 "var(--epic-border-yest)"
@@ -528,10 +552,8 @@ def run_daily_snapshot(target_user_date):
             bg_color = "var(--epic-bg-yest)" if is_yesterday else "var(--epic-bg-today)"
             badge_color_class = "purple" if is_yesterday else ""
 
-            # PRE-CALCULATE TOTAL EPIC UPDATES
             epic_total_updates = 0
             for task in epic_data["tasks"]:
-                # fetch_comments is heavily cached, so this won't double your API calls!
                 comments = fetch_comments(task["key"])
                 for comment in comments:
                     dt_jira = datetime.strptime(
@@ -552,7 +574,6 @@ def run_daily_snapshot(target_user_date):
                 f"{epic_total_updates} Update{'s' if epic_total_updates != 1 else ''}"
             )
 
-            # BUILD EPIC HEADER WITH BADGE
             html += f"<details {'open' if not is_yesterday else ''} class='epic-block' style='border-top: 4px solid {border_color};'>"
             html += f"<summary class='epic-summary' style='background: {bg_color};'>"
             html += f"<div style='display: flex; align-items: center;'>🔷&nbsp;{epic_link}&nbsp;{e_sum_display} <span style='font-weight: normal; font-size: 0.85em; color: var(--text-muted); margin-left: 8px;'>({len(epic_data['tasks'])} tasks)</span></div>"
@@ -577,8 +598,10 @@ def run_daily_snapshot(target_user_date):
 
             for task in epic_data["tasks"]:
                 t_key, t_sum = task["key"], task["fields"]["summary"]
+
+                # SMART STATUS DISPLAY FOR TASK
                 t_status = task["fields"].get("status", {}).get("name", "")
-                t_sum_display = f"{t_sum} ✅" if t_status.lower() == "done" else t_sum
+                t_sum_display = f"{t_sum} {get_status_html(t_status)}"
 
                 comments = fetch_comments(t_key)
                 target_comments_data = []
@@ -676,14 +699,20 @@ def run_daily_snapshot(target_user_date):
     )
 
     html += f"<h2 style='color: var(--text-main); margin-bottom: 15px; margin-top: 50px;'>⏸️ Upcoming & On Hold Epics</h2>"
+
+    # QUERY: Pending Epics
     pending_epics = fetch_issues(
-        f'{CORE_JQL} AND issuetype = Epic AND status IN ("To Do", "On Hold")'
+        f"{CORE_JQL} AND issuetype = Epic AND status IN ({PENDING_STATUSES})"
     )
+
     if pending_epics:
         for epic in pending_epics:
             e_key, e_sum = epic["key"], epic["fields"]["summary"]
+            e_status = epic["fields"].get("status", {}).get("name", "")
+            e_status_badge = get_status_html(e_status)
+
             html += f"<details class='epic-block' style='border-top: 4px solid #ff991f; margin-bottom: 10px;'>"
-            html += f"<summary class='epic-summary' style='background: #fff4e5;'>⏳ <a href='https://{ATLASSIAN_DOMAIN}/browse/{e_key}' target='_blank'>[{e_key}]</a> <span style='margin-left:8px;'>{e_sum}</span></summary>"
+            html += f"<summary class='epic-summary' style='background: #fff4e5;'><div>⏳ <a href='https://{ATLASSIAN_DOMAIN}/browse/{e_key}' target='_blank'>[{e_key}]</a> <span style='margin-left:8px;'>{e_sum}</span> {e_status_badge}</div></summary>"
             html += f"<div class='epic-content'>"
             att_map = {
                 att["filename"]: att["content"]
@@ -697,7 +726,7 @@ def run_daily_snapshot(target_user_date):
             )
             html += f"<details class='desc-collapse epic-desc'><summary>📄 View Epic Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{parsed_epic_desc}</div></details></div></details>"
     else:
-        html += "<p style='color: var(--text-muted);'><em>No Epics are currently To Do or On Hold.</em></p>"
+        html += "<p style='color: var(--text-muted);'><em>No Epics are currently pending or on hold.</em></p>"
 
     html += "</body></html>"
 
@@ -706,7 +735,6 @@ def run_daily_snapshot(target_user_date):
         save_dir = RESULT_FOLDER
     else:
         save_dir = os.path.normpath(os.path.join(script_dir, RESULT_FOLDER))
-
     os.makedirs(save_dir, exist_ok=True)
 
     target_filename = f"MV-NPU_Daily_Report_{today_str}.html"
@@ -732,7 +760,6 @@ def run_daily_snapshot(target_user_date):
 
 
 if __name__ == "__main__":
-    # RUN THE DIAGNOSTIC FIRST!
     verify_authentication()
 
     dates_to_run = DATE if isinstance(DATE, list) else [DATE]
