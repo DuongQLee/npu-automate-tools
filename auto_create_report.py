@@ -392,7 +392,7 @@ def run_daily_snapshot(target_user_date):
               // Fixes the URL resolution whether accessed from '/today' or '/MV-NPU_Daily_Report_...html'
               function goToReport(dateStr) {{
                   let path = window.location.pathname;
-                  if (path.match(/\/today\/?(index\.html)?$/)) {{
+                  if (path.match(/\\/today\\/?(index\\.html)?$/)) {{
                       window.location.href = '../MV-NPU_Daily_Report_' + dateStr + '.html';
                   }} else {{
                       window.location.href = 'MV-NPU_Daily_Report_' + dateStr + '.html';
