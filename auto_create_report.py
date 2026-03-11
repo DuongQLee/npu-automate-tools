@@ -19,9 +19,8 @@ ATLASSIAN_API_TOKEN = os.getenv("API_TOKEN", "").strip()
 # Set the result folder (Defaults to ./mv-npu_daily_report)
 RESULT_FOLDER = os.getenv("RESULT_FOLDER", "./mv-npu_daily_report")
 
-# NEW: Supports a single value OR a list of values
-# Examples: None, -1, "2026-03-03", or [None, -1, -2, "2026-03-01"]
-DATE = [None, -1]
+# Supports a single value OR a list of values
+DATE = [None, -1] 
 
 MAX_HISTORY_COMMENTS = 20  # Max number of historical comments to show per task
 
@@ -40,51 +39,37 @@ jira_base_url = f"https://{ATLASSIAN_DOMAIN}/rest/api/3"
 # 🧠 2. PARSERS & CONVERTERS
 # ==============================================================================
 
-
 def convert_adf_to_html(node, attachment_map):
     """Converts Jira's Atlassian Document Format (JSON) into clean HTML."""
-    if not isinstance(node, dict):
-        return ""
+    if not isinstance(node, dict): return ""
     node_type = node.get("type")
 
     if node_type == "text":
         text = node.get("text", "")
         for mark in node.get("marks", []):
             m_type = mark.get("type")
-            if m_type == "strong":
-                text = f"<strong>{text}</strong>"
-            elif m_type == "em":
-                text = f"<em>{text}</em>"
-            elif m_type == "code":
-                text = f"<code>{text}</code>"
+            if m_type == "strong": text = f"<strong>{text}</strong>"
+            elif m_type == "em": text = f"<em>{text}</em>"
+            elif m_type == "code": text = f"<code>{text}</code>"
             elif m_type == "link":
                 href = mark.get("attrs", {}).get("href", "#")
                 text = f'<a href="{href}" target="_blank">{text}</a>'
         return text
 
-    if node_type == "hardBreak":
-        return "<br>"
+    if node_type == "hardBreak": return "<br>"
     if node_type == "inlineCard":
         url = node.get("attrs", {}).get("url", "")
         return f'<a href="{url}" target="_blank">{url}</a>'
 
-    inner_html = "".join([convert_adf_to_html(child, attachment_map)
-                         for child in node.get("content", [])])
+    inner_html = "".join([convert_adf_to_html(child, attachment_map) for child in node.get("content", [])])
 
-    if node_type == "doc":
-        return inner_html
-    elif node_type == "paragraph":
-        return f"<p style='margin: 5px 0;'>{inner_html}</p>"
-    elif node_type == "codeBlock":
-        return f'<pre style="background: #f4f5f7; padding: 12px; border-radius: 4px; overflow-x: auto; font-family: monospace;"><code>{inner_html}</code></pre>'
-    elif node_type == "bulletList":
-        return f"<ul style='margin-top: 5px;'>{inner_html}</ul>"
-    elif node_type == "orderedList":
-        return f"<ol style='margin-top: 5px;'>{inner_html}</ol>"
-    elif node_type == "listItem":
-        return f"<li>{inner_html}</li>"
-    elif node_type in ["mediaSingle", "mediaGroup"]:
-        return f'<div style="margin: 15px 0;">{inner_html}</div>'
+    if node_type == "doc": return inner_html
+    elif node_type == "paragraph": return f"<p style='margin: 5px 0;'>{inner_html}</p>"
+    elif node_type == "codeBlock": return f'<pre style="background: #f4f5f7; padding: 12px; border-radius: 4px; overflow-x: auto; font-family: monospace; font-size: 0.9em;"><code>{inner_html}</code></pre>'
+    elif node_type == "bulletList": return f"<ul style='margin-top: 5px; padding-left: 20px;'>{inner_html}</ul>"
+    elif node_type == "orderedList": return f"<ol style='margin-top: 5px; padding-left: 20px;'>{inner_html}</ol>"
+    elif node_type == "listItem": return f"<li>{inner_html}</li>"
+    elif node_type in ["mediaSingle", "mediaGroup"]: return f'<div style="margin: 15px 0;">{inner_html}</div>'
     elif node_type == "media":
         attrs = node.get("attrs", {})
         alt_text = attrs.get("alt", "")
@@ -94,79 +79,58 @@ def convert_adf_to_html(node, attachment_map):
             return f'<div style="border: 1px solid #dfe1e6; padding: 10px; background: #f4f5f7; border-radius: 4px; display: inline-block; margin: 5px;">📎 <strong>{alt_text or "Unnamed File"}</strong><br><span style="font-size: 0.8em; color: #666;">(UUID: {attrs.get("id", "Unknown")} - View in Jira)</span></div>'
     return inner_html
 
-
 def extract_structured_comment(html_text):
     text = html_text
+    
+    text = re.sub(r'<(?:strong|b|em|i)[^>]*>\s*(Summary|Tags|Body)\s*</(?:strong|b|em|i)>\s*:', r'\1:', text, flags=re.IGNORECASE)
+    text = re.sub(r'<(?:strong|b|em|i)[^>]*>\s*(Summary|Tags|Body)\s*:\s*</(?:strong|b|em|i)>', r'\1:', text, flags=re.IGNORECASE)
 
-    text = re.sub(
-        r'<(?:strong|b|em|i)[^>]*>\s*(Summary|Tags|Body)\s*</(?:strong|b|em|i)>\s*:', r'\1:', text, flags=re.IGNORECASE)
-    text = re.sub(
-        r'<(?:strong|b|em|i)[^>]*>\s*(Summary|Tags|Body)\s*:\s*</(?:strong|b|em|i)>', r'\1:', text, flags=re.IGNORECASE)
-
-    if "Summary:" not in text:
+    if "Summary:" not in text: 
         return None, None, html_text
 
-    sum_match = re.search(
-        r'Summary:\s*(.*?)(?:<br[^>]*>|</p>|</div>|Tags:|Body:|$)', text, re.IGNORECASE)
-    c_summary = re.sub(r'<[^>]+>', '', sum_match.group(1)
-                       ).strip() if sum_match else "Update"
+    sum_match = re.search(r'Summary:\s*(.*?)(?:<br[^>]*>|</p>|</div>|Tags:|Body:|$)', text, re.IGNORECASE)
+    c_summary = re.sub(r'<[^>]+>', '', sum_match.group(1)).strip() if sum_match else "Update"
 
-    tags_match = re.search(
-        r'Tags:\s*(.*?)(?:<br[^>]*>|</p>|</div>|Body:|$)', text, re.IGNORECASE)
-    c_tags = re.sub(r'<[^>]+>', '', tags_match.group(1)
-                    ).strip() if tags_match else ""
+    tags_match = re.search(r'Tags:\s*(.*?)(?:<br[^>]*>|</p>|</div>|Body:|$)', text, re.IGNORECASE)
+    c_tags = re.sub(r'<[^>]+>', '', tags_match.group(1)).strip() if tags_match else ""
 
     if re.search(r'Body:', text, re.IGNORECASE):
-        body_match = re.search(
-            r'Body:\s*(?:</p>|<br[^>]*>|</div>)?(.*)', text, re.IGNORECASE | re.DOTALL)
+        body_match = re.search(r'Body:\s*(?:</p>|<br[^>]*>|</div>)?(.*)', text, re.IGNORECASE | re.DOTALL)
         c_body = body_match.group(1).strip() if body_match else ""
     else:
         c_body = text
         if sum_match:
-            c_body = re.sub(r'(?:<p[^>]*>)?\s*Summary:\s*.*?(?:</p>|<br[^>]*>|</div>)',
-                            '', c_body, count=1, flags=re.IGNORECASE)
+            c_body = re.sub(r'(?:<p[^>]*>)?\s*Summary:\s*.*?(?:</p>|<br[^>]*>|</div>)', '', c_body, count=1, flags=re.IGNORECASE)
         if tags_match:
-            c_body = re.sub(r'(?:<p[^>]*>)?\s*Tags:\s*.*?(?:</p>|<br[^>]*>|</div>)',
-                            '', c_body, count=1, flags=re.IGNORECASE)
+            c_body = re.sub(r'(?:<p[^>]*>)?\s*Tags:\s*.*?(?:</p>|<br[^>]*>|</div>)', '', c_body, count=1, flags=re.IGNORECASE)
         c_body = c_body.strip()
-
-    if not c_body:
-        c_body = "<em>No additional details provided.</em>"
+        
+    if not c_body: c_body = "<em>No additional details provided.</em>"
 
     return c_summary, c_tags, c_body
-
 
 def build_comment_ui(author, dt_local, parsed_html, color_hex, is_history=False):
     c_summary, c_tags, c_body = extract_structured_comment(parsed_html)
     bg_color = "#ffffff" if is_history else "#f9fafb"
 
-    html = f"<div style='margin-bottom: 15px; padding: 10px; border-left: 3px solid {
-        color_hex}; background: {bg_color};'>"
-    html += f"<strong>🗣️ {author}</strong> <span style='color: #666; font-size: 0.85em;'>({
-        dt_local.strftime('%Y-%m-%d %H:%M')})</span>"
+    html = f"<div style='margin-bottom: 15px; padding: 12px; border-left: 4px solid {color_hex}; border-radius: 0 6px 6px 0; background: {bg_color}; box-shadow: 0 1px 2px rgba(0,0,0,0.05);'>"
+    html += f"<strong>🗣️ {author}</strong> <span style='color: #6b778c; font-size: 0.85em; margin-left: 6px;'>{dt_local.strftime('%b %d, %H:%M')}</span>"
 
     if c_summary:
         tags_html = ""
         if c_tags:
             clean_tags_str = re.sub(r'<[^>]+>', '', c_tags)
-            individual_tags = [tag.strip()
-                               for tag in clean_tags_str.split(',')]
+            individual_tags = [tag.strip() for tag in clean_tags_str.split(',')]
             for tag in individual_tags:
-                if tag:
-                    tags_html += f"<span style='color: #0052cc; font-size: 0.85em; font-family: monospace; background: #e9eaf0; padding: 2px 8px; border-radius: 12px; margin-left: 6px; white-space: nowrap;'>{
-                        tag}</span>"
+                if tag: tags_html += f"<span class='tag-pill'>{tag}</span>"
 
-        html += f"<div style='margin-top: 10px; border: 1px solid #dfe1e6; border-radius: 4px; background: white;'>"
-        html += f"<details><summary style='cursor: pointer; padding: 10px; outline: none; background: #f4f5f7;'>"
-        html += f"<div style='display: inline-flex; justify-content: space-between; align-items: center; width: calc(100% - 20px); vertical-align: middle;'>"
-        html += f"<span style='font-weight: 600; color: #172b4d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 15px;'>{
-            c_summary}</span>"
-        html += f"<div style='flex-shrink: 0;'>{
-            tags_html}</div></div></summary>"
-        html += f"<div style='padding: 15px; border-top: 1px solid #dfe1e6;'>{
-            c_body}</div></details></div>"
+        html += f"<div class='comment-card'>"
+        html += f"<details><summary class='comment-summary'>"
+        html += f"<span class='comment-title'>{c_summary}</span>"
+        html += f"<div style='flex-shrink: 0;'>{tags_html}</div></summary>"
+        html += f"<div class='comment-body'>{c_body}</div></details></div>"
     else:
-        html += f"<div style='margin-top: 5px;'>{c_body}</div>"
+        html += f"<div style='margin-top: 8px;'>{c_body}</div>"
 
     html += f"</div>"
     return html
@@ -175,25 +139,18 @@ def build_comment_ui(author, dt_local, parsed_html, color_hex, is_history=False)
 # 🚀 3. HELPER FUNCTIONS WITH ENHANCED LOGGING
 # ==============================================================================
 
-
 def resolve_dates(user_date):
-    if user_date is None:
-        target = datetime.now()
-    elif isinstance(user_date, int):
-        target = datetime.now() + timedelta(days=user_date)
-    elif isinstance(user_date, str):
-        target = datetime.strptime(user_date, '%Y-%m-%d')
-    else:
-        raise ValueError("Invalid DATE format.")
+    if user_date is None: target = datetime.now()
+    elif isinstance(user_date, int): target = datetime.now() + timedelta(days=user_date)
+    elif isinstance(user_date, str): target = datetime.strptime(user_date, '%Y-%m-%d')
+    else: raise ValueError("Invalid DATE format.")
     return target.strftime('%Y-%m-%d'), (target - timedelta(days=1)).strftime('%Y-%m-%d')
-
 
 def fetch_issues(jql):
     search_url = f"{jira_base_url}/search/jql"
     print(f"Calling GET: {search_url} | JQL: {jql}")
-    response = requests.get(search_url, headers=headers, auth=auth, params={
-                            "jql": jql, "fields": "summary,issuetype,attachment,parent,description,status", "maxResults": 100})
-
+    response = requests.get(search_url, headers=headers, auth=auth, params={"jql": jql, "fields": "summary,issuetype,attachment,parent,description,status", "maxResults": 100})
+    
     if response.status_code == 200:
         print(f"  └─ Status: ✅ 200 OK")
         return response.json().get("issues", [])
@@ -202,25 +159,17 @@ def fetch_issues(jql):
         print(f"  └─ Reason: {response.text}")
         return []
 
-
 COMMENT_CACHE = {}
-
-
 def fetch_comments(issue_key):
-    if issue_key in COMMENT_CACHE:
-        return COMMENT_CACHE[issue_key]
+    if issue_key in COMMENT_CACHE: return COMMENT_CACHE[issue_key]
     comments_url = f"{jira_base_url}/issue/{issue_key}/comment"
-    print(f"Calling GET: {comments_url}")
     response = requests.get(comments_url, headers=headers, auth=auth)
-
+    
     if response.status_code == 200:
-        print(f"  └─ Status: ✅ 200 OK")
         comments = response.json().get("comments", [])
     else:
-        print(f"  └─ Status: ❌ {response.status_code} ERROR")
-        print(f"  └─ Reason: {response.text}")
         comments = []
-
+        
     COMMENT_CACHE[issue_key] = comments
     return comments
 
@@ -228,36 +177,26 @@ def fetch_comments(issue_key):
 # 🎯 4. MAIN EXECUTION
 # ==============================================================================
 
-
 def run_daily_snapshot(target_user_date):
     today_str, yesterday_str = resolve_dates(target_user_date)
-    print(f"🗓️  Generating HTML Snapshot | Target: {
-          today_str} | Target Yesterday: {yesterday_str}\n" + "-"*60)
+    print(f"🗓️  Generating HTML Snapshot | Target: {today_str} | Target Yesterday: {yesterday_str}\n" + "-"*60)
 
-    active_epics = fetch_issues(
-        f'{CORE_JQL} AND issuetype = Epic AND (status = "In Progress" OR status changed to "Done" on "{today_str}")')
-    active_tasks = fetch_issues(
-        f'{CORE_JQL} AND issuetype != Epic AND (status = "In Progress" OR status changed to "Done" on "{today_str}")')
+    active_epics = fetch_issues(f'{CORE_JQL} AND issuetype = Epic AND (status = "In Progress" OR status changed to "Done" on "{today_str}")')
+    active_tasks = fetch_issues(f'{CORE_JQL} AND issuetype != Epic AND (status = "In Progress" OR status changed to "Done" on "{today_str}")')
 
-    yesterday_epics = fetch_issues(
-        f'{CORE_JQL} AND issuetype = Epic AND status WAS "In Progress" ON "{yesterday_str}"')
-    yesterday_tasks = fetch_issues(
-        f'{CORE_JQL} AND issuetype != Epic AND status WAS "In Progress" ON "{yesterday_str}"')
+    yesterday_epics = fetch_issues(f'{CORE_JQL} AND issuetype = Epic AND status WAS "In Progress" ON "{yesterday_str}"')
+    yesterday_tasks = fetch_issues(f'{CORE_JQL} AND issuetype != Epic AND status WAS "In Progress" ON "{yesterday_str}"')
 
     def build_epic_map(epics, tasks):
         emap = {}
         for e in epics:
-            emap[e["key"]] = {"summary": e["fields"]["summary"], "status": e["fields"].get("status", {}).get(
-                "name", ""), "description": e["fields"].get("description"), "attachments": e["fields"].get("attachment", []), "tasks": []}
-        emap["OTHER"] = {"summary": "Standalone Tasks (No Active Epic Parent)",
-                         "status": "", "description": None, "attachments": [], "tasks": []}
+            emap[e["key"]] = {"summary": e["fields"]["summary"], "status": e["fields"].get("status", {}).get("name", ""), "description": e["fields"].get("description"), "attachments": e["fields"].get("attachment", []), "tasks": []}
+        emap["OTHER"] = {"summary": "Standalone Tasks (No Active Epic Parent)", "status": "", "description": None, "attachments": [], "tasks": []}
 
         for t in tasks:
             parent_key = t["fields"].get("parent", {}).get("key")
-            if parent_key and parent_key in emap:
-                emap[parent_key]["tasks"].append(t)
-            else:
-                emap["OTHER"]["tasks"].append(t)
+            if parent_key and parent_key in emap: emap[parent_key]["tasks"].append(t)
+            else: emap["OTHER"]["tasks"].append(t)
         return emap
 
     epics_map = build_epic_map(active_epics, active_tasks)
@@ -265,18 +204,72 @@ def run_daily_snapshot(target_user_date):
 
     html = f"""
       <!DOCTYPE html>
-      <html>
+      <html lang="en">
       <head>
           <meta charset="UTF-8">
           <title>Daily Sync Snapshot ({today_str})</title>
           <style>
-          body {{ font-family: Arial, sans-serif; max-width: 900px; margin: 40px auto; line-height: 1.6; color: #333; }}
-              .history-btn {{ background-color: #e9eaf0; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 0.9em; font-weight: bold; color: #172b4d; margin-top: 10px; width: 100%; text-align: left; }}
-              .history-btn:hover {{ background-color: #dfe1e6; }}
-              .desc-collapse summary {{ cursor: pointer; padding: 8px 10px; background-color: #fafbfc; font-size: 0.9em; outline: none; border-bottom: 1px dashed #dfe1e6; color: #505f79; }}
-              .desc-collapse {{ margin-bottom: 15px; border: 1px dashed #dfe1e6; border-radius: 4px; }}
-              #searchInput {{ width: 100%; padding: 14px 20px; font-size: 16px; border: 2px solid #dfe1e6; border-radius: 8px; outline: none; box-sizing: border-box; background-color: #fafbfc; color: #172b4d; transition: all 0.2s ease; }}
-              #searchInput:focus {{ border-color: #0052cc; background-color: #fff; box-shadow: 0 0 0 3px rgba(0,82,204,0.1); }}
+              /* 🌟 Modern CSS Reset & Basics */
+              :root {{
+                  --bg-body: #f4f5f7;
+                  --text-main: #172b4d;
+                  --text-muted: #5e6c84;
+                  --border-color: #dfe1e6;
+                  --epic-border-today: #0052cc;
+                  --epic-bg-today: #ebf0f5;
+                  --epic-border-yest: #6554c0;
+                  --epic-bg-yest: #f0eff8;
+              }}
+              body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg-body); color: var(--text-main); max-width: 1000px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }}
+              a {{ color: #0052cc; text-decoration: none; }}
+              a:hover {{ text-decoration: underline; }}
+              
+              /* 🎛️ Header Navigation */
+              .header-container {{ display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px solid var(--border-color); }}
+              .header-left {{ display: flex; align-items: center; gap: 20px; }}
+              h1 {{ margin: 0; font-size: 1.8em; color: var(--text-main); }}
+              .nav-btn {{ background: #ffffff; border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.9em; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: background 0.2s; color: var(--text-main); display: inline-flex; align-items: center; }}
+              .nav-btn:hover {{ background: #f9fafb; text-decoration: none; }}
+
+              /* 🔍 Search Bar */
+              .search-container {{ margin-bottom: 30px; position: sticky; top: 10px; z-index: 100; }}
+              #searchInput {{ width: 100%; padding: 14px 20px; font-size: 16px; border: 1px solid var(--border-color); border-radius: 8px; outline: none; box-sizing: border-box; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: all 0.2s ease; }}
+              #searchInput:focus {{ border-color: #0052cc; box-shadow: 0 0 0 3px rgba(0,82,204,0.15); }}
+
+              /* 📦 Epic Blocks (Level 1) */
+              .epic-block {{ margin-bottom: 24px; border-radius: 8px; background: #ffffff; box-shadow: 0 2px 8px rgba(9, 30, 66, 0.08); overflow: hidden; transition: all 0.2s; }}
+              .epic-block[open] {{ box-shadow: 0 4px 12px rgba(9, 30, 66, 0.12); }}
+              .epic-summary {{ padding: 16px 20px; font-weight: 600; font-size: 1.15em; cursor: pointer; user-select: none; display: flex; align-items: center; border-bottom: 1px solid transparent; }}
+              .epic-block[open] .epic-summary {{ border-bottom: 1px solid var(--border-color); }}
+              .epic-summary::-webkit-details-marker {{ display: none; }} /* Hide default arrow */
+              .epic-content {{ padding: 20px; }}
+              
+              /* 📝 Task Blocks (Level 2) */
+              .task-block {{ margin-bottom: 12px; border: 1px solid var(--border-color); border-radius: 6px; background: #ffffff; overflow: hidden; }}
+              .task-summary {{ padding: 12px 16px; background: #fafbfc; font-weight: 500; font-size: 0.95em; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid transparent; transition: background 0.2s; }}
+              .task-summary:hover {{ background: #f4f5f7; }}
+              .task-block[open] .task-summary {{ border-bottom: 1px solid var(--border-color); background: #ffffff; }}
+              .task-summary::-webkit-details-marker {{ display: none; }}
+              .task-content {{ padding: 16px; background: #ffffff; }}
+
+              /* 🏷️ Updates Badge */
+              .update-badge {{ background: #e3fcef; color: #066637; padding: 4px 10px; border-radius: 12px; font-size: 0.85em; font-weight: bold; white-space: nowrap; }}
+              .update-badge.zero {{ background: #f4f5f7; color: #5e6c84; font-weight: 500; }}
+              .update-badge.purple {{ background: #eae6ff; color: #403294; }} /* For yesterday */
+
+              /* 💬 Comments Styling */
+              .comment-card {{ margin-top: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: #ffffff; }}
+              .comment-summary {{ padding: 10px 14px; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; background: #fafbfc; border-radius: 6px; outline: none; }}
+              .comment-summary::-webkit-details-marker {{ display: none; }}
+              .comment-title {{ font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 15px; }}
+              .comment-body {{ padding: 15px; border-top: 1px solid var(--border-color); font-size: 0.95em; }}
+              .tag-pill {{ color: #0052cc; font-size: 0.8em; font-family: monospace; background: #deebff; padding: 2px 8px; border-radius: 12px; margin-left: 6px; white-space: nowrap; font-weight: 600; }}
+
+              /* ⚙️ Utility */
+              .desc-collapse summary {{ cursor: pointer; padding: 8px 12px; background: #fafbfc; font-size: 0.9em; outline: none; border-bottom: 1px dashed var(--border-color); color: var(--text-muted); user-select: none; border-radius: 4px; }}
+              .desc-collapse {{ margin-bottom: 20px; border: 1px dashed var(--border-color); border-radius: 4px; }}
+              .history-btn {{ background-color: #fafbfc; border: 1px solid var(--border-color); padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 0.9em; font-weight: 600; color: var(--text-muted); margin-top: 10px; width: 100%; text-align: left; transition: all 0.2s; }}
+              .history-btn:hover {{ background-color: #f4f5f7; color: var(--text-main); }}
           </style>
           <script>
               function toggleHistory(id) {{
@@ -294,7 +287,7 @@ def run_daily_snapshot(target_user_date):
                   const query = document.getElementById('searchInput').value.toLowerCase();
                   const epics = document.querySelectorAll('.epic-block');
                   epics.forEach(epic => {{
-                      const summaryText = epic.querySelector('summary').textContent.toLowerCase();
+                      const summaryText = epic.querySelector('.epic-summary').textContent.toLowerCase();
                       const descEl = epic.querySelector('.epic-desc');
                       const descText = descEl ? descEl.textContent.toLowerCase() : '';
                       const epicMatchesDirectly = summaryText.includes(query) || descText.includes(query);
@@ -317,11 +310,15 @@ def run_daily_snapshot(target_user_date):
           </script>
       </head>
       <body>
-          <h1>🚀 Nested Daily Snapshot</h1>
-          <div style="margin: 20px 0 30px 0; position: sticky; top: 10px; z-index: 100;">
+          <div class="header-container">
+              <div class="header-left">
+                  <a href="MV-NPU_Daily_Report_{yesterday_str}.html" class="nav-btn">⬅️ Yesterday's Report</a>
+                  <h1>MV-NPU Daily Report {today_str}</h1>
+              </div>
+          </div>
+          <div class="search-container">
               <input type="text" id="searchInput" onkeyup="filterReport()" placeholder="🔍 Search tags, authors, tickets, or comments..." autocomplete="off">
           </div>
-          <hr/>
       """
 
     def generate_section(title_html, epics_data, target_date_str, is_yesterday=False):
@@ -329,129 +326,120 @@ def run_daily_snapshot(target_user_date):
         html += title_html
 
         if not epics_data or (len(epics_data) == 1 and not epics_data.get("OTHER", {}).get("tasks")):
-            html += f"<p><em>No active items found.</em></p>"
+            html += f"<p style='color: #5e6c84;'><em>No active items found for this day.</em></p>"
             return
 
         for epic_key, epic_data in epics_data.items():
-            if epic_key == "OTHER" and not epic_data["tasks"]:
-                continue
+            if epic_key == "OTHER" and not epic_data["tasks"]: continue
 
-            epic_link = f"<a href='https://{ATLASSIAN_DOMAIN}/browse/{
-                epic_key}' target='_blank'>[{epic_key}]</a>" if epic_key != "OTHER" else "📌"
+            epic_link = f"<a href='https://{ATLASSIAN_DOMAIN}/browse/{epic_key}' target='_blank'>[{epic_key}]</a>" if epic_key != "OTHER" else "📌"
             e_status = epic_data.get("status", "")
-            e_sum_display = f"{epic_data['summary']} ✅" if e_status.lower(
-            ) == "done" else epic_data['summary']
+            e_sum_display = f"{epic_data['summary']} ✅" if e_status.lower() == "done" else epic_data['summary']
 
-            border_color = "#6554c0" if is_yesterday else "#0052cc"
-            bg_color = "#eae6ff" if is_yesterday else "#deebff"
-            html += f"<details {'open' if not is_yesterday else ''} class='epic-block' style='margin-bottom: 20px; border: 2px solid {
-                border_color}; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);'>"
-            html += f"<summary style='cursor: pointer; padding: 15px; background-color: {
-                bg_color}; font-weight: bold; font-size: 1.2em; border-bottom: 1px solid {border_color}; outline: none;'>"
-            html += f"🔷 {epic_link} {e_sum_display} <span style='font-weight: normal; font-size: 0.8em; color: {
-                border_color};'>({len(epic_data['tasks'])} tasks)</span></summary>"
-            html += f"<div style='padding: 15px; background-color: #ffffff;'>"
+            border_color = "var(--epic-border-yest)" if is_yesterday else "var(--epic-border-today)"
+            bg_color = "var(--epic-bg-yest)" if is_yesterday else "var(--epic-bg-today)"
+            badge_color_class = "purple" if is_yesterday else ""
+            
+            html += f"<details {'open' if not is_yesterday else ''} class='epic-block' style='border-top: 4px solid {border_color};'>"
+            html += f"<summary class='epic-summary' style='background: {bg_color};'>"
+            html += f"<div>🔷 {epic_link} {e_sum_display} <span style='font-weight: normal; font-size: 0.85em; color: var(--text-muted); margin-left: 8px;'>({len(epic_data['tasks'])} tasks)</span></div></summary>"
+            html += f"<div class='epic-content'>"
 
             if epic_key != "OTHER":
-                epic_att_map = {att["filename"]: att["content"]
-                                for att in epic_data["attachments"]}
-                parsed_epic_desc = convert_adf_to_html(
-                    epic_data["description"], epic_att_map) if epic_data["description"] else "<em>No description provided.</em>"
-                html += f"<details class='desc-collapse epic-desc'><summary>📄 View Epic Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{
-                    parsed_epic_desc}</div></details>"
+                epic_att_map = {att["filename"]: att["content"] for att in epic_data["attachments"]}
+                parsed_epic_desc = convert_adf_to_html(epic_data["description"], epic_att_map) if epic_data["description"] else "<em>No description provided.</em>"
+                html += f"<details class='desc-collapse epic-desc'><summary>📄 View Epic Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{parsed_epic_desc}</div></details>"
 
-            if not epic_data["tasks"]:
-                html += "<p style='color: #7a869a;'><em>No active tasks currently linked to this Epic.</em></p>"
+            if not epic_data["tasks"]: html += "<p style='color: var(--text-muted);'><em>No active tasks currently linked to this Epic.</em></p>"
 
             for task in epic_data["tasks"]:
                 t_key, t_sum = task["key"], task["fields"]["summary"]
                 t_status = task["fields"].get("status", {}).get("name", "")
-                t_sum_display = f"{
-                    t_sum} ✅" if t_status.lower() == "done" else t_sum
+                t_sum_display = f"{t_sum} ✅" if t_status.lower() == "done" else t_sum
 
-                html += f"<details class='task-block' style='margin-bottom: 15px; border: 1px solid #dfe1e6; border-radius: 4px;'>"
-                html += f"<summary style='cursor: pointer; padding: 10px; background-color: #f4f5f7; font-weight: bold; font-size: 1.0em; outline: none;'>🛠️ <a href='https://{
-                    ATLASSIAN_DOMAIN}/browse/{t_key}' target='_blank'>[{t_key}]</a> {t_sum_display}</summary>"
-                html += f"<div style='padding: 15px; background-color: #ffffff;'>"
-
-                att_map = {att["filename"]: att["content"]
-                           for att in task["fields"].get("attachment", [])}
-                task_desc_adf = task["fields"].get("description")
-                parsed_task_desc = convert_adf_to_html(
-                    task_desc_adf, att_map) if task_desc_adf else "<em>No description provided.</em>"
-                html += f"<details class='desc-collapse'><summary>📄 View Task Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{
-                    parsed_task_desc}</div></details>"
-
+                # Pre-fetch comments to count target date updates
                 comments = fetch_comments(t_key)
-                target_comments_html, hist_comments_list = "", []
+                target_comments_data = []
+                hist_comments_data = []
 
                 for comment in comments:
-                    dt_local = datetime.strptime(
-                        comment["created"], "%Y-%m-%dT%H:%M:%S.%f%z").astimezone()
-                    parsed_body = convert_adf_to_html(comment["body"], att_map)
-
+                    dt_local = datetime.strptime(comment["created"], "%Y-%m-%dT%H:%M:%S.%f%z").astimezone()
                     if dt_local.strftime('%Y-%m-%d') == target_date_str:
-                        target_comments_html += build_comment_ui(
-                            comment["author"]["displayName"], dt_local, parsed_body, border_color, is_history=False)
+                        target_comments_data.append((comment, dt_local))
                     elif dt_local.strftime('%Y-%m-%d') < target_date_str:
-                        hist_comments_list.append(
-                            (comment["author"]["displayName"], dt_local, parsed_body))
+                        hist_comments_data.append((comment, dt_local))
 
-                label = f"Updates on {
-                    target_date_str}" if not is_yesterday else f"Updates on {yesterday_str}"
-                if target_comments_html:
-                    html += f"<h4 style='margin-top: 0; color: {
-                        border_color};'>{label}</h4>{target_comments_html}"
-                else:
-                    html += f"<p style='margin-top: 0; color: #7a869a; font-size: 0.9em;'><em>No comments made.</em></p>"
+                # Build dynamic badge
+                update_count = len(target_comments_data)
+                badge_class = f"update-badge {badge_color_class}" if update_count > 0 else "update-badge zero"
+                badge_text = f"{update_count} Update{'s' if update_count != 1 else ''}"
 
-                if hist_comments_list:
-                    hist_comments_list = hist_comments_list[-MAX_HISTORY_COMMENTS:]
-                    final_hist_html = "".join(
-                        [build_comment_ui(a, d, p, "#7a869a", True) for a, d, p in hist_comments_list])
+                # Render Task block with right-aligned badge
+                html += f"<details class='task-block'>"
+                html += f"<summary class='task-summary'>"
+                html += f"<div style='display: flex; align-items: center; gap: 8px;'>🛠️ <a href='https://{ATLASSIAN_DOMAIN}/browse/{t_key}' target='_blank'>[{t_key}]</a> {t_sum_display}</div>"
+                html += f"<span class='{badge_class}'>{badge_text}</span></summary>"
+                html += f"<div class='task-content'>"
+
+                att_map = {att["filename"]: att["content"] for att in task["fields"].get("attachment", [])}
+                task_desc_adf = task["fields"].get("description")
+                parsed_task_desc = convert_adf_to_html(task_desc_adf, att_map) if task_desc_adf else "<em>No description provided.</em>"
+                html += f"<details class='desc-collapse'><summary>📄 View Task Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{parsed_task_desc}</div></details>"
+
+                # Render Target Date Comments
+                target_comments_html = ""
+                for c, dt_local in target_comments_data:
+                    parsed_body = convert_adf_to_html(c["body"], att_map)
+                    target_comments_html += build_comment_ui(c["author"]["displayName"], dt_local, parsed_body, border_color, is_history=False)
+
+                label = f"Updates on {target_date_str}" if not is_yesterday else f"Updates on {yesterday_str}"
+                if target_comments_html: 
+                    html += f"<h4 style='margin-top: 0; color: {border_color}; margin-bottom: 10px;'>{label}</h4>{target_comments_html}"
+                else: 
+                    html += f"<p style='margin-top: 0; color: var(--text-muted); font-size: 0.9em;'><em>No comments made.</em></p>"
+
+                # Render Historical Comments
+                if hist_comments_data:
+                    hist_comments_data = hist_comments_data[-MAX_HISTORY_COMMENTS:]
+                    final_hist_html = ""
+                    for c, dt_local in hist_comments_data:
+                        parsed_body = convert_adf_to_html(c["body"], att_map)
+                        final_hist_html += build_comment_ui(c["author"]["displayName"], dt_local, parsed_body, "#a5adba", True)
+                    
                     hist_div_id = f"hist-{'yest' if is_yesterday else 'today'}-{t_key}"
-                    html += f"<button id='btn-{hist_div_id}' class='history-btn' onclick=\"toggleHistory('{
-                        hist_div_id}')\">▶️ Show Historical Comments (Last {len(hist_comments_list)})</button>"
-                    html += f"<div id='{hist_div_id}' style='display: none; margin-top: 15px; padding-top: 15px; border-top: 1px dashed #dfe1e6;'>{
-                        final_hist_html}</div>"
+                    html += f"<button id='btn-{hist_div_id}' class='history-btn' onclick=\"toggleHistory('{hist_div_id}')\">▶️ Show Historical Comments (Last {len(hist_comments_data)})</button>"
+                    html += f"<div id='{hist_div_id}' style='display: none; margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--border-color);'>{final_hist_html}</div>"
 
                 html += "</div></details>"
             html += "</div></details>"
 
     # 1. TODAY (Target Date)
-    generate_section(f"<h2 style='background: #0052cc; color: white; padding: 10px; border-radius: 4px;'>📅 TARGET DAY ({
-                     today_str})</h2>", epics_map, today_str, False)
+    generate_section(f"<h2 style='color: var(--text-main); margin-bottom: 15px;'>📅 Activity on {today_str}</h2>", epics_map, today_str, False)
 
     # 2. YESTERDAY (Target Date - 1)
-    generate_section(f"<h2 style='background: #6554c0; color: white; padding: 10px; border-radius: 4px; margin-top: 40px;'>⏪ PREVIOUS DAY ({
-                     yesterday_str})</h2>", yest_epics_map, yesterday_str, True)
+    generate_section(f"<h2 style='color: var(--text-main); margin-bottom: 15px; margin-top: 50px;'>⏪ Previous Day ({yesterday_str})</h2>", yest_epics_map, yesterday_str, True)
 
     # 3. UPCOMING
-    html += f"<h2 style='background: #ff991f; color: white; padding: 10px; border-radius: 4px; margin-top: 40px;'>⏸️ UPCOMING & ON HOLD EPICS</h2>"
-    pending_epics = fetch_issues(
-        f'{CORE_JQL} AND issuetype = Epic AND status IN ("To Do", "On Hold")')
+    html += f"<h2 style='color: var(--text-main); margin-bottom: 15px; margin-top: 50px;'>⏸️ Upcoming & On Hold Epics</h2>"
+    pending_epics = fetch_issues(f'{CORE_JQL} AND issuetype = Epic AND status IN ("To Do", "On Hold")')
     if pending_epics:
         for epic in pending_epics:
             e_key, e_sum = epic["key"], epic["fields"]["summary"]
-            html += f"<details class='epic-block' style='margin-bottom: 10px; border: 1px solid #dfe1e6; border-radius: 4px;'>"
-            html += f"<summary style='cursor: pointer; padding: 10px; background-color: #fff0b3; font-weight: bold; outline: none;'>⏳ <a href='https://{
-                ATLASSIAN_DOMAIN}/browse/{e_key}' target='_blank'>[{e_key}]</a> {e_sum}</summary>"
-            html += f"<div style='padding: 15px; background-color: #ffffff;'>"
-            att_map = {att["filename"]: att["content"]
-                       for att in epic["fields"].get("attachment", [])}
+            html += f"<details class='epic-block' style='border-top: 4px solid #ff991f; margin-bottom: 10px;'>"
+            html += f"<summary class='epic-summary' style='background: #fff4e5;'>⏳ <a href='https://{ATLASSIAN_DOMAIN}/browse/{e_key}' target='_blank'>[{e_key}]</a> <span style='margin-left:8px;'>{e_sum}</span></summary>"
+            html += f"<div class='epic-content'>"
+            att_map = {att["filename"]: att["content"] for att in epic["fields"].get("attachment", [])}
             epic_desc_adf = epic["fields"].get("description")
-            parsed_epic_desc = convert_adf_to_html(
-                epic_desc_adf, att_map) if epic_desc_adf else "<em>No description provided.</em>"
-            html += f"<details class='desc-collapse epic-desc'><summary>📄 View Epic Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{
-                parsed_epic_desc}</div></details></div></details>"
+            parsed_epic_desc = convert_adf_to_html(epic_desc_adf, att_map) if epic_desc_adf else "<em>No description provided.</em>"
+            html += f"<details class='desc-collapse epic-desc'><summary>📄 View Epic Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{parsed_epic_desc}</div></details></div></details>"
     else:
-        html += "<p><em>No Epics are currently To Do or On Hold.</em></p>"
+        html += "<p style='color: var(--text-muted);'><em>No Epics are currently To Do or On Hold.</em></p>"
 
     html += "</body></html>"
 
     # --- SAVE ---
     script_dir = os.path.dirname(os.path.abspath(__file__))
-
+    
     if os.path.isabs(RESULT_FOLDER):
         save_dir = RESULT_FOLDER
     else:
@@ -462,36 +450,31 @@ def run_daily_snapshot(target_user_date):
     # 1. Save the actual daily file
     target_filename = f"MV-NPU_Daily_Report_{today_str}.html"
     file_path = os.path.join(save_dir, target_filename)
-
+    
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(html)
-
-    print(
-        "-" * 60 + f"\n🏁 HTML Snapshot complete! Saved securely to:\n{file_path}")
+    
+    print("-" * 60 + f"\n🏁 HTML Snapshot complete! Saved securely to:\n{file_path}")
 
     # 2. SYMLINK PROTECTION: Only update `/today` if the target date is ACTUALLY today.
     actual_system_today = datetime.now().strftime('%Y-%m-%d')
     if today_str == actual_system_today:
         today_dir = os.path.join(save_dir, "today")
         os.makedirs(today_dir, exist_ok=True)
-
+        
         symlink_path = os.path.join(today_dir, "index.html")
-
+        
         if os.path.exists(symlink_path) or os.path.islink(symlink_path):
             os.remove(symlink_path)
-
+            
         os.symlink(f"../{target_filename}", symlink_path)
         print(f"🔗 Clean URL active: /today -> {target_filename}")
     else:
-        print(f"⏭️ Skipping symlink update. ({
-              today_str} is not today's actual date: {actual_system_today})")
+        print(f"⏭️ Skipping symlink update. ({today_str} is not today's actual date: {actual_system_today})")
 
 
 if __name__ == "__main__":
-    # 1. Normalize DATE to a list so we can always iterate over it
     dates_to_run = DATE if isinstance(DATE, list) else [DATE]
-
-    # 2. Deduplicate dates using a set to avoid querying Jira twice for the same day
     processed_date_strings = set()
 
     for d in dates_to_run:
@@ -501,7 +484,6 @@ if __name__ == "__main__":
                 run_daily_snapshot(d)
                 processed_date_strings.add(target_str)
             else:
-                print(f"⏭️ Skipping {d} (Already processed as {
-                      target_str} in this run)")
+                print(f"⏭️ Skipping {d} (Already processed as {target_str} in this run)")
         except Exception as e:
             print(f"❌ Error processing date request '{d}': {e}")
