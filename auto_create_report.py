@@ -19,14 +19,21 @@ ATLASSIAN_API_TOKEN = os.getenv("API_TOKEN", "").strip()
 # Set the result folder (Defaults to ./mv-npu_daily_report)
 RESULT_FOLDER = os.getenv("RESULT_FOLDER", "./mv-npu_daily_report")
 
-DATE = None  # None (Today), -1 (Yesterday), or "YYYY-MM-DD"
+# NEW: Supports a single value OR a list of values
+# Examples: None, -1, "2026-03-03", or [None, -1, -2, "2026-03-01"]
+DATE = [None, -1]
+
 MAX_HISTORY_COMMENTS = 20  # Max number of historical comments to show per task
 
 CORE_JQL = 'component = "MV-NPU"'
 # ==============================================================================
 
 auth = HTTPBasicAuth(ATLASSIAN_EMAIL, ATLASSIAN_API_TOKEN)
-headers = {"Accept": "application/json"}
+headers = {
+    "Accept": "application/json",
+    "Content-Type": "application/json",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+}
 jira_base_url = f"https://{ATLASSIAN_DOMAIN}/rest/api/3"
 
 # ==============================================================================
@@ -91,38 +98,29 @@ def convert_adf_to_html(node, attachment_map):
 def extract_structured_comment(html_text):
     text = html_text
 
-    # Normalize bolded labels where the colon is inside OR outside the bold tags
-    # Example: <strong>Summary</strong>: -> Summary:
     text = re.sub(
         r'<(?:strong|b|em|i)[^>]*>\s*(Summary|Tags|Body)\s*</(?:strong|b|em|i)>\s*:', r'\1:', text, flags=re.IGNORECASE)
-    # Example: <strong>Summary:</strong> -> Summary:
     text = re.sub(
         r'<(?:strong|b|em|i)[^>]*>\s*(Summary|Tags|Body)\s*:\s*</(?:strong|b|em|i)>', r'\1:', text, flags=re.IGNORECASE)
 
-    # If there is no Summary keyword, render as a plain comment
     if "Summary:" not in text:
         return None, None, html_text
 
-    # Extract Summary (stops at paragraph end, break, Tags, or Body)
     sum_match = re.search(
         r'Summary:\s*(.*?)(?:<br[^>]*>|</p>|</div>|Tags:|Body:|$)', text, re.IGNORECASE)
     c_summary = re.sub(r'<[^>]+>', '', sum_match.group(1)
                        ).strip() if sum_match else "Update"
 
-    # Extract Tags (if present)
     tags_match = re.search(
         r'Tags:\s*(.*?)(?:<br[^>]*>|</p>|</div>|Body:|$)', text, re.IGNORECASE)
     c_tags = re.sub(r'<[^>]+>', '', tags_match.group(1)
                     ).strip() if tags_match else ""
 
-    # Extract Body
     if re.search(r'Body:', text, re.IGNORECASE):
-        # If "Body:" explicitly exists, take everything after it
         body_match = re.search(
             r'Body:\s*(?:</p>|<br[^>]*>|</div>)?(.*)', text, re.IGNORECASE | re.DOTALL)
         c_body = body_match.group(1).strip() if body_match else ""
     else:
-        # If missing "Body:", dynamically remove the Summary and Tags lines to leave the rest as the body
         c_body = text
         if sum_match:
             c_body = re.sub(r'(?:<p[^>]*>)?\s*Summary:\s*.*?(?:</p>|<br[^>]*>|</div>)',
@@ -130,10 +128,8 @@ def extract_structured_comment(html_text):
         if tags_match:
             c_body = re.sub(r'(?:<p[^>]*>)?\s*Tags:\s*.*?(?:</p>|<br[^>]*>|</div>)',
                             '', c_body, count=1, flags=re.IGNORECASE)
-
         c_body = c_body.strip()
 
-    # Edge case: If there is no body left, add a fallback message
     if not c_body:
         c_body = "<em>No additional details provided.</em>"
 
@@ -233,10 +229,10 @@ def fetch_comments(issue_key):
 # ==============================================================================
 
 
-def run_daily_snapshot():
-    today_str, yesterday_str = resolve_dates(DATE)
-    print(f"🗓️  Generating HTML Snapshot | Today: {
-          today_str} | Yesterday: {yesterday_str}\n" + "-"*60)
+def run_daily_snapshot(target_user_date):
+    today_str, yesterday_str = resolve_dates(target_user_date)
+    print(f"🗓️  Generating HTML Snapshot | Target: {
+          today_str} | Target Yesterday: {yesterday_str}\n" + "-"*60)
 
     active_epics = fetch_issues(
         f'{CORE_JQL} AND issuetype = Epic AND (status = "In Progress" OR status changed to "Done" on "{today_str}")')
@@ -401,7 +397,8 @@ def run_daily_snapshot():
                         hist_comments_list.append(
                             (comment["author"]["displayName"], dt_local, parsed_body))
 
-                label = "Today's Updates" if not is_yesterday else "Yesterday's Updates"
+                label = f"Updates on {
+                    target_date_str}" if not is_yesterday else f"Updates on {yesterday_str}"
                 if target_comments_html:
                     html += f"<h4 style='margin-top: 0; color: {
                         border_color};'>{label}</h4>{target_comments_html}"
@@ -421,12 +418,12 @@ def run_daily_snapshot():
                 html += "</div></details>"
             html += "</div></details>"
 
-    # 1. TODAY
-    generate_section(f"<h2 style='background: #0052cc; color: white; padding: 10px; border-radius: 4px;'>📅 TODAY ({
+    # 1. TODAY (Target Date)
+    generate_section(f"<h2 style='background: #0052cc; color: white; padding: 10px; border-radius: 4px;'>📅 TARGET DAY ({
                      today_str})</h2>", epics_map, today_str, False)
 
-    # 2. YESTERDAY
-    generate_section(f"<h2 style='background: #6554c0; color: white; padding: 10px; border-radius: 4px; margin-top: 40px;'>⏪ YESTERDAY ({
+    # 2. YESTERDAY (Target Date - 1)
+    generate_section(f"<h2 style='background: #6554c0; color: white; padding: 10px; border-radius: 4px; margin-top: 40px;'>⏪ PREVIOUS DAY ({
                      yesterday_str})</h2>", yest_epics_map, yesterday_str, True)
 
     # 3. UPCOMING
@@ -469,25 +466,31 @@ def run_daily_snapshot():
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(html)
 
-    # 2. Create a folder named 'today'
-    today_dir = os.path.join(save_dir, "today")
-    os.makedirs(today_dir, exist_ok=True)
-
-    # 3. Create an 'index.html' symlink inside the 'today' folder
-    symlink_path = os.path.join(today_dir, "index.html")
-
-    if os.path.exists(symlink_path) or os.path.islink(symlink_path):
-        os.remove(symlink_path)
-
-    os.symlink(f"../{target_filename}", symlink_path)
-
     print(
         "-" * 60 + f"\n🏁 HTML Snapshot complete! Saved securely to:\n{file_path}")
-    print(f"🔗 Clean URL active: /today -> {target_filename}")
+
+    # 2. SYMLINK PROTECTION: Only update `/today` if the target date is ACTUALLY today.
+    actual_system_today = datetime.now().strftime('%Y-%m-%d')
+    if today_str == actual_system_today:
+        today_dir = os.path.join(save_dir, "today")
+        os.makedirs(today_dir, exist_ok=True)
+
+        symlink_path = os.path.join(today_dir, "index.html")
+
+        if os.path.exists(symlink_path) or os.path.islink(symlink_path):
+            os.remove(symlink_path)
+
+        os.symlink(f"../{target_filename}", symlink_path)
+        print(f"🔗 Clean URL active: /today -> {target_filename}")
+    else:
+        print(f"⏭️ Skipping symlink update. ({
+              today_str} is not today's actual date: {actual_system_today})")
 
 
 if __name__ == "__main__":
-    run_daily_snapshot()
+    # 1. Normalize DATE to a list so we can always iterate over it
+    dates_to_run = DATE if isinstance(DATE, list) else [DATE]
+
     # 2. Deduplicate dates using a set to avoid querying Jira twice for the same day
     processed_date_strings = set()
 
@@ -498,6 +501,7 @@ if __name__ == "__main__":
                 run_daily_snapshot(d)
                 processed_date_strings.add(target_str)
             else:
-                print(f"⏭️ Skipping {d} (Already processed as {target_str} in this run)")
+                print(f"⏭️ Skipping {d} (Already processed as {
+                      target_str} in this run)")
         except Exception as e:
             print(f"❌ Error processing date request '{d}': {e}")
