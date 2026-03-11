@@ -122,7 +122,7 @@ def build_comment_ui(author, dt_local, parsed_html, color_hex, is_history=False)
     return html
 
 # ==============================================================================
-# 🚀 3. HELPER FUNCTIONS
+# 🚀 3. HELPER FUNCTIONS WITH ENHANCED LOGGING
 # ==============================================================================
 
 def resolve_dates(user_date):
@@ -136,15 +136,30 @@ def fetch_issues(jql):
     search_url = f"{jira_base_url}/search/jql"
     print(f"Calling GET: {search_url} | JQL: {jql}")
     response = requests.get(search_url, headers=headers, auth=auth, params={"jql": jql, "fields": "summary,issuetype,attachment,parent,description,status", "maxResults": 100})
-    if response.status_code != 200: return []
-    return response.json().get("issues", [])
+    
+    if response.status_code == 200:
+        print(f"  └─ Status: ✅ 200 OK")
+        return response.json().get("issues", [])
+    else:
+        print(f"  └─ Status: ❌ {response.status_code} ERROR")
+        print(f"  └─ Reason: {response.text}")
+        return []
 
 COMMENT_CACHE = {}
 def fetch_comments(issue_key):
     if issue_key in COMMENT_CACHE: return COMMENT_CACHE[issue_key]
     comments_url = f"{jira_base_url}/issue/{issue_key}/comment"
+    print(f"Calling GET: {comments_url}")
     response = requests.get(comments_url, headers=headers, auth=auth)
-    comments = response.json().get("comments", []) if response.status_code == 200 else []
+    
+    if response.status_code == 200:
+        print(f"  └─ Status: ✅ 200 OK")
+        comments = response.json().get("comments", [])
+    else:
+        print(f"  └─ Status: ❌ {response.status_code} ERROR")
+        print(f"  └─ Reason: {response.text}")
+        comments = []
+        
     COMMENT_CACHE[issue_key] = comments
     return comments
 
@@ -348,7 +363,6 @@ def run_daily_snapshot():
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(html)
     
-    # 👇 NEW: The Clean URL Setup
     # 2. Create a folder named 'today'
     today_dir = os.path.join(save_dir, "today")
     os.makedirs(today_dir, exist_ok=True)
@@ -359,7 +373,6 @@ def run_daily_snapshot():
     if os.path.exists(symlink_path) or os.path.islink(symlink_path):
         os.remove(symlink_path)
         
-    # Link it back up one level (../) to the actual report file
     os.symlink(f"../{target_filename}", symlink_path)
     
     print("-" * 60 + f"\n🏁 HTML Snapshot complete! Saved securely to:\n{file_path}")
