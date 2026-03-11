@@ -19,16 +19,15 @@ on:
 
 jobs:
   run-report:
-    runs-on: self-hosted  # Runs on your Rocky 9 VM!
+    runs-on: self-hosted
     steps:
       - name: Checkout Latest Main (For the Runner)
         uses: actions/checkout@v4
         with:
-          ref: main       
-          clean: true     
-          fetch-depth: 1  
+          ref: main
+          clean: true
+          fetch-depth: 1
 
-      # 👇 NEW STEP: This syncs the folder you actually look at!
       - name: Sync Local Manual Folder
         run: |
           cd /home/moreh/npu-automate-tools
@@ -39,9 +38,8 @@ jobs:
 
       - name: Run Snapshot Scripts
         env:
+          API_TOKEN: ${{ secrets.API_TOKEN }}
           RESULT_FOLDER: /home/moreh/npu-automate-tools/mv-npu_daily_report 
         run: |
           uv sync
           uv run auto_create_report.py
-          # Disable jira report
-          # uv run auto_create_jira_daily_report.py
