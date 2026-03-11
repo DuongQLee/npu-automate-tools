@@ -21,12 +21,18 @@ jobs:
   run-report:
     runs-on: self-hosted  # Runs on your Rocky 9 VM!
     steps:
-      - name: Checkout Latest Main
+      - name: Checkout Latest Main (For the Runner)
         uses: actions/checkout@v4
         with:
-          ref: main       # Forces it to explicitly target the main branch
-          clean: true     # Wipes any leftover/modified files on the VM from previous runs
-          fetch-depth: 1  # Only pulls the latest commit to save time/bandwidth
+          ref: main       
+          clean: true     
+          fetch-depth: 1  
+
+      # 👇 NEW STEP: This syncs the folder you actually look at!
+      - name: Sync Local Manual Folder
+        run: |
+          cd /home/moreh/npu-automate-tools
+          git pull origin main
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
@@ -34,7 +40,6 @@ jobs:
       - name: Run Snapshot Scripts
         env:
           API_TOKEN: ${{ secrets.API_TOKEN }} 
-          # Force the script to save OUTSIDE the hidden runner workspace
           RESULT_FOLDER: /home/moreh/npu-automate-tools/mv-npu_daily_report 
         run: |
           uv sync
