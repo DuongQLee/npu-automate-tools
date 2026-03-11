@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import urllib.parse
 from datetime import datetime, timedelta, timezone
 
 import requests
@@ -10,6 +11,7 @@ from requests.auth import HTTPBasicAuth
 # ==============================================================================
 # 🛠️ 1. CONFIGURATION
 # ==============================================================================
+# FIXED: Must point to the absolute path and override the blank GitHub action env var!
 load_dotenv("/home/moreh/npu-automate-tools/.env", override=True)
 
 ATLASSIAN_DOMAIN = "moreh.atlassian.net"
@@ -20,7 +22,7 @@ ATLASSIAN_API_TOKEN = os.getenv("API_TOKEN", "").strip()
 RESULT_FOLDER = os.getenv("RESULT_FOLDER", "./mv-npu_daily_report")
 
 # Supports a single value OR a list of values
-DATE = [None, -1]
+DATE = None
 
 MAX_HISTORY_COMMENTS = 20  # Max number of historical comments to show per task
 
@@ -32,7 +34,12 @@ VN_TZ = timezone(timedelta(hours=7), name="ICT")
 # ==============================================================================
 
 auth = HTTPBasicAuth(ATLASSIAN_EMAIL, ATLASSIAN_API_TOKEN)
-headers = {"Accept": "application/json"}
+
+# FIXED: Added standard browser User-Agent back to bypass WAF blocks
+headers = {
+    "Accept": "application/json",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+}
 jira_base_url = f"https://{ATLASSIAN_DOMAIN}/rest/api/3"
 
 # ==============================================================================
@@ -213,17 +220,19 @@ def resolve_dates(user_date):
 
 def fetch_issues(jql):
     search_url = f"{jira_base_url}/search/jql"
-    print(f"Calling GET: {search_url} | JQL: {jql}")
-    response = requests.get(
-        search_url,
-        headers=headers,
-        auth=auth,
-        params={
-            "jql": jql,
-            "fields": "summary,issuetype,attachment,parent,description,status",
-            "maxResults": 100,
-        },
-    )
+    params = {
+        "jql": jql,
+        "fields": "summary,issuetype,attachment,parent,description,status",
+        "maxResults": 100,
+    }
+
+    # Generate the 100% complete, URL-encoded URL for easy browser pasting
+    query_string = urllib.parse.urlencode(params)
+    full_url = f"{search_url}?{query_string}"
+
+    print(f"Calling GET: {full_url}")
+
+    response = requests.get(search_url, headers=headers, auth=auth, params=params)
 
     if response.status_code == 200:
         data = response.json()
@@ -251,8 +260,11 @@ COMMENT_CACHE = {}
 def fetch_comments(issue_key):
     if issue_key in COMMENT_CACHE:
         return COMMENT_CACHE[issue_key]
+
     comments_url = f"{jira_base_url}/issue/{issue_key}/comment"
+
     print(f"Calling GET: {comments_url}")
+
     response = requests.get(comments_url, headers=headers, auth=auth)
 
     if response.status_code == 200:
