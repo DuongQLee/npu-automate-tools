@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import re
@@ -21,7 +22,6 @@ ATLASSIAN_EMAIL = "duong.le@moreh.com.vn".strip()
 ATLASSIAN_API_TOKEN = os.getenv("API_TOKEN", "").strip()
 
 RESULT_FOLDER = os.getenv("RESULT_FOLDER", "./mv-npu_daily_report")
-DATE = None
 MAX_HISTORY_COMMENTS = 100
 
 CORE_JQL = 'component = "MV-NPU"'
@@ -223,18 +223,18 @@ def get_status_html(status_name):
     if not status_name:
         return ""
     s = status_name.lower()
-    bg, text = "#dfe1e6", "#42526e"  # Default Gray for Pending/Open
+    bg, text = "#dfe1e6", "#42526e"
 
     if s in ["done", "closed"]:
-        bg, text = "#e3fcef", "#066637"  # Green
+        bg, text = "#e3fcef", "#066637"
     elif s == "in progress":
-        bg, text = "#deebff", "#0052cc"  # Blue
+        bg, text = "#deebff", "#0052cc"
     elif s == "fixed/review":
-        bg, text = "#eae6ff", "#403294"  # Purple
+        bg, text = "#eae6ff", "#403294"
     elif s == "blocked":
-        bg, text = "#ffebe6", "#bf2600"  # Red
+        bg, text = "#ffebe6", "#bf2600"
     elif s == "on hold":
-        bg, text = "#fffae6", "#ff8b00"  # Yellow/Orange
+        bg, text = "#fffae6", "#ff8b00"
 
     return f"<span style='padding: 3px 8px; border-radius: 12px; font-size: 0.75em; font-weight: bold; margin-left: 8px; background: {bg}; color: {text}; white-space: nowrap;'>{status_name.upper()}</span>"
 
@@ -287,7 +287,6 @@ def fetch_issues(jql):
             print(
                 f"  └─ ⚠️ WARNING: 0 issues found! Check JQL syntax, permissions, or Jira dates."
             )
-
         return issues
     else:
         print(f"  └─ Status: ❌ {response.status_code} ERROR")
@@ -304,10 +303,8 @@ def fetch_comments(issue_key):
     comments_url = f"{jira_base_url}/issue/{issue_key}/comment"
 
     response = requests.get(comments_url, headers=headers, auth=auth)
-
     if response.status_code == 200:
-        data = response.json()
-        comments = data.get("comments", [])
+        comments = response.json().get("comments", [])
         COMMENT_CACHE[issue_key] = comments
         return comments
     else:
@@ -327,15 +324,17 @@ def run_daily_snapshot(target_user_date):
         + "-" * 60
     )
 
+    # DYNAMIC BUTTON LOGIC
+    # If the target date of this report matches the current real-world date in Vietnam, disable "Next".
+    # Otherwise (like when regenerating yesterday's report), leave "Next" enabled.
     actual_system_today = datetime.now(VN_TZ).strftime("%Y-%m-%d")
-    is_latest = today_str >= actual_system_today
-    disabled_class = "disabled" if is_latest else ""
-    disabled_attr = "disabled" if is_latest else ""
+    is_actual_today = today_str == actual_system_today
 
-    # SAFE DONE JQL string construction to avoid parsing errors
+    disabled_class = "disabled" if is_actual_today else ""
+    disabled_attr = "disabled" if is_actual_today else ""
+
     done_jql_today = f'(status changed to "Done" on "{today_str}" OR status changed to "Closed" on "{today_str}")'
 
-    # QUERY: Active Today
     active_epics = fetch_issues(
         f"{CORE_JQL} AND issuetype = Epic AND (status IN ({ACTIVE_STATUSES}) OR {done_jql_today})"
     )
@@ -343,7 +342,6 @@ def run_daily_snapshot(target_user_date):
         f"{CORE_JQL} AND issuetype != Epic AND (status IN ({ACTIVE_STATUSES}) OR {done_jql_today})"
     )
 
-    # QUERY: Active Yesterday
     yesterday_epics = fetch_issues(
         f'{CORE_JQL} AND issuetype = Epic AND status WAS IN ({ACTIVE_STATUSES}) ON "{yesterday_str}"'
     )
@@ -419,7 +417,7 @@ def run_daily_snapshot(target_user_date):
               #searchInput {{ width: 100%; padding: 14px 20px; font-size: 16px; border: 1px solid var(--border-color); border-radius: 8px; outline: none; box-sizing: border-box; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: all 0.2s ease; }}
               #searchInput:focus {{ border-color: #0052cc; box-shadow: 0 0 0 3px rgba(0,82,204,0.15); }}
 
-              /* 📦 Epic Blocks (Level 1) */
+              /* 📦 Epic Blocks */
               .epic-block {{ margin-bottom: 24px; border-radius: 8px; background: #ffffff; box-shadow: 0 2px 8px rgba(9, 30, 66, 0.08); overflow: hidden; transition: all 0.2s; }}
               .epic-block[open] {{ box-shadow: 0 4px 12px rgba(9, 30, 66, 0.12); }}
               .epic-summary {{ padding: 16px 20px; font-weight: 600; font-size: 1.15em; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid transparent; }}
@@ -427,7 +425,7 @@ def run_daily_snapshot(target_user_date):
               .epic-summary::-webkit-details-marker {{ display: none; }}
               .epic-content {{ padding: 20px; }}
               
-              /* 📝 Task Blocks (Level 2) */
+              /* 📝 Task Blocks */
               .task-block {{ margin-bottom: 12px; border: 1px solid var(--border-color); border-radius: 6px; background: #ffffff; overflow: hidden; }}
               .task-summary {{ padding: 12px 16px; background: #fafbfc; font-weight: 500; font-size: 0.95em; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid transparent; transition: background 0.2s; }}
               .task-summary:hover {{ background: #f4f5f7; }}
@@ -540,7 +538,6 @@ def run_daily_snapshot(target_user_date):
                 else "📌"
             )
 
-            # SMART STATUS DISPLAY FOR EPIC
             e_status = epic_data.get("status", "")
             e_sum_display = f"{epic_data['summary']} {get_status_html(e_status)}"
 
@@ -599,7 +596,6 @@ def run_daily_snapshot(target_user_date):
             for task in epic_data["tasks"]:
                 t_key, t_sum = task["key"], task["fields"]["summary"]
 
-                # SMART STATUS DISPLAY FOR TASK
                 t_status = task["fields"].get("status", {}).get("name", "")
                 t_sum_display = f"{t_sum} {get_status_html(t_status)}"
 
@@ -700,7 +696,6 @@ def run_daily_snapshot(target_user_date):
 
     html += f"<h2 style='color: var(--text-main); margin-bottom: 15px; margin-top: 50px;'>⏸️ Upcoming & On Hold Epics</h2>"
 
-    # QUERY: Pending Epics
     pending_epics = fetch_issues(
         f"{CORE_JQL} AND issuetype = Epic AND status IN ({PENDING_STATUSES})"
     )
@@ -745,7 +740,7 @@ def run_daily_snapshot(target_user_date):
 
     print("-" * 60 + f"\n🏁 HTML Snapshot complete! Saved securely to:\n{file_path}")
 
-    if is_latest:
+    if is_actual_today:
         today_dir = os.path.join(save_dir, "today")
         os.makedirs(today_dir, exist_ok=True)
         symlink_path = os.path.join(today_dir, "index.html")
@@ -760,12 +755,28 @@ def run_daily_snapshot(target_user_date):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Jira Daily Report Generator")
+    parser.add_argument(
+        "-d",
+        "--date",
+        nargs="*",
+        default=None,
+        help="Dates to process: 0, -1, YYYY-MM-DD",
+    )
+    args = parser.parse_args()
+
     verify_authentication()
 
-    dates_to_run = DATE if isinstance(DATE, list) else [DATE]
+    raw_dates = args.date if args.date else [None]
     processed_date_strings = set()
 
-    for d in dates_to_run:
+    for d in raw_dates:
+        if d is not None:
+            try:
+                d = int(d)
+            except ValueError:
+                pass
+
         try:
             target_str, _, _ = resolve_dates(d)
             if target_str not in processed_date_strings:

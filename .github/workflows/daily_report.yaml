@@ -2,20 +2,25 @@ name: Jira Daily Report Schedule
 
 on:
   schedule:
-    # 1. Every hour at minutes 15, 30, and 45 (Minutes are the same in UTC and Local)
-    - cron: '15,30,45 * * * *'
+    # 1. High Resolution: 15-min intervals during extended working hours (08:00 - 19:59 VN Time)
+    # VN Time is UTC+7. So 08:00 VN = 01:00 UTC, and 19:59 VN = 12:59 UTC.
+    - cron: '*/15 1-12 * * *'
     
-    # 2. On the hour (minute 0), EXCEPT at local midnight. 
-    # Local 00:00 is UTC 17:00. So we skip hour 17 in UTC.
-    - cron: '0 0-16,18-23 * * *'
+    # 2. Low Resolution: 30-min intervals outside working hours
+    # 20:00 to 23:30 VN (13-16 UTC), 01:00 to 07:30 VN (18-23, 0 UTC)
+    - cron: '0,30 0,13-16,18-23 * * *'
     
-    # 3. End of day snapshot: 23:59 Local Time (Which is 16:59 UTC)
-    - cron: '59 16 * * *'
+    # 3. Low Resolution (Midnight Hour Exception): 00:30 VN Time (17:30 UTC)
+    - cron: '30 17 * * *'
     
-    # 4. Start of new day snapshot: 00:01 Local Time (Which is 17:01 UTC)
+    # 4. Midnight Rollover: 00:01 VN Time (17:01 UTC) - Updates Yesterday AND Today
     - cron: '1 17 * * *'
     
   workflow_dispatch: # Allows you to trigger it manually via a button!
+
+concurrency:
+  group: "npu-daily-report"
+  cancel-in-progress: false
 
 jobs:
   run-report:
@@ -28,10 +33,11 @@ jobs:
           clean: true
           fetch-depth: 1
 
-      - name: Sync Local Manual Folder
+      - name: Sync Local Manual Folder (Safe Reset)
         run: |
           cd /home/moreh/npu-automate-tools
-          git pull origin main
+          git fetch origin main
+          git reset --hard origin/main
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
@@ -42,4 +48,14 @@ jobs:
           RESULT_FOLDER: /home/moreh/npu-automate-tools/mv-npu_daily_report 
         run: |
           uv sync
-          uv run auto_create_report.py
+          
+          HOUR=$(date -u +'%H')
+          MINUTE=$(date -u +'%M')
+          
+          if [ "$HOUR" == "17" ] && [ "$MINUTE" == "01" ]; then
+            echo "🌙 Midnight Rollover detected! Generating Yesterday (-1) and Today (0)..."
+            uv run auto_create_report.py -d -1 0
+          else
+            echo "☀️ Standard Run! Generating Today (0) only..."
+            uv run auto_create_report.py -d 0
+          fi
