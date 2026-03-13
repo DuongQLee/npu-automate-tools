@@ -21,6 +21,10 @@ ATLASSIAN_DOMAIN = "moreh.atlassian.net"
 ATLASSIAN_EMAIL = "duong.le@moreh.com.vn".strip()
 ATLASSIAN_API_TOKEN = os.getenv("API_TOKEN", "").strip()
 
+# 🐙 GITHUB CONFIGURATION
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "").strip()
+GITHUB_REPO = os.getenv("GITHUB_REPO", "").strip()
+
 RESULT_FOLDER = os.getenv("RESULT_FOLDER", "./mv-npu_daily_report")
 MAX_HISTORY_COMMENTS = 100
 
@@ -69,7 +73,64 @@ def verify_authentication():
 
 
 # ==============================================================================
-# 🧠 3. PARSERS & CONVERTERS
+# 🐙 3. GITHUB INTEGRATION
+# ==============================================================================
+
+GLOBAL_PR_MAP = None
+
+
+def initialize_pr_map():
+    global GLOBAL_PR_MAP
+    if GLOBAL_PR_MAP is not None:
+        return
+
+    GLOBAL_PR_MAP = {}
+    if not GITHUB_TOKEN or not GITHUB_REPO:
+        print("⚠️ GitHub Token or Repo missing. Skipping PR integration.")
+        return
+
+    print(f"🐙 Fetching recent PRs from {GITHUB_REPO}...")
+    url = f"https://api.github.com/repos/{GITHUB_REPO}/pulls"
+    gh_headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json",
+    }
+
+    params = {"state": "all", "sort": "updated", "direction": "desc", "per_page": 100}
+
+    try:
+        for page in range(1, 3):
+            params["page"] = page
+            response = requests.get(url, headers=gh_headers, params=params)
+
+            if response.status_code == 200:
+                prs = response.json()
+                if not prs:
+                    break
+
+                for pr in prs:
+                    title = pr.get("title", "")
+                    matches = re.findall(r"(MV-\d+)", title, re.IGNORECASE)
+                    for match in matches:
+                        key = match.upper()
+                        if key not in GLOBAL_PR_MAP:
+                            GLOBAL_PR_MAP[key] = []
+                        GLOBAL_PR_MAP[key].append(pr)
+            else:
+                print(f"❌ Failed to fetch GitHub PRs: {response.status_code}")
+                break
+    except Exception as e:
+        print(f"❌ Error fetching PRs: {e}")
+
+
+def get_prs_for_issue(issue_key):
+    if GLOBAL_PR_MAP is None:
+        initialize_pr_map()
+    return GLOBAL_PR_MAP.get(issue_key, [])
+
+
+# ==============================================================================
+# 🧠 4. PARSERS & CONVERTERS
 # ==============================================================================
 
 
@@ -218,7 +279,6 @@ def build_comment_ui(author, dt_local, parsed_html, color_hex, is_history=False)
     return html
 
 
-# 🎨 DYNAMIC STATUS BADGE GENERATOR
 def get_status_html(status_name):
     if not status_name:
         return ""
@@ -240,7 +300,7 @@ def get_status_html(status_name):
 
 
 # ==============================================================================
-# 🚀 4. HELPER FUNCTIONS
+# 🚀 5. HELPER FUNCTIONS
 # ==============================================================================
 
 
@@ -313,7 +373,7 @@ def fetch_comments(issue_key):
 
 
 # ==============================================================================
-# 🎯 5. MAIN EXECUTION
+# 🎯 6. MAIN EXECUTION
 # ==============================================================================
 
 
@@ -324,14 +384,9 @@ def run_daily_snapshot(target_user_date):
         + "-" * 60
     )
 
-    # DYNAMIC BUTTON LOGIC
-    # If the target date of this report matches the current real-world date in Vietnam, disable "Next".
-    # Otherwise (like when regenerating yesterday's report), leave "Next" enabled.
+    # Note: Python determines if THIS run is "today" strictly to manage the /today symlink.
     actual_system_today = datetime.now(VN_TZ).strftime("%Y-%m-%d")
     is_actual_today = today_str == actual_system_today
-
-    disabled_class = "disabled" if is_actual_today else ""
-    disabled_attr = "disabled" if is_actual_today else ""
 
     done_jql_today = f'(status changed to "Done" on "{today_str}" OR status changed to "Closed" on "{today_str}")'
 
@@ -378,6 +433,9 @@ def run_daily_snapshot(target_user_date):
     epics_map = build_epic_map(active_epics, active_tasks)
     yest_epics_map = build_epic_map(yesterday_epics, yesterday_tasks)
 
+    # -------------------------------------------------------------------------
+    # 🧠 DYNAMIC CLIENT-SIDE BUTTON SCRIPT INJECTED HERE
+    # -------------------------------------------------------------------------
     html = f"""
       <!DOCTYPE html>
       <html lang="en">
@@ -385,22 +443,14 @@ def run_daily_snapshot(target_user_date):
           <meta charset="UTF-8">
           <title>Daily Sync Snapshot ({today_str})</title>
           <style>
-              /* 🌟 Modern CSS Reset & Basics */
               :root {{
-                  --bg-body: #f4f5f7;
-                  --text-main: #172b4d;
-                  --text-muted: #5e6c84;
-                  --border-color: #dfe1e6;
-                  --epic-border-today: #0052cc;
-                  --epic-bg-today: #ebf0f5;
-                  --epic-border-yest: #6554c0;
-                  --epic-bg-yest: #f0eff8;
+                  --bg-body: #f4f5f7; --text-main: #172b4d; --text-muted: #5e6c84; --border-color: #dfe1e6;
+                  --epic-border-today: #0052cc; --epic-bg-today: #ebf0f5; --epic-border-yest: #6554c0; --epic-bg-yest: #f0eff8;
               }}
               body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg-body); color: var(--text-main); max-width: 1000px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }}
               a {{ color: #0052cc; text-decoration: none; }}
               a:hover {{ text-decoration: underline; }}
               
-              /* 🎛️ Header Navigation */
               .header-container {{ display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px solid var(--border-color); }}
               .nav-left, .nav-right {{ flex: 1; display: flex; }}
               .nav-left {{ justify-content: flex-start; }}
@@ -412,12 +462,10 @@ def run_daily_snapshot(target_user_date):
               .nav-btn:hover:not(.disabled) {{ background: #f9fafb; }}
               .nav-btn.disabled {{ opacity: 0.4; cursor: not-allowed; background: #f4f5f7; border-color: #dfe1e6; box-shadow: none; }}
 
-              /* 🔍 Search Bar */
               .search-container {{ margin-bottom: 30px; position: sticky; top: 10px; z-index: 100; }}
               #searchInput {{ width: 100%; padding: 14px 20px; font-size: 16px; border: 1px solid var(--border-color); border-radius: 8px; outline: none; box-sizing: border-box; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: all 0.2s ease; }}
               #searchInput:focus {{ border-color: #0052cc; box-shadow: 0 0 0 3px rgba(0,82,204,0.15); }}
 
-              /* 📦 Epic Blocks */
               .epic-block {{ margin-bottom: 24px; border-radius: 8px; background: #ffffff; box-shadow: 0 2px 8px rgba(9, 30, 66, 0.08); overflow: hidden; transition: all 0.2s; }}
               .epic-block[open] {{ box-shadow: 0 4px 12px rgba(9, 30, 66, 0.12); }}
               .epic-summary {{ padding: 16px 20px; font-weight: 600; font-size: 1.15em; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid transparent; }}
@@ -425,7 +473,6 @@ def run_daily_snapshot(target_user_date):
               .epic-summary::-webkit-details-marker {{ display: none; }}
               .epic-content {{ padding: 20px; }}
               
-              /* 📝 Task Blocks */
               .task-block {{ margin-bottom: 12px; border: 1px solid var(--border-color); border-radius: 6px; background: #ffffff; overflow: hidden; }}
               .task-summary {{ padding: 12px 16px; background: #fafbfc; font-weight: 500; font-size: 0.95em; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid transparent; transition: background 0.2s; }}
               .task-summary:hover {{ background: #f4f5f7; }}
@@ -433,12 +480,18 @@ def run_daily_snapshot(target_user_date):
               .task-summary::-webkit-details-marker {{ display: none; }}
               .task-content {{ padding: 16px; background: #ffffff; }}
 
-              /* 🏷️ Updates Badge */
               .update-badge {{ background: #e3fcef; color: #066637; padding: 4px 10px; border-radius: 12px; font-size: 0.85em; font-weight: bold; white-space: nowrap; }}
               .update-badge.zero {{ background: #f4f5f7; color: #5e6c84; font-weight: 500; }}
               .update-badge.purple {{ background: #eae6ff; color: #403294; }} 
 
-              /* 💬 Comments Styling */
+              /* 🐙 GITHUB PR CSS */
+              .pr-section {{ margin-bottom: 15px; padding: 12px; background: #f6f8fa; border-radius: 6px; border: 1px solid #d0d7de; }}
+              .pr-badge-open {{ background: #2da44e; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: bold; }}
+              .pr-badge-merged {{ background: #8250df; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: bold; }}
+              .pr-badge-closed {{ background: #cf222e; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: bold; }}
+              .pr-link {{ color: #0969da; text-decoration: none; font-weight: 500; }}
+              .pr-link:hover {{ text-decoration: underline; }}
+
               .comment-card {{ margin-top: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: #ffffff; }}
               .comment-summary {{ padding: 10px 14px; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; background: #fafbfc; border-radius: 6px; outline: none; }}
               .comment-summary::-webkit-details-marker {{ display: none; }}
@@ -446,13 +499,37 @@ def run_daily_snapshot(target_user_date):
               .comment-body {{ padding: 15px; border-top: 1px solid var(--border-color); font-size: 0.95em; }}
               .tag-pill {{ color: #0052cc; font-size: 0.8em; font-family: monospace; background: #deebff; padding: 2px 8px; border-radius: 12px; margin-left: 6px; white-space: nowrap; font-weight: 600; }}
 
-              /* ⚙️ Utility */
               .desc-collapse summary {{ cursor: pointer; padding: 8px 12px; background: #fafbfc; font-size: 0.9em; outline: none; border-bottom: 1px dashed var(--border-color); color: var(--text-muted); user-select: none; border-radius: 4px; }}
               .desc-collapse {{ margin-bottom: 20px; border: 1px dashed var(--border-color); border-radius: 4px; }}
               .history-btn {{ background-color: #fafbfc; border: 1px solid var(--border-color); padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 0.9em; font-weight: 600; color: var(--text-muted); margin-top: 10px; width: 100%; text-align: left; transition: all 0.2s; }}
               .history-btn:hover {{ background-color: #f4f5f7; color: var(--text-main); }}
           </style>
+          
           <script>
+              // 🧠 CLIENT-SIDE DATE CHECKER
+              // This runs instantly in the user's browser to check if the button should be disabled
+              document.addEventListener("DOMContentLoaded", function() {{
+                  const reportDate = "{today_str}"; // Injected by Python
+                  
+                  // Get current date strictly in Vietnam Timezone
+                  const dateObj = new Date();
+                  const vnTime = new Date(dateObj.toLocaleString("en-US", {{timeZone: "Asia/Ho_Chi_Minh"}}));
+                  
+                  const yyyy = vnTime.getFullYear();
+                  const mm = String(vnTime.getMonth() + 1).padStart(2, '0');
+                  const dd = String(vnTime.getDate()).padStart(2, '0');
+                  const currentVNDate = `${{yyyy}}-${{mm}}-${{dd}}`;
+                  
+                  // Disable the 'Next' button if this report is for today (or the future)
+                  if (reportDate >= currentVNDate) {{
+                      const nextBtn = document.getElementById("nextBtn");
+                      if(nextBtn) {{
+                          nextBtn.classList.add("disabled");
+                          nextBtn.disabled = true;
+                      }}
+                  }}
+              }});
+
               function goToReport(dateStr) {{
                   let path = window.location.pathname;
                   if (path.match(/\\/today\\/?(index\\.html)?$/)) {{
@@ -509,7 +586,7 @@ def run_daily_snapshot(target_user_date):
                   <h1>MV-NPU Daily Report {today_str}</h1>
               </div>
               <div class="nav-right">
-                  <button onclick="goToReport('{next_str}')" class="nav-btn {disabled_class}" {disabled_attr}>Next ➡️</button>
+                  <button id="nextBtn" onclick="goToReport('{next_str}')" class="nav-btn">Next ➡️</button>
               </div>
           </div>
           
@@ -640,6 +717,26 @@ def run_daily_snapshot(target_user_date):
                 )
                 html += f"<details class='desc-collapse'><summary>📄 View Task Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{parsed_task_desc}</div></details>"
 
+                # 🐙 GITHUB UI INJECTION
+                prs = get_prs_for_issue(t_key)
+                if prs:
+                    html += "<div class='pr-section'>"
+                    html += "<h4 style='margin: 0 0 10px 0; color: #24292f; font-size: 0.9em;'>🐙 Linked Pull Requests</h4>"
+                    for pr in prs:
+                        state = pr.get("state")
+                        if state == "closed" and pr.get("merged_at"):
+                            state_str, badge_class = "Merged", "pr-badge-merged"
+                        elif state == "closed":
+                            state_str, badge_class = "Closed", "pr-badge-closed"
+                        else:
+                            state_str, badge_class = "Open", "pr-badge-open"
+
+                        pr_title = pr.get("title")
+                        pr_url = pr.get("html_url")
+                        pr_author = pr.get("user", {}).get("login", "Unknown")
+                        html += f"<div style='display: flex; align-items: center; margin-bottom: 6px;'><span class='{badge_class}'>{state_str}</span><a href='{pr_url}' target='_blank' class='pr-link' style='margin-left: 8px;'>{pr_title}</a><span style='font-size: 0.85em; color: #57606a; margin-left: 8px;'>by @{pr_author}</span></div>"
+                    html += "</div>"
+
                 target_comments_html = ""
                 for c, dt_vn in target_comments_data:
                     parsed_body = convert_adf_to_html(c["body"], att_map)
@@ -740,6 +837,7 @@ def run_daily_snapshot(target_user_date):
 
     print("-" * 60 + f"\n🏁 HTML Snapshot complete! Saved securely to:\n{file_path}")
 
+    # The Python script still controls updating the /today shortcut
     if is_actual_today:
         today_dir = os.path.join(save_dir, "today")
         os.makedirs(today_dir, exist_ok=True)
