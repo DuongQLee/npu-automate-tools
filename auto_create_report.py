@@ -38,6 +38,9 @@ PENDING_STATUSES = '"Open", "OPEN", "To Do", "TODO", "On Hold", "ON HOLD"'
 # 🌍 Define Vietnam Timezone (UTC+7)
 VN_TZ = timezone(timedelta(hours=7), name="ICT")
 
+# 🐛 DEBUG MODE
+DEBUG = False
+
 # ==============================================================================
 
 auth = HTTPBasicAuth(ATLASSIAN_EMAIL, ATLASSIAN_API_TOKEN)
@@ -81,16 +84,11 @@ GLOBAL_PR_MAP = {}
 
 
 def preload_github_prs(all_issues):
-    """
-    Batches Jira ticket IDs and explicitly searches GitHub for them.
-    This guarantees finding the PR regardless of how old it is.
-    """
     global GLOBAL_PR_MAP
     if not GITHUB_TOKEN or not GITHUB_REPO:
         print("⚠️ GitHub Token or Repo missing. Skipping PR integration.")
         return
 
-    # Extract unique Jira keys from all fetched tickets
     unique_keys = list(set([issue["key"] for issue in all_issues]))
     if not unique_keys:
         return
@@ -104,25 +102,23 @@ def preload_github_prs(all_issues):
     }
     search_url = "https://api.github.com/search/issues"
 
-    # Chunk into groups of 5 to keep the search string manageable and fast
     for i in range(0, len(unique_keys), 5):
         chunk = unique_keys[i : i + 5]
-
-        # Build search query: repo:moreh/my-repo is:pr "MV-123" OR "MV-124"
         query_str = " OR ".join([f'"{k}"' for k in chunk])
         q = f"repo:{GITHUB_REPO} is:pr {query_str}"
 
-        res = requests.get(
-            search_url, headers=gh_headers, params={"q": q, "per_page": 100}
-        )
+        params = {"q": q, "per_page": 100}
 
-        # Protect against GitHub's 30 requests/minute search rate limit
+        if DEBUG:
+            encoded_query = urllib.parse.urlencode(params)
+            print(f"\n🔗 DEBUG GITHUB SEARCH URL:\n{search_url}?{encoded_query}\n")
+
+        res = requests.get(search_url, headers=gh_headers, params=params)
+
         if res.status_code == 403:
             print("⚠️ GitHub Search Rate Limit approaching. Pausing for 3 seconds...")
             time.sleep(3)
-            res = requests.get(
-                search_url, headers=gh_headers, params={"q": q, "per_page": 100}
-            )
+            res = requests.get(search_url, headers=gh_headers, params=params)
 
         if res.status_code == 200:
             items = res.json().get("items", [])
@@ -131,12 +127,9 @@ def preload_github_prs(all_issues):
                 if not pr_url:
                     continue
 
-                # Fetch actual PR object to guarantee we get the 'merged_at' data
                 pr_res = requests.get(pr_url, headers=gh_headers)
                 if pr_res.status_code == 200:
                     pr_data = pr_res.json()
-
-                    # Search the Title, Body, and Branch Name for Jira Tags
                     search_text = f"{pr_data.get('title', '')} {pr_data.get('body', '')} {pr_data.get('head', {}).get('ref', '')}"
                     matches = set(re.findall(r"(MV-\d+)", search_text, re.IGNORECASE))
 
@@ -145,7 +138,6 @@ def preload_github_prs(all_issues):
                         if key in chunk:
                             if key not in GLOBAL_PR_MAP:
                                 GLOBAL_PR_MAP[key] = []
-                            # Prevent duplicates
                             if not any(
                                 p["id"] == pr_data["id"] for p in GLOBAL_PR_MAP[key]
                             ):
@@ -153,7 +145,7 @@ def preload_github_prs(all_issues):
         else:
             print(f"❌ Failed GitHub Search Chunk: {res.status_code} - {res.text}")
 
-        time.sleep(0.5)  # Gentle pause between chunks
+        time.sleep(0.5)
 
 
 def get_prs_for_issue(issue_key):
@@ -360,9 +352,12 @@ def fetch_issues(jql):
         "maxResults": 100,
     }
 
-    query_string = urllib.parse.urlencode(params)
-    full_url = f"{search_url}?{query_string}"
-    print(f"Calling GET: {full_url}")
+    if DEBUG:
+        query_string = urllib.parse.urlencode(params)
+        full_url = f"{search_url}?{query_string}"
+        print(f"\n🔗 DEBUG JIRA ISSUE URL:\n{full_url}\n")
+    else:
+        print(f"Calling GET: {search_url} (JQL: {jql})")
 
     response = requests.get(search_url, headers=headers, auth=auth, params=params)
 
@@ -393,6 +388,9 @@ def fetch_comments(issue_key):
         return COMMENT_CACHE[issue_key]
     comments_url = f"{jira_base_url}/issue/{issue_key}/comment"
 
+    if DEBUG:
+        print(f"\n🔗 DEBUG JIRA COMMENT URL:\n{comments_url}\n")
+
     response = requests.get(comments_url, headers=headers, auth=auth)
     if response.status_code == 200:
         comments = response.json().get("comments", [])
@@ -418,12 +416,8 @@ def run_daily_snapshot(target_user_date):
     actual_system_today = datetime.now(VN_TZ).strftime("%Y-%m-%d")
     is_actual_today = today_str == actual_system_today
 
-    disabled_class = "disabled" if is_actual_today else ""
-    disabled_attr = "disabled" if is_actual_today else ""
-
     done_jql_today = f'(status changed to "Done" on "{today_str}" OR status changed to "Closed" on "{today_str}")'
 
-    # FETCH ALL JIRA TICKETS
     active_epics = fetch_issues(
         f"{CORE_JQL} AND issuetype = Epic AND (status IN ({ACTIVE_STATUSES}) OR {done_jql_today})"
     )
@@ -440,7 +434,6 @@ def run_daily_snapshot(target_user_date):
         f"{CORE_JQL} AND issuetype = Epic AND status IN ({PENDING_STATUSES})"
     )
 
-    # 🐙 PRELOAD GITHUB PRS FOR ALL FETCHED TICKETS
     all_issues = (
         active_epics + active_tasks + yesterday_epics + yesterday_tasks + pending_epics
     )
@@ -482,7 +475,6 @@ def run_daily_snapshot(target_user_date):
           <meta charset="UTF-8">
           <title>Daily Sync Snapshot ({today_str})</title>
           <style>
-              /* 🌟 Modern CSS Reset & Basics */
               :root {{
                   --bg-body: #f4f5f7; --text-main: #172b4d; --text-muted: #5e6c84; --border-color: #dfe1e6;
                   --epic-border-today: #0052cc; --epic-bg-today: #ebf0f5; --epic-border-yest: #6554c0; --epic-bg-yest: #f0eff8;
@@ -524,12 +516,12 @@ def run_daily_snapshot(target_user_date):
               .update-badge.zero {{ background: #f4f5f7; color: #5e6c84; font-weight: 500; }}
               .update-badge.purple {{ background: #eae6ff; color: #403294; }} 
 
-              /* 🐙 GITHUB PR CSS */
-              .pr-section {{ margin-bottom: 15px; padding: 12px; background: #f6f8fa; border-radius: 6px; border: 1px solid #d0d7de; }}
+              /* 🐙 GITHUB PR CSS - OPTIMIZED FOR 0 MARGINS */
+              .pr-section {{ margin-top: -1px; margin-bottom: 0; padding: 6px 12px; background: #fafbfc; border-radius: 4px; border: 1px dashed var(--border-color); position: relative; z-index: 1; }}
               .pr-badge-open {{ background: #2da44e; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: bold; }}
               .pr-badge-merged {{ background: #8250df; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: bold; }}
               .pr-badge-closed {{ background: #cf222e; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: bold; }}
-              .pr-link {{ color: #0969da; text-decoration: none; font-weight: 500; }}
+              .pr-link {{ color: #0969da; text-decoration: none; font-weight: 600; }}
               .pr-link:hover {{ text-decoration: underline; }}
 
               .comment-card {{ margin-top: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: #ffffff; }}
@@ -539,14 +531,15 @@ def run_daily_snapshot(target_user_date):
               .comment-body {{ padding: 15px; border-top: 1px solid var(--border-color); font-size: 0.95em; }}
               .tag-pill {{ color: #0052cc; font-size: 0.8em; font-family: monospace; background: #deebff; padding: 2px 8px; border-radius: 12px; margin-left: 6px; white-space: nowrap; font-weight: 600; }}
 
+              /* ⚙️ Utility - OPTIMIZED FOR 0 MARGINS */
               .desc-collapse summary {{ cursor: pointer; padding: 8px 12px; background: #fafbfc; font-size: 0.9em; outline: none; border-bottom: 1px dashed var(--border-color); color: var(--text-muted); user-select: none; border-radius: 4px; }}
-              .desc-collapse {{ margin-bottom: 20px; border: 1px dashed var(--border-color); border-radius: 4px; }}
+              .desc-collapse {{ margin-bottom: 0; border: 1px dashed var(--border-color); border-radius: 4px; }}
+              
               .history-btn {{ background-color: #fafbfc; border: 1px solid var(--border-color); padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 0.9em; font-weight: 600; color: var(--text-muted); margin-top: 10px; width: 100%; text-align: left; transition: all 0.2s; }}
               .history-btn:hover {{ background-color: #f4f5f7; color: var(--text-main); }}
           </style>
           
           <script>
-              // 🧠 CLIENT-SIDE DATE CHECKER
               document.addEventListener("DOMContentLoaded", function() {{
                   const reportDate = "{today_str}"; 
                   
@@ -702,7 +695,7 @@ def run_daily_snapshot(target_user_date):
                     if epic_data["description"]
                     else "<em>No description provided.</em>"
                 )
-                html += f"<details class='desc-collapse epic-desc'><summary>📄 View Epic Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{parsed_epic_desc}</div></details>"
+                html += f"<details class='desc-collapse epic-desc'><summary>📄 Epic Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{parsed_epic_desc}</div></details>"
 
             if not epic_data["tasks"]:
                 html += "<p style='color: var(--text-muted);'><em>No active tasks currently linked to this Epic.</em></p>"
@@ -752,13 +745,14 @@ def run_daily_snapshot(target_user_date):
                     if task_desc_adf
                     else "<em>No description provided.</em>"
                 )
-                html += f"<details class='desc-collapse'><summary>📄 View Task Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{parsed_task_desc}</div></details>"
 
-                # 🐙 GITHUB UI INJECTION
+                # 1️⃣ TASK DESCRIPTION BLOCK
+                html += f"<details class='desc-collapse'><summary>📄 Task Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{parsed_task_desc}</div></details>"
+
+                # 2️⃣ GITHUB UI INJECTION (Flush with description)
                 prs = get_prs_for_issue(t_key)
                 if prs:
                     html += "<div class='pr-section'>"
-                    html += "<h4 style='margin: 0 0 10px 0; color: #24292f; font-size: 0.9em;'>🐙 Linked Pull Requests</h4>"
                     for pr in prs:
                         state = pr.get("state")
                         if state == "closed" and pr.get("merged_at"):
@@ -768,12 +762,25 @@ def run_daily_snapshot(target_user_date):
                         else:
                             state_str, badge_class = "Open", "pr-badge-open"
 
-                        pr_title = pr.get("title")
+                        pr_title = pr.get("title", "")
+                        # Regex cleans out the [MV-XXXX] tags from the title to prevent visual redundancy
+                        clean_title = re.sub(
+                            r"\[?MV-\d+\]?\s*", "", pr_title, flags=re.IGNORECASE
+                        ).strip()
+
                         pr_url = pr.get("html_url")
                         pr_author = pr.get("user", {}).get("login", "Unknown")
-                        html += f"<div style='display: flex; align-items: center; margin-bottom: 6px;'><span class='{badge_class}'>{state_str}</span><a href='{pr_url}' target='_blank' class='pr-link' style='margin-left: 8px;'>{pr_title}</a><span style='font-size: 0.85em; color: #57606a; margin-left: 8px;'>by @{pr_author}</span></div>"
+
+                        # Single line: [Badge] [Link] CleanTitle @username
+                        html += f"<div style='display: flex; align-items: center; margin: 2px 0; font-size: 0.9em;'>"
+                        html += f"<span class='{badge_class}'>{state_str}</span>"
+                        html += f"<a href='{pr_url}' target='_blank' class='pr-link' style='margin-left: 8px;'>🐙 [{t_key}]</a>"
+                        html += f"<span style='margin-left: 6px; color: var(--text-main); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 500px;'>{clean_title}</span>"
+                        html += f"<span style='margin-left: 6px; color: #57606a;'>@{pr_author}</span>"
+                        html += "</div>"
                     html += "</div>"
 
+                # 3️⃣ COMMENTS SECTION
                 target_comments_html = ""
                 for c, dt_vn in target_comments_data:
                     parsed_body = convert_adf_to_html(c["body"], att_map)
@@ -790,10 +797,11 @@ def run_daily_snapshot(target_user_date):
                     if not is_yesterday
                     else f"Updates on {yesterday_str}"
                 )
+
                 if target_comments_html:
-                    html += f"<h4 style='margin-top: 0; color: {border_color}; margin-bottom: 10px;'>{label}</h4>{target_comments_html}"
+                    html += f"<h4 style='margin-top: 8px; color: {border_color}; margin-bottom: 8px;'>{label}</h4>{target_comments_html}"
                 else:
-                    html += f"<p style='margin-top: 0; color: var(--text-muted); font-size: 0.9em;'><em>No comments made.</em></p>"
+                    html += f"<p style='margin-top: 8px; color: var(--text-muted); font-size: 0.9em;'><em>No comments made.</em></p>"
 
                 if hist_comments_data:
                     hist_comments_data = hist_comments_data[-MAX_HISTORY_COMMENTS:]
@@ -830,6 +838,10 @@ def run_daily_snapshot(target_user_date):
 
     html += f"<h2 style='color: var(--text-main); margin-bottom: 15px; margin-top: 50px;'>⏸️ Upcoming & On Hold Epics</h2>"
 
+    pending_epics = fetch_issues(
+        f"{CORE_JQL} AND issuetype = Epic AND status IN ({PENDING_STATUSES})"
+    )
+
     if pending_epics:
         for epic in pending_epics:
             e_key, e_sum = epic["key"], epic["fields"]["summary"]
@@ -849,7 +861,7 @@ def run_daily_snapshot(target_user_date):
                 if epic_desc_adf
                 else "<em>No description provided.</em>"
             )
-            html += f"<details class='desc-collapse epic-desc'><summary>📄 View Epic Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{parsed_epic_desc}</div></details></div></details>"
+            html += f"<details class='desc-collapse epic-desc'><summary>📄 Epic Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{parsed_epic_desc}</div></details></div></details>"
     else:
         html += "<p style='color: var(--text-muted);'><em>No Epics are currently pending or on hold.</em></p>"
 
