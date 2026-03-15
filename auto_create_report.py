@@ -450,7 +450,7 @@ def run_daily_snapshot(target_user_date):
                 "tasks": [],
             }
         emap["OTHER"] = {
-            "summary": "Standalone Tasks (No Active Epic Parent)",
+            "summary": "Standalone Issues (No Active Epic Parent)",
             "status": "",
             "description": None,
             "attachments": [],
@@ -531,9 +531,11 @@ def run_daily_snapshot(target_user_date):
               .comment-body {{ padding: 15px; border-top: 1px solid var(--border-color); font-size: 0.95em; }}
               .tag-pill {{ color: #0052cc; font-size: 0.8em; font-family: monospace; background: #deebff; padding: 2px 8px; border-radius: 12px; margin-left: 6px; white-space: nowrap; font-weight: 600; }}
 
-              /* ⚙️ Utility - OPTIMIZED FOR 0 MARGINS */
-              .desc-collapse summary {{ cursor: pointer; padding: 8px 12px; background: #fafbfc; font-size: 0.9em; outline: none; border-bottom: 1px dashed var(--border-color); color: var(--text-muted); user-select: none; border-radius: 4px; }}
-              .desc-collapse {{ margin-bottom: 0; border: 1px dashed var(--border-color); border-radius: 4px; }}
+              /* ⚙️ UI BLENDING OPTIMIZATION */
+              .desc-collapse summary {{ cursor: pointer; background: #fafbfc; font-size: 0.9em; outline: none; border-bottom: 1px solid var(--border-color); color: var(--text-muted); user-select: none; }}
+              .desc-collapse {{ margin: 0; border: none; border-bottom: 1px solid var(--border-color); background: #ffffff; }}
+              .epic-block > .desc-collapse summary {{ padding: 10px 20px; }}
+              .task-block > .desc-collapse summary {{ padding: 8px 16px; background: #fdfdfd; }}
               
               .history-btn {{ background-color: #fafbfc; border: 1px solid var(--border-color); padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 0.9em; font-weight: 600; color: var(--text-muted); margin-top: 10px; width: 100%; text-align: left; transition: all 0.2s; }}
               .history-btn:hover {{ background-color: #f4f5f7; color: var(--text-main); }}
@@ -632,7 +634,7 @@ def run_daily_snapshot(target_user_date):
         if not epics_data or (
             len(epics_data) == 1 and not epics_data.get("OTHER", {}).get("tasks")
         ):
-            html += f"<p style='color: #5e6c84;'><em>No active items found for this day.</em></p>"
+            html += f"<p style='color: #5e6c84;'><em>No active issues found for this day.</em></p>"
             return
 
         for epic_key, epic_data in epics_data.items():
@@ -680,11 +682,10 @@ def run_daily_snapshot(target_user_date):
 
             html += f"<details {'open' if not is_yesterday else ''} class='epic-block' style='border-top: 4px solid {border_color};'>"
             html += f"<summary class='epic-summary' style='background: {bg_color};'>"
-            html += f"<div style='display: flex; align-items: center;'>🔷&nbsp;{epic_link}&nbsp;{e_sum_display} <span style='font-weight: normal; font-size: 0.85em; color: var(--text-muted); margin-left: 8px;'>({len(epic_data['tasks'])} tasks)</span></div>"
+            html += f"<div style='display: flex; align-items: center;'>🔷&nbsp;{epic_link}&nbsp;{e_sum_display} <span style='font-weight: normal; font-size: 0.85em; color: var(--text-muted); margin-left: 8px;'>({len(epic_data['tasks'])} issues)</span></div>"
             html += (
                 f"<span class='{epic_badge_class}'>{epic_badge_text}</span></summary>"
             )
-            html += f"<div class='epic-content'>"
 
             if epic_key != "OTHER":
                 epic_att_map = {
@@ -695,10 +696,12 @@ def run_daily_snapshot(target_user_date):
                     if epic_data["description"]
                     else "<em>No description provided.</em>"
                 )
-                html += f"<details class='desc-collapse epic-desc'><summary>📄 Epic Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{parsed_epic_desc}</div></details>"
+                html += f"<details class='desc-collapse epic-desc'><summary>📄 Epic Description</summary><div style='padding: 15px 20px; background-color: #ffffff; font-size: 0.95em;'>{parsed_epic_desc}</div></details>"
+
+            html += f"<div class='epic-content'>"
 
             if not epic_data["tasks"]:
-                html += "<p style='color: var(--text-muted);'><em>No active tasks currently linked to this Epic.</em></p>"
+                html += "<p style='color: var(--text-muted);'><em>No active issues currently linked to this Epic.</em></p>"
 
             for task in epic_data["tasks"]:
                 t_key, t_sum = task["key"], task["fields"]["summary"]
@@ -733,7 +736,6 @@ def run_daily_snapshot(target_user_date):
                 html += f"<summary class='task-summary'>"
                 html += f"<div style='display: flex; align-items: center; gap: 8px;'>🛠️ <a href='https://{ATLASSIAN_DOMAIN}/browse/{t_key}' target='_blank'>[{t_key}]</a> {t_sum_display}</div>"
                 html += f"<span class='{badge_class}'>{badge_text}</span></summary>"
-                html += f"<div class='task-content'>"
 
                 att_map = {
                     att["filename"]: att["content"]
@@ -746,10 +748,12 @@ def run_daily_snapshot(target_user_date):
                     else "<em>No description provided.</em>"
                 )
 
-                # 1️⃣ TASK DESCRIPTION BLOCK
-                html += f"<details class='desc-collapse'><summary>📄 Task Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{parsed_task_desc}</div></details>"
+                # 1️⃣ ISSUE DESCRIPTION BLOCK (Flush with header)
+                html += f"<details class='desc-collapse'><summary>📄 Issue Description</summary><div style='padding: 12px 16px; background-color: #ffffff; font-size: 0.95em;'>{parsed_task_desc}</div></details>"
 
-                # 2️⃣ GITHUB UI INJECTION (Flush with description)
+                html += f"<div class='task-content'>"
+
+                # 2️⃣ GITHUB UI INJECTION
                 prs = get_prs_for_issue(t_key)
                 if prs:
                     html += "<div class='pr-section'>"
@@ -763,7 +767,6 @@ def run_daily_snapshot(target_user_date):
                             state_str, badge_class = "Open", "pr-badge-open"
 
                         pr_title = pr.get("title", "")
-                        # Regex cleans out the [MV-XXXX] tags from the title to prevent visual redundancy
                         clean_title = re.sub(
                             r"\[?MV-\d+\]?\s*", "", pr_title, flags=re.IGNORECASE
                         ).strip()
@@ -771,11 +774,11 @@ def run_daily_snapshot(target_user_date):
                         pr_url = pr.get("html_url")
                         pr_author = pr.get("user", {}).get("login", "Unknown")
 
-                        # Single line: [Badge] [Link] CleanTitle @username
+                        # Single line: [Status Badge] [MV-XXXX] Clean Title @username
                         html += f"<div style='display: flex; align-items: center; margin: 2px 0; font-size: 0.9em;'>"
                         html += f"<span class='{badge_class}'>{state_str}</span>"
-                        html += f"<a href='{pr_url}' target='_blank' class='pr-link' style='margin-left: 8px;'>🐙 [{t_key}]</a>"
-                        html += f"<span style='margin-left: 6px; color: var(--text-main); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 500px;'>{clean_title}</span>"
+                        html += f"<a href='{pr_url}' target='_blank' class='pr-link' style='margin-left: 8px; margin-right: 6px;'>🐙 [{t_key}]</a>"
+                        html += f"<span style='color: var(--text-main); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 500px;'>{clean_title}</span>"
                         html += f"<span style='margin-left: 6px; color: #57606a;'>@{pr_author}</span>"
                         html += "</div>"
                     html += "</div>"
@@ -797,7 +800,6 @@ def run_daily_snapshot(target_user_date):
                     if not is_yesterday
                     else f"Updates on {yesterday_str}"
                 )
-
                 if target_comments_html:
                     html += f"<h4 style='margin-top: 8px; color: {border_color}; margin-bottom: 8px;'>{label}</h4>{target_comments_html}"
                 else:
@@ -850,7 +852,7 @@ def run_daily_snapshot(target_user_date):
 
             html += f"<details class='epic-block' style='border-top: 4px solid #ff991f; margin-bottom: 10px;'>"
             html += f"<summary class='epic-summary' style='background: #fff4e5;'><div>⏳ <a href='https://{ATLASSIAN_DOMAIN}/browse/{e_key}' target='_blank'>[{e_key}]</a> <span style='margin-left:8px;'>{e_sum}</span> {e_status_badge}</div></summary>"
-            html += f"<div class='epic-content'>"
+
             att_map = {
                 att["filename"]: att["content"]
                 for att in epic["fields"].get("attachment", [])
@@ -861,7 +863,9 @@ def run_daily_snapshot(target_user_date):
                 if epic_desc_adf
                 else "<em>No description provided.</em>"
             )
-            html += f"<details class='desc-collapse epic-desc'><summary>📄 Epic Description</summary><div style='padding: 10px 15px; background-color: #ffffff; font-size: 0.95em;'>{parsed_epic_desc}</div></details></div></details>"
+            html += f"<details class='desc-collapse epic-desc'><summary>📄 Epic Description</summary><div style='padding: 15px 20px; background-color: #ffffff; font-size: 0.95em;'>{parsed_epic_desc}</div></details>"
+
+            html += f"<div class='epic-content'></div></details>"
     else:
         html += "<p style='color: var(--text-muted);'><em>No Epics are currently pending or on hold.</em></p>"
 

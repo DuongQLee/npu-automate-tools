@@ -2,21 +2,11 @@ name: Jira Daily Report Schedule
 
 on:
   schedule:
-    # 1. High Resolution: 15-min intervals during extended working hours (08:00 - 19:59 VN Time)
-    # VN Time is UTC+7. So 08:00 VN = 01:00 UTC, and 19:59 VN = 12:59 UTC.
     - cron: '*/15 1-12 * * *'
-    
-    # 2. Low Resolution: 30-min intervals outside working hours
-    # 20:00 to 23:30 VN (13-16 UTC), 01:00 to 07:30 VN (18-23, 0 UTC)
     - cron: '0,30 0,13-16,18-23 * * *'
-    
-    # 3. Low Resolution (Midnight Hour Exception): 00:30 VN Time (17:30 UTC)
     - cron: '30 17 * * *'
-    
-    # 4. Midnight Rollover: 00:01 VN Time (17:01 UTC) - Updates Yesterday AND Today
     - cron: '1 17 * * *'
-    
-  workflow_dispatch: # Allows you to trigger it manually via a button!
+  workflow_dispatch: 
 
 concurrency:
   group: "npu-daily-report"
@@ -26,14 +16,14 @@ jobs:
   run-report:
     runs-on: self-hosted
     steps:
-      - name: Checkout Latest Main (For the Runner)
+      - name: Checkout Latest Main
         uses: actions/checkout@v4
         with:
           ref: main
           clean: true
           fetch-depth: 1
 
-      - name: Sync Local Manual Folder (Safe Reset)
+      - name: Sync Local Manual Folder
         run: |
           cd /home/moreh/npu-automate-tools
           git fetch origin main
@@ -45,17 +35,23 @@ jobs:
       - name: Run Snapshot Scripts
         env:
           API_TOKEN: ${{ secrets.API_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Because of our config.py update, we technically don't even need this env var 
+          # anymore unless we want to override it to a completely different hard drive location.
           RESULT_FOLDER: /home/moreh/npu-automate-tools/mv-npu_daily_report 
         run: |
           uv sync
+          
+          # 👇 Navigate into your new specific tool folder before running!
+          cd /home/moreh/npu-automate-tools/create_daily_report
           
           HOUR=$(date -u +'%H')
           MINUTE=$(date -u +'%M')
           
           if [ "$HOUR" == "17" ] && [ "$MINUTE" == "01" ]; then
             echo "🌙 Midnight Rollover detected! Generating Yesterday (-1) and Today (0)..."
-            uv run auto_create_report.py -d -1 0
+            uv run main.py -d -1 0
           else
             echo "☀️ Standard Run! Generating Today (0) only..."
-            uv run auto_create_report.py -d 0
+            uv run main.py -d 0
           fi
