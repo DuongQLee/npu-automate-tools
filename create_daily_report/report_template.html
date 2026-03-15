@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Daily Sync Snapshot ({{ today_str }})</title>
+    <style>
+        /* ☀️ LIGHT THEME VARIABLES */
+        :root {
+            --bg-body: #f4f5f7;
+            --bg-surface: #ffffff;
+            --bg-surface-hover: #fafbfc;
+            --bg-surface-muted: #f6f8fa;
+            --text-main: #172b4d;
+            --text-muted: #5e6c84;
+            --border-color: #dfe1e6;
+            --link-color: #0969da;
+            --code-bg: #f4f5f7;
+
+            --badge-bg-default: #dfe1e6; --badge-text-default: #42526e;
+            --badge-bg-success: #e3fcef; --badge-text-success: #066637;
+            --badge-bg-info: #deebff;    --badge-text-info: #0052cc;
+            --badge-bg-purple: #eae6ff;  --badge-text-purple: #403294;
+            --badge-bg-danger: #ffebe6;  --badge-text-danger: #bf2600;
+            --badge-bg-warn: #fffae6;    --badge-text-warn: #ff8b00;
+
+            --pr-open: #2da44e;
+            --pr-merged: #8250df;
+            --pr-closed: #cf222e;
+
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow-md: 0 2px 8px rgba(9, 30, 66, 0.08);
+            --shadow-lg: 0 4px 12px rgba(9, 30, 66, 0.12);
+        }
+
+        /* 🌙 DARK THEME VARIABLES */
+        [data-theme="dark"] {
+            --bg-body: #0d1117;
+            --bg-surface: #161b22;
+            --bg-surface-hover: #21262d;
+            --bg-surface-muted: #010409;
+            --text-main: #c9d1d9;
+            --text-muted: #8b949e;
+            --border-color: #30363d;
+            --link-color: #58a6ff;
+            --code-bg: #161b22;
+
+            --badge-bg-default: rgba(110, 118, 129, 0.4); --badge-text-default: #c9d1d9;
+            --badge-bg-success: rgba(46, 160, 67, 0.15);  --badge-text-success: #3fb950;
+            --badge-bg-info: rgba(56, 139, 253, 0.15);    --badge-text-info: #58a6ff;
+            --badge-bg-purple: rgba(163, 113, 247, 0.15); --badge-text-purple: #d2a8ff;
+            --badge-bg-danger: rgba(248, 81, 73, 0.15);   --badge-text-danger: #ff7b72;
+            --badge-bg-warn: rgba(210, 153, 34, 0.15);    --badge-text-warn: #d29922;
+
+            --pr-open: #3fb950;
+            --pr-merged: #d2a8ff;
+            --pr-closed: #f85149;
+
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
+            --shadow-md: 0 2px 8px rgba(0,0,0,0.6);
+            --shadow-lg: 0 4px 12px rgba(0,0,0,0.8);
+        }
+
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg-body); color: var(--text-main); max-width: 1000px; margin: 40px auto 0 auto; padding: 0 20px; line-height: 1.6; transition: background 0.3s, color 0.3s; }
+        a { color: var(--link-color); text-decoration: none; } a:hover { text-decoration: underline; }
+        mark { background-color: #ffea00; color: #000; padding: 0 2px; border-radius: 2px; }
+        
+        .header-container { display: flex; align-items: center; justify-content: space-between; padding-bottom: 20px; border-bottom: 2px solid var(--border-color); }
+        .nav-left, .nav-right { flex: 1; display: flex; } .nav-left { justify-content: flex-start; } .nav-right { justify-content: flex-end; gap: 10px; }
+        .header-title { flex: 2; text-align: center; } h1 { margin: 0; font-size: 1.8em; color: var(--text-main); }
+        
+        .nav-btn { font-family: inherit; background: var(--bg-surface); border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.9em; box-shadow: var(--shadow-sm); transition: background 0.2s; color: var(--text-main); display: inline-flex; align-items: center; cursor: pointer; }
+        .nav-btn:hover:not(.disabled) { background: var(--bg-surface-hover); } .nav-btn.disabled { opacity: 0.4; cursor: not-allowed; background: var(--bg-body); box-shadow: none; }
+        
+        /* 🔍 SEARCH BAR & DROPDOWN UI */
+        .search-container { position: sticky; top: 0; z-index: 100; background: var(--bg-body); padding: 20px 0; margin-bottom: 10px; }
+        .search-wrapper { position: relative; width: 100%; }
+        #searchInput { width: 100%; padding: 14px 20px; font-size: 16px; border: 1px solid var(--border-color); border-radius: 8px; outline: none; box-sizing: border-box; background-color: var(--bg-surface); color: var(--text-main); box-shadow: var(--shadow-sm); transition: all 0.2s ease; }
+        #searchInput:focus { border-color: var(--link-color); box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15); }
+        
+        .search-dropdown { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow-lg); z-index: 200; display: none; max-height: 400px; overflow-y: auto; }
+        .search-result-item { padding: 12px 16px; border-bottom: 1px solid var(--border-color); cursor: pointer; font-size: 0.9em; transition: background 0.2s; }
+        .search-result-item:last-child { border-bottom: none; }
+        .search-result-item:hover { background: var(--bg-surface-hover); }
+        .search-result-item strong { color: var(--link-color); font-family: monospace; font-size: 1.1em; }
+        .search-result-item span.author { color: var(--text-muted); font-weight: 600; margin-right: 6px; }
+        .search-result-item span.snippet { color: var(--text-main); display: inline-block; margin-top: 4px; line-height: 1.4; word-break: break-word; }
+
+        summary { list-style: none; } summary::-webkit-details-marker { display: none; }
+        
+        .collapse-icon { display: inline-block; font-size: 1.3em; margin-right: 8px; color: var(--text-muted); transition: transform 0.2s; line-height: 1; vertical-align: middle; }
+        .epic-block[open] > .epic-summary .collapse-icon, .task-block[open] > .task-summary .collapse-icon { transform: rotate(90deg); }
+        .ticket-id { font-family: monospace; font-size: 0.95em; opacity: 0.85; margin-right: 6px; }
+
+        .epic-block { margin-bottom: 24px; border-radius: 8px; background: var(--bg-surface); box-shadow: var(--shadow-md); overflow: hidden; transition: all 0.2s; }
+        .epic-block[open] { box-shadow: var(--shadow-lg); }
+        .epic-summary { padding: 16px 20px; font-weight: 600; font-size: 1.15em; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid transparent; }
+        .epic-block[open] .epic-summary { border-bottom: 1px solid var(--border-color); } 
+        .epic-content { padding: 0; background: var(--bg-body); }
+        
+        .task-block { margin: 16px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface); overflow: hidden; box-shadow: var(--shadow-sm); }
+        .task-summary { padding: 12px 16px; background: var(--bg-surface); font-weight: 500; font-size: 0.95em; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid transparent; transition: background 0.2s; }
+        .task-summary:hover { background: var(--bg-surface-hover); } .task-block[open] .task-summary { border-bottom: 1px solid var(--border-color); background: var(--bg-surface); }
+        .task-content { padding: 0; background: var(--bg-surface); }
+        
+        .update-badge { background: var(--badge-bg-success); color: var(--badge-text-success); padding: 4px 10px; border-radius: 12px; font-size: 0.85em; font-weight: bold; white-space: nowrap; } 
+        .update-badge.zero { background: var(--bg-body); color: var(--text-muted); font-weight: 500; } 
+        .update-badge.purple { background: var(--badge-bg-purple); color: var(--badge-text-purple); } 
+        .status-badge { padding: 3px 8px; border-radius: 12px; font-size: 0.75em; font-weight: bold; margin-left: 8px; white-space: nowrap; }
+        
+        .sub-collapse { margin: 0; background: transparent; border-bottom: 1px solid var(--border-color); }
+        .sub-collapse:last-child { border-bottom: none; }
+        .sub-collapse > summary { cursor: pointer; background: transparent; font-size: 0.9em; font-weight: 600; outline: none; padding: 10px 16px; color: var(--text-main); user-select: none; transition: background 0.2s; }
+        .sub-collapse > summary:hover { background: var(--bg-surface-muted); }
+        .sub-collapse > summary::before { content: '\203A'; display: inline-block; font-size: 1.3em; margin-right: 8px; color: var(--text-muted); transition: transform 0.2s; transform: rotate(0deg); line-height: 1; vertical-align: middle; }
+        .sub-collapse[open] > summary::before { transform: rotate(90deg); }
+        .sub-content { padding: 16px; font-size: 0.95em; border-top: 1px dashed var(--border-color); background: var(--bg-surface-hover); }
+        
+        .pr-collapse { border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 8px; background: var(--bg-surface); overflow: hidden; box-shadow: var(--shadow-sm); }
+        .pr-collapse:last-child { margin-bottom: 0; }
+        .pr-collapse > summary { cursor: pointer; padding: 0; outline: none; }
+        .pr-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; font-size: 0.95em; transition: background 0.2s; }
+        .pr-collapse > summary:hover .pr-row { background: var(--bg-surface-muted); }
+        .pr-row-icon { display: inline-block; font-size: 1.3em; margin-right: 8px; color: var(--text-muted); transition: transform 0.2s; transform: rotate(0deg); line-height: 1; vertical-align: middle; }
+        .pr-collapse[open] .pr-row-icon { transform: rotate(90deg); }
+        .pr-details { padding: 12px; border-top: 1px dashed var(--border-color); background: var(--bg-surface-hover); }
+        .pr-stats { display: flex; gap: 15px; font-size: 0.85em; margin-bottom: 12px; color: var(--text-muted); background: var(--bg-surface-muted); padding: 8px 12px; border-radius: 4px; }
+        .pr-desc { font-family: monospace; white-space: pre-wrap; font-size: 0.85em; color: var(--text-main); background: var(--bg-surface); padding: 12px; border: 1px solid var(--border-color); border-radius: 4px; max-height: 300px; overflow-y: auto; }
+        .pr-link { color: var(--link-color); text-decoration: none; font-weight: 600; } .pr-link:hover { text-decoration: underline; }
+        
+        .comments-container { padding: 0 4px; }
+        .comment-group { margin-bottom: 16px; }
+        .comment-group > summary { cursor: pointer; background: transparent; font-size: 0.95em; font-weight: 600; outline: none; padding: 8px 0; color: var(--text-main); user-select: none; border-bottom: 1px solid var(--border-color); margin-bottom: 12px; display: flex; align-items: center; transition: color 0.2s; }
+        .comment-group > summary:hover { color: var(--link-color); }
+        .comment-group > summary::before { content: '\203A'; display: inline-block; font-size: 1.3em; margin-right: 8px; color: var(--text-muted); transition: transform 0.2s; transform: rotate(0deg); line-height: 1; vertical-align: middle;}
+        .comment-group[open] > summary::before { transform: rotate(90deg); }
+        .tag-pill { color: var(--link-color); font-size: 0.8em; font-family: monospace; background: var(--badge-bg-info); padding: 2px 8px; border-radius: 12px; margin-left: 6px; white-space: nowrap; font-weight: 600; border: 1px solid var(--border-color); }
+    </style>
+    <script>
+        // 🌓 Theme Logic
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute("data-theme");
+            const newTheme = currentTheme === "dark" ? "light" : "dark";
+            html.setAttribute("data-theme", newTheme);
+            localStorage.setItem("theme", newTheme);
+            document.getElementById("themeToggle").innerText = newTheme === "dark" ? "☀️" : "🌙";
+        }
+
+        // 🧠 GLOBAL VARIABLES FOR FAST SEARCH
+        let searchIndex = [];
+
+        document.addEventListener("DOMContentLoaded", function() {
+            // Theme Setup
+            const savedTheme = localStorage.getItem("theme");
+            const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+            if (savedTheme === "dark" || (!savedTheme && prefersDark)) {
+                document.documentElement.setAttribute("data-theme", "dark");
+                const toggleBtn = document.getElementById("themeToggle");
+                if(toggleBtn) toggleBtn.innerText = "☀️";
+            }
+
+            // Date Check Setup
+            const reportDate = "{{ today_str }}"; 
+            const vnTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Ho_Chi_Minh"}));
+            const currentVNDate = `${vnTime.getFullYear()}-${String(vnTime.getMonth() + 1).padStart(2, '0')}-${String(vnTime.getDate()).padStart(2, '0')}`;
+            if (reportDate >= currentVNDate) {
+                const nextBtn = document.getElementById("nextBtn");
+                if(nextBtn) { nextBtn.classList.add("disabled"); nextBtn.disabled = true; }
+            }
+
+            // 🧠 INDEX THE PAGE FOR INSTANT SEARCH PREVIEWS
+            document.querySelectorAll('.searchable-item').forEach(el => {
+                let textContent = el.textContent.replace(/\s+/g, ' ').trim();
+                searchIndex.push({
+                    el: el,
+                    key: el.getAttribute('data-key'),
+                    author: el.getAttribute('data-author') || '',
+                    text: textContent
+                });
+            });
+
+            // Handle Dropdown Dismissal
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.search-wrapper')) {
+                    document.getElementById('searchResults').style.display = 'none';
+                }
+            });
+            
+            document.getElementById('searchInput').addEventListener('focus', () => {
+                if (document.getElementById('searchResults').innerHTML.trim() !== '') {
+                    document.getElementById('searchResults').style.display = 'block';
+                }
+            });
+        });
+
+        // 🧠 IDE APPROACH: Recursive Deep Toggle
+        document.addEventListener('click', function(e) {
+            let summary = e.target.closest('summary');
+            if (!summary) return;
+
+            let details = summary.parentElement;
+            let isEpic = details.classList.contains('epic-block');
+            let isTask = details.classList.contains('task-block');
+
+            if (e.altKey && (isEpic || isTask)) {
+                e.preventDefault(); 
+                details.setAttribute('open', '');
+
+                if (isEpic) {
+                    let tasks = details.querySelectorAll('.task-block');
+                    let epicDesc = details.querySelector('.epic-desc');
+                    let isOpeningSubs = true;
+                    if (tasks.length > 0) { isOpeningSubs = !tasks[0].hasAttribute('open'); } 
+                    else if (epicDesc) { isOpeningSubs = !epicDesc.hasAttribute('open'); }
+                    
+                    if (epicDesc) {
+                        if (isOpeningSubs) epicDesc.setAttribute('open', '');
+                        else epicDesc.removeAttribute('open');
+                    }
+
+                    tasks.forEach(task => {
+                        if (isOpeningSubs) {
+                            task.setAttribute('open', '');
+                            task.querySelectorAll('.sub-collapse').forEach(sub => sub.setAttribute('open', ''));
+                        } else {
+                            task.removeAttribute('open');
+                            task.querySelectorAll('.sub-collapse').forEach(sub => sub.removeAttribute('open'));
+                        }
+                    });
+
+                } else if (isTask) {
+                    let allInnerDetails = details.querySelectorAll('details');
+                    if (allInnerDetails.length === 0) return;
+                    let isOpeningSubs = !allInnerDetails[0].hasAttribute('open');
+                    allInnerDetails.forEach(d => {
+                        if (isOpeningSubs) d.setAttribute('open', '');
+                        else d.removeAttribute('open');
+                    });
+                }
+            }
+        });
+
+        function goToReport(dateStr) {
+            let path = window.location.pathname;
+            window.location.href = path.match(/\/today\/?(index\.html)?$/) ? '../MV-NPU_Daily_Report_' + dateStr + '.html' : 'MV-NPU_Daily_Report_' + dateStr + '.html';
+        }
+
+        function removeHighlights(container) {
+            const marks = container.querySelectorAll("mark.search-hl");
+            marks.forEach(mark => {
+                const parent = mark.parentNode;
+                parent.replaceChild(document.createTextNode(mark.textContent), mark);
+                parent.normalize();
+            });
+        }
+
+        function highlightDOMText(node, regex) {
+            if (node.nodeType === 3) {
+                const match = node.nodeValue.match(regex);
+                if (match) {
+                    const mark = document.createElement("mark");
+                    mark.className = "search-hl";
+                    const wordNode = node.splitText(match.index);
+                    wordNode.splitText(match[0].length);
+                    const wordClone = wordNode.cloneNode(true);
+                    mark.appendChild(wordClone);
+                    wordNode.parentNode.replaceChild(mark, wordNode);
+                    return 1;
+                }
+            } else if (node.nodeType === 1 && node.childNodes && !/(script|style|mark)/i.test(node.tagName)) {
+                let i = 0;
+                while (i < node.childNodes.length) {
+                    i += highlightDOMText(node.childNodes[i], regex);
+                    i++;
+                }
+            }
+            return 0;
+        }
+
+        function filterReport() {
+            const searchInput = document.getElementById('searchInput');
+            const searchResults = document.getElementById('searchResults');
+            const query = searchInput.value.trim().toLowerCase();
+            
+            // 1. Regex setup for safe highlighting
+            const safeQuery = query.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            const rawRegex = query ? new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, "gi") : null;
+            const safeRegex = safeQuery ? new RegExp(`(${safeQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, "gi") : null;
+
+            // 2. DOM Filter & Background Highlighting
+            document.querySelectorAll('.epic-block').forEach(epic => {
+                removeHighlights(epic);
+                const epicSummary = epic.querySelector('.epic-summary');
+                const epicDesc = epic.querySelector('.epic-desc');
+                
+                let epicMatches = query && (epicSummary.textContent.toLowerCase().includes(query) || (epicDesc && epicDesc.textContent.toLowerCase().includes(query)));
+
+                let hasTask = false;
+                epic.querySelectorAll('.task-block').forEach(task => {
+                    const taskMatches = query && task.textContent.toLowerCase().includes(query);
+                    if (taskMatches || epicMatches || !query) { 
+                        task.style.display = 'block'; hasTask = true; 
+                        if (query && taskMatches) { task.setAttribute('open', ''); highlightDOMText(task, rawRegex); }
+                    } else { task.style.display = 'none'; }
+                });
+
+                if (epicMatches || hasTask || (epic.querySelectorAll('.task-block').length === 0 && epicMatches) || !query) { 
+                    epic.style.display = 'block'; 
+                    if (query) { epic.setAttribute('open', ''); highlightDOMText(epicSummary, rawRegex); if (epicDesc) highlightDOMText(epicDesc, rawRegex); }
+                } else { epic.style.display = 'none'; }
+            });
+
+            // 3. 🔍 DROPDOWN LIST LOGIC (Top 5 matches)
+            searchResults.innerHTML = '';
+            if (!query) {
+                searchResults.style.display = 'none';
+                return;
+            }
+
+            let matches = [];
+            for (let item of searchIndex) {
+                let idx = item.text.toLowerCase().indexOf(query);
+                if (idx !== -1) {
+                    matches.push({ item, idx });
+                    if (matches.length >= 5) break; // Capture only Top 5
+                }
+            }
+
+            if (matches.length > 0) {
+                searchResults.style.display = 'block';
+                matches.forEach(match => {
+                    // Extract a safe 80-character snippet
+                    let start = Math.max(0, match.idx - 40);
+                    let end = Math.min(match.item.text.length, match.idx + query.length + 40);
+                    let snippet = match.item.text.substring(start, end);
+                    
+                    if (start > 0) snippet = '...' + snippet;
+                    if (end < match.item.text.length) snippet = snippet + '...';
+
+                    // Safely highlight the snippet
+                    let safeSnippet = snippet.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                    let highlightedSnippet = safeSnippet.replace(safeRegex, "<mark>$1</mark>");
+
+                    let div = document.createElement('div');
+                    div.className = 'search-result-item';
+                    
+                    let headerStr = `<strong>[${match.item.key}]</strong>`;
+                    if (match.item.author) {
+                        headerStr += ` <span class="author">${match.item.author}</span>`;
+                    }
+
+                    div.innerHTML = `${headerStr}<br><span class="snippet">${highlightedSnippet}</span>`;
+                    
+                    // Click execution
+                    div.onclick = () => {
+                        match.item.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        searchResults.style.display = 'none';
+                        
+                        // Briefly flash the element background to help the user locate it
+                        match.item.el.style.transition = "background 0.5s";
+                        let oldBg = match.item.el.style.background;
+                        match.item.el.style.background = "rgba(88, 166, 255, 0.2)";
+                        setTimeout(() => match.item.el.style.background = oldBg, 1500);
+                    };
+                    
+                    searchResults.appendChild(div);
+                });
+            } else {
+                searchResults.style.display = 'none';
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="header-container">
+        <div class="nav-left"><button onclick="goToReport('{{ yesterday_str }}')" class="nav-btn">⬅️ Yesterday</button></div>
+        <div class="header-title"><h1>MV-NPU Daily Report {{ today_str }}</h1></div>
+        <div class="nav-right">
+            <button id="themeToggle" onclick="toggleTheme()" class="nav-btn" style="padding: 8px 12px; font-size: 1.1em;" title="Toggle Theme">🌙</button>
+            <button id="nextBtn" onclick="goToReport('{{ next_str }}')" class="nav-btn">Next ➡️</button>
+        </div>
+    </div>
+    
+    <div class="search-container">
+        <div class="search-wrapper">
+            <input type="text" id="searchInput" onkeyup="filterReport()" placeholder="🔍 Search tags, authors, issues... (Tip: Alt+Click headers to toggle contents)" autocomplete="off">
+            <div id="searchResults" class="search-dropdown"></div>
+        </div>
+    </div>
+
+    {% macro render_comment(comment, color_hex, task_key) %}
+    <div class="searchable-item" data-key="{{ task_key }}" data-author="@{{ comment.author | replace(' ', '') }}" style='margin-bottom: 12px; padding: 16px; border: 1px solid var(--border-color); border-left: 4px solid {{ color_hex }}; border-radius: 4px; background: var(--bg-surface); box-shadow: var(--shadow-sm);'>
+        <div style='margin-bottom: 8px; display: flex; align-items: center;'>
+            <strong style='color: var(--text-main); font-size: 0.95em;'>🗣️ {{ comment.author }}</strong> 
+            <span style='color: var(--text-muted); font-size: 0.85em; margin-left: 10px;'>{{ comment.time_str }}</span>
+        </div>
+        {% if comment.summary %}
+            <details class='comment-collapse'>
+                <summary style='font-weight: 600; font-size: 0.95em; color: var(--text-main); cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-surface-muted); border-radius: 4px; border: 1px solid var(--border-color); outline: none;'>
+                    <span>{{ comment.summary }}</span>
+                    <div style='flex-shrink: 0;'>{% for t in comment.tags %}<span class='tag-pill'>{{ t }}</span>{% endfor %}</div>
+                </summary>
+                <div style='padding: 12px 4px 0 4px; font-size: 0.95em; color: var(--text-main);'>{{ comment.body | safe }}</div>
+            </details>
+        {% else %}
+            <div style='font-size: 0.95em; color: var(--text-main); margin-top: 8px;'>{{ comment.body | safe }}</div>
+        {% endif %}
+    </div>
+    {% endmacro %}
+
+    {% for section in sections %}
+    <h2 style='color: var(--text-main); margin-bottom: 15px; margin-top: {{ "0" if loop.first else "50px" }};'>{{ section.title }}</h2>
+    
+    {% if not section.epics %}
+        <p style='color: var(--text-muted);'><em>No active issues found for this day.</em></p>
+    {% else %}
+        {% for epic in section.epics %}
+        <details {{ 'open' if not section.is_yesterday else '' }} class='epic-block' style='border-top: 4px solid var(--badge-text-{{ epic.status_key }});'>
+            <summary class='epic-summary searchable-item' data-key='{{ epic.key }}' data-author='' style='background: var(--badge-bg-{{ epic.status_key }});'>
+                <div style='display: flex; align-items: center;'>
+                    <span class="collapse-icon">&#8250;</span>
+                    {% if epic.key != "OTHER" %}<a href='https://{{ domain }}/browse/{{ epic.key }}' target='_blank' class="ticket-id">[{{ epic.key }}]</a>{% else %}📌{% endif %}&nbsp;{{ epic.summary }}
+                </div>
+                <span class='update-badge {{ "purple" if section.is_yesterday else "" if epic.epic_updates > 0 else "zero" }}'>{{ epic.epic_updates }} Update{{ 's' if epic.epic_updates != 1 else '' }}</span>
+            </summary>
+            
+            <div class='epic-content'>
+                {% if epic.key != "OTHER" %}
+                <details class='sub-collapse epic-desc'><summary>📄 Epic Description</summary><div class='sub-content searchable-item' data-key='{{ epic.key }}' data-author=''>{{ epic.desc_html | safe }}</div></details>
+                {% endif %}
+
+                {% if not epic.tasks %}
+                <p style='color: var(--text-muted); margin-top: 15px; padding-left: 20px;'><em>No active issues currently linked to this Epic.</em></p>
+                {% endif %}
+
+                {% for task in epic.tasks %}
+                <details class='task-block'>
+                    <summary class='task-summary searchable-item' data-key='{{ task.key }}' data-author=''>
+                        <div style='display: flex; align-items: center; gap: 8px;'>
+                            <span class="collapse-icon">&#8250;</span>
+                            🛠️ <a href='https://{{ domain }}/browse/{{ task.key }}' target='_blank' class="ticket-id">[{{ task.key }}]</a> {{ task.summary }} {{ task.status_badge | safe }}
+                        </div>
+                        <span class='update-badge {{ "purple" if section.is_yesterday else "" if task.updates > 0 else "zero" }}'>{{ task.updates }} Update{{ 's' if task.updates != 1 else '' }}</span>
+                    </summary>
+                    <div class='task-content'>
+                        
+                        <details class='sub-collapse'><summary>Issue Description</summary><div class='sub-content searchable-item' data-key='{{ task.key }}' data-author=''>{{ task.desc_html | safe }}</div></details>
+
+                        {% if task.prs %}
+                        <details class='sub-collapse'><summary>Pull Requests ({{ task.prs | length }})</summary>
+                            <div class='sub-content' style='padding: 12px;'>
+                                {% for pr in task.prs %}
+                                <details class='pr-collapse searchable-item' data-key='{{ task.key }}' data-author='@{{ pr.author }}'>
+                                    <summary>
+                                        <div class='pr-row'>
+                                            <div style='display: flex; align-items: center; overflow: hidden;'>
+                                                <span class='pr-row-icon'>&#8250;</span>
+                                                <a href='{{ pr.url }}' target='_blank' class='pr-link' style='display: flex; align-items: center; margin-right: 8px; white-space: nowrap;' onclick='event.stopPropagation()'>
+                                                    <svg height="14" viewBox="0 0 16 16" width="14" style="fill: currentColor; margin-right: 6px; vertical-align: middle;"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"></path></svg> 
+                                                    <span class="ticket-id">[{{ task.key }}]</span>
+                                                </a>
+                                                <span style='color: var(--text-main); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 480px;'>{{ pr.clean_title }}</span>
+                                                <span style='margin-left: 6px; color: var(--text-muted); white-space: nowrap;'>@{{ pr.author }}</span>
+                                            </div>
+                                            <span style='flex-shrink: 0; font-weight: bold; font-size: 0.85em; color: {{ pr.text_color }}; text-transform: uppercase;'>{{ pr.state_str }}</span>
+                                        </div>
+                                    </summary>
+                                    <div class='pr-details'>
+                                        <div class='pr-stats'>
+                                            <span>📁 {{ pr.changed_files }} files changed</span>
+                                            <span style='color: var(--pr-open); font-weight: 600;'>+{{ pr.additions }} lines</span>
+                                            <span style='color: var(--pr-closed); font-weight: 600;'>-{{ pr.deletions }} lines</span>
+                                            {% if pr.mergeable_state != "Unknown" %}
+                                                <span style='margin-left: auto;'>{{ pr.state_emoji }} State: <strong>{{ pr.mergeable_state }}</strong></span>
+                                            {% endif %}
+                                        </div>
+                                        <div class='pr-desc'>{{ pr.body | safe }}</div>
+                                    </div>
+                                </details>
+                                {% endfor %}
+                            </div>
+                        </details>
+                        {% endif %}
+
+                        <details class='sub-collapse'><summary>Comments ({{ task.target_comments|length + task.hist_comments|length }})</summary>
+                            <div class='sub-content' style='background: var(--bg-surface);'>
+                                {% if task.target_comments or task.hist_comments %}
+                                <div class='comments-container'>
+                                    <details class='comment-group'>
+                                        <summary>View All comments ({{ task.hist_comments|length + task.target_comments|length }})</summary>
+                                        <div>
+                                            {% for c in task.hist_comments %}
+                                                {{ render_comment(c, "var(--text-muted)", task.key) }}
+                                            {% endfor %}
+                                            {% for c in task.target_comments %}
+                                                {{ render_comment(c, "var(--text-muted)", task.key) }}
+                                            {% endfor %}
+                                        </div>
+                                    </details>
+
+                                    <details class='comment-group' open>
+                                        <summary>Issue comments on {{ section.date_str }} ({{ task.target_comments|length }})</summary>
+                                        <div>
+                                            {% if task.target_comments %}
+                                                {% for c in task.target_comments %}
+                                                    {{ render_comment(c, section.border_color, task.key) }}
+                                                {% endfor %}
+                                            {% else %}
+                                                <p style='color: var(--text-muted); font-size: 0.9em; margin: 0 0 16px 0;'><em>No comments made on this day.</em></p>
+                                            {% endif %}
+                                        </div>
+                                    </details>
+                                </div>
+                                {% else %}
+                                <p style='margin: 0; color: var(--text-muted); font-size: 0.9em;'><em>No comments on this issue.</em></p>
+                                {% endif %}
+                            </div>
+                        </details>
+
+                    </div>
+                </details>
+                {% endfor %}
+            </div>
+        </details>
+        {% endfor %}
+    {% endif %}
+    {% endfor %}
+
+    <h2 style='color: var(--text-main); margin-bottom: 15px; margin-top: 50px;'>⏸️ Upcoming & On Hold Epics</h2>
+    {% if pending_epics %}
+        {% for epic in pending_epics %}
+        <details class='epic-block' style='border-top: 4px solid var(--badge-text-{{ epic.status_key }}); margin-bottom: 10px;'>
+            <summary class='epic-summary searchable-item' data-key='{{ epic.key }}' data-author='' style='background: var(--badge-bg-{{ epic.status_key }});'>
+                <div style='display: flex; align-items: center;'>
+                    <span class="collapse-icon">&#8250;</span>
+                    <a href='https://{{ domain }}/browse/{{ epic.key }}' target='_blank' class="ticket-id">[{{ epic.key }}]</a> <span style='margin-left:8px;'>{{ epic.summary }}</span>
+                </div>
+            </summary>
+            <div class='epic-content'>
+                <details class='sub-collapse epic-desc'><summary>📄 Epic Description</summary><div class='sub-content searchable-item' data-key='{{ epic.key }}' data-author=''>{{ epic.desc_html | safe }}</div></details>
+            </div>
+        </details>
+        {% endfor %}
+    {% else %}
+        <p style='color: var(--text-muted);'><em>No Epics are currently pending or on hold.</em></p>
+    {% endif %}
+</body>
+</html>
