@@ -3,6 +3,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 
@@ -73,59 +74,89 @@ def verify_authentication():
 
 
 # ==============================================================================
-# 🐙 3. GITHUB INTEGRATION
+# 🐙 3. GITHUB BATCH SEARCH INTEGRATION
 # ==============================================================================
 
-GLOBAL_PR_MAP = None
+GLOBAL_PR_MAP = {}
 
 
-def initialize_pr_map():
+def preload_github_prs(all_issues):
+    """
+    Batches Jira ticket IDs and explicitly searches GitHub for them.
+    This guarantees finding the PR regardless of how old it is.
+    """
     global GLOBAL_PR_MAP
-    if GLOBAL_PR_MAP is not None:
-        return
-
-    GLOBAL_PR_MAP = {}
     if not GITHUB_TOKEN or not GITHUB_REPO:
         print("⚠️ GitHub Token or Repo missing. Skipping PR integration.")
         return
 
-    print(f"🐙 Fetching recent PRs from {GITHUB_REPO}...")
-    url = f"https://api.github.com/repos/{GITHUB_REPO}/pulls"
+    # Extract unique Jira keys from all fetched tickets
+    unique_keys = list(set([issue["key"] for issue in all_issues]))
+    if not unique_keys:
+        return
+
+    print(
+        f"🐙 Explicitly searching GitHub for {len(unique_keys)} linked Jira tickets..."
+    )
     gh_headers = {
         "Authorization": f"Bearer {GITHUB_TOKEN}",
         "Accept": "application/vnd.github.v3+json",
     }
+    search_url = "https://api.github.com/search/issues"
 
-    params = {"state": "all", "sort": "updated", "direction": "desc", "per_page": 100}
+    # Chunk into groups of 5 to keep the search string manageable and fast
+    for i in range(0, len(unique_keys), 5):
+        chunk = unique_keys[i : i + 5]
 
-    try:
-        for page in range(1, 3):
-            params["page"] = page
-            response = requests.get(url, headers=gh_headers, params=params)
+        # Build search query: repo:moreh/my-repo is:pr "MV-123" OR "MV-124"
+        query_str = " OR ".join([f'"{k}"' for k in chunk])
+        q = f"repo:{GITHUB_REPO} is:pr {query_str}"
 
-            if response.status_code == 200:
-                prs = response.json()
-                if not prs:
-                    break
+        res = requests.get(
+            search_url, headers=gh_headers, params={"q": q, "per_page": 100}
+        )
 
-                for pr in prs:
-                    title = pr.get("title", "")
-                    matches = re.findall(r"(MV-\d+)", title, re.IGNORECASE)
+        # Protect against GitHub's 30 requests/minute search rate limit
+        if res.status_code == 403:
+            print("⚠️ GitHub Search Rate Limit approaching. Pausing for 3 seconds...")
+            time.sleep(3)
+            res = requests.get(
+                search_url, headers=gh_headers, params={"q": q, "per_page": 100}
+            )
+
+        if res.status_code == 200:
+            items = res.json().get("items", [])
+            for item in items:
+                pr_url = item.get("pull_request", {}).get("url")
+                if not pr_url:
+                    continue
+
+                # Fetch actual PR object to guarantee we get the 'merged_at' data
+                pr_res = requests.get(pr_url, headers=gh_headers)
+                if pr_res.status_code == 200:
+                    pr_data = pr_res.json()
+
+                    # Search the Title, Body, and Branch Name for Jira Tags
+                    search_text = f"{pr_data.get('title', '')} {pr_data.get('body', '')} {pr_data.get('head', {}).get('ref', '')}"
+                    matches = set(re.findall(r"(MV-\d+)", search_text, re.IGNORECASE))
+
                     for match in matches:
                         key = match.upper()
-                        if key not in GLOBAL_PR_MAP:
-                            GLOBAL_PR_MAP[key] = []
-                        GLOBAL_PR_MAP[key].append(pr)
-            else:
-                print(f"❌ Failed to fetch GitHub PRs: {response.status_code}")
-                break
-    except Exception as e:
-        print(f"❌ Error fetching PRs: {e}")
+                        if key in chunk:
+                            if key not in GLOBAL_PR_MAP:
+                                GLOBAL_PR_MAP[key] = []
+                            # Prevent duplicates
+                            if not any(
+                                p["id"] == pr_data["id"] for p in GLOBAL_PR_MAP[key]
+                            ):
+                                GLOBAL_PR_MAP[key].append(pr_data)
+        else:
+            print(f"❌ Failed GitHub Search Chunk: {res.status_code} - {res.text}")
+
+        time.sleep(0.5)  # Gentle pause between chunks
 
 
 def get_prs_for_issue(issue_key):
-    if GLOBAL_PR_MAP is None:
-        initialize_pr_map()
     return GLOBAL_PR_MAP.get(issue_key, [])
 
 
@@ -384,25 +415,36 @@ def run_daily_snapshot(target_user_date):
         + "-" * 60
     )
 
-    # Note: Python determines if THIS run is "today" strictly to manage the /today symlink.
     actual_system_today = datetime.now(VN_TZ).strftime("%Y-%m-%d")
     is_actual_today = today_str == actual_system_today
 
+    disabled_class = "disabled" if is_actual_today else ""
+    disabled_attr = "disabled" if is_actual_today else ""
+
     done_jql_today = f'(status changed to "Done" on "{today_str}" OR status changed to "Closed" on "{today_str}")'
 
+    # FETCH ALL JIRA TICKETS
     active_epics = fetch_issues(
         f"{CORE_JQL} AND issuetype = Epic AND (status IN ({ACTIVE_STATUSES}) OR {done_jql_today})"
     )
     active_tasks = fetch_issues(
         f"{CORE_JQL} AND issuetype != Epic AND (status IN ({ACTIVE_STATUSES}) OR {done_jql_today})"
     )
-
     yesterday_epics = fetch_issues(
         f'{CORE_JQL} AND issuetype = Epic AND status WAS IN ({ACTIVE_STATUSES}) ON "{yesterday_str}"'
     )
     yesterday_tasks = fetch_issues(
         f'{CORE_JQL} AND issuetype != Epic AND status WAS IN ({ACTIVE_STATUSES}) ON "{yesterday_str}"'
     )
+    pending_epics = fetch_issues(
+        f"{CORE_JQL} AND issuetype = Epic AND status IN ({PENDING_STATUSES})"
+    )
+
+    # 🐙 PRELOAD GITHUB PRS FOR ALL FETCHED TICKETS
+    all_issues = (
+        active_epics + active_tasks + yesterday_epics + yesterday_tasks + pending_epics
+    )
+    preload_github_prs(all_issues)
 
     def build_epic_map(epics, tasks):
         emap = {}
@@ -433,9 +475,6 @@ def run_daily_snapshot(target_user_date):
     epics_map = build_epic_map(active_epics, active_tasks)
     yest_epics_map = build_epic_map(yesterday_epics, yesterday_tasks)
 
-    # -------------------------------------------------------------------------
-    # 🧠 DYNAMIC CLIENT-SIDE BUTTON SCRIPT INJECTED HERE
-    # -------------------------------------------------------------------------
     html = f"""
       <!DOCTYPE html>
       <html lang="en">
@@ -443,6 +482,7 @@ def run_daily_snapshot(target_user_date):
           <meta charset="UTF-8">
           <title>Daily Sync Snapshot ({today_str})</title>
           <style>
+              /* 🌟 Modern CSS Reset & Basics */
               :root {{
                   --bg-body: #f4f5f7; --text-main: #172b4d; --text-muted: #5e6c84; --border-color: #dfe1e6;
                   --epic-border-today: #0052cc; --epic-bg-today: #ebf0f5; --epic-border-yest: #6554c0; --epic-bg-yest: #f0eff8;
@@ -507,11 +547,9 @@ def run_daily_snapshot(target_user_date):
           
           <script>
               // 🧠 CLIENT-SIDE DATE CHECKER
-              // This runs instantly in the user's browser to check if the button should be disabled
               document.addEventListener("DOMContentLoaded", function() {{
-                  const reportDate = "{today_str}"; // Injected by Python
+                  const reportDate = "{today_str}"; 
                   
-                  // Get current date strictly in Vietnam Timezone
                   const dateObj = new Date();
                   const vnTime = new Date(dateObj.toLocaleString("en-US", {{timeZone: "Asia/Ho_Chi_Minh"}}));
                   
@@ -520,7 +558,6 @@ def run_daily_snapshot(target_user_date):
                   const dd = String(vnTime.getDate()).padStart(2, '0');
                   const currentVNDate = `${{yyyy}}-${{mm}}-${{dd}}`;
                   
-                  // Disable the 'Next' button if this report is for today (or the future)
                   if (reportDate >= currentVNDate) {{
                       const nextBtn = document.getElementById("nextBtn");
                       if(nextBtn) {{
@@ -793,10 +830,6 @@ def run_daily_snapshot(target_user_date):
 
     html += f"<h2 style='color: var(--text-main); margin-bottom: 15px; margin-top: 50px;'>⏸️ Upcoming & On Hold Epics</h2>"
 
-    pending_epics = fetch_issues(
-        f"{CORE_JQL} AND issuetype = Epic AND status IN ({PENDING_STATUSES})"
-    )
-
     if pending_epics:
         for epic in pending_epics:
             e_key, e_sum = epic["key"], epic["fields"]["summary"]
@@ -837,7 +870,6 @@ def run_daily_snapshot(target_user_date):
 
     print("-" * 60 + f"\n🏁 HTML Snapshot complete! Saved securely to:\n{file_path}")
 
-    # The Python script still controls updating the /today shortcut
     if is_actual_today:
         today_dir = os.path.join(save_dir, "today")
         os.makedirs(today_dir, exist_ok=True)
