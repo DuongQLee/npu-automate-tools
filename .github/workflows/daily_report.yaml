@@ -16,42 +16,33 @@ jobs:
   run-report:
     runs-on: self-hosted
     steps:
-      - name: Checkout Latest Main
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          clean: true
-          fetch-depth: 1
-
-      - name: Sync Local Manual Folder
-        run: |
-          cd /home/moreh/npu-automate-tools
-          git fetch origin main
-          git reset --hard origin/main
-
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
 
-      - name: Run Snapshot Scripts
+      - name: Sync and Run Snapshot Scripts
         env:
           API_TOKEN: ${{ secrets.API_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Because of our config.py update, we technically don't even need this env var 
-          # anymore unless we want to override it to a completely different hard drive location.
           RESULT_FOLDER: /home/moreh/npu-automate-tools/mv-npu_daily_report 
         run: |
+          # 1. Navigate directly to your persistent project folder
+          cd /home/moreh/npu-automate-tools
+          
+          # 2. Pull the latest code
+          git fetch origin main
+          git reset --hard origin/main
+          
+          # 3. Sync dependencies in the correct project root
           uv sync
           
-          # 👇 Navigate into your new specific tool folder before running!
-          cd /home/moreh/npu-automate-tools/create_daily_report
-          
+          # 4. Execute the script from the project root
           HOUR=$(date -u +'%H')
           MINUTE=$(date -u +'%M')
           
           if [ "$HOUR" == "17" ] && [ "$MINUTE" == "01" ]; then
             echo "🌙 Midnight Rollover detected! Generating Yesterday (-1) and Today (0)..."
-            uv run main.py -d -1 0
+            uv run create_daily_report/main.py -d -1 0
           else
             echo "☀️ Standard Run! Generating Today (0) only..."
-            uv run main.py -d 0
+            uv run create_daily_report/main.py -d 0
           fi

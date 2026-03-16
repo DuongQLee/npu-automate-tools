@@ -24,8 +24,7 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
             print(f"🔄 Browser requested live refresh for date: {target_date}")
 
             try:
-                # 🌟 Safely call the actual UV command on the VM using absolute paths
-                # Leveraging your config.py to ensure the server knows exactly where it is
+                # Safely call the actual UV command on the VM using absolute paths
                 main_script = os.path.join(config.script_dir, "main.py")
 
                 subprocess.run(
@@ -60,25 +59,31 @@ if __name__ == "__main__":
 
 
 # ==============================================================================
-# 🛠️ SYSTEMD SERVICE DEPLOYMENT GUIDE FOR ROCKY 9
+# 🛠️ SYSTEMD SERVICE DEPLOYMENT GUIDE FOR ROCKY 9 (SELINUX FIXES)
 # ==============================================================================
 """
-To run this server professionally in the background on Rocky 9, follow these steps. 
-By creating a Systemd service, your server will automatically restart if the VM reboots or if the script crashes.
+To run this server professionally in the background on Rocky 9 and avoid 203/EXEC 
+permission errors caused by SELinux, follow these exact steps:
 
-STEP 1: Find your absolute paths
---------------------------------
-Run these commands in your VM's terminal and copy the outputs:
-1. `which uv`       -> (e.g., /home/your_user/.local/bin/uv)
-2. `pwd`            -> (Navigate to your repo root first! e.g., /home/your_user/your_repo)
-3. `whoami`         -> (e.g., your_user)
+STEP 1: Fix Ownership & Permissions
+-----------------------------------
+Run these commands in your VM terminal to ensure the system can execute your virtual environment:
 
-STEP 2: Create the Systemd Service File
+# Ensure the moreh user owns the entire repository and virtual environment
+sudo chown -R moreh:moreh /home/moreh/npu-automate-tools
+
+# Ensure the python binary is explicitly marked as executable
+sudo chmod +x /home/moreh/npu-automate-tools/.venv/bin/python
+
+# Fix SELinux contexts (allows systemd to execute binaries in the home directory)
+sudo chcon -Rt bin_t /home/moreh/npu-automate-tools/.venv/bin/
+
+
+STEP 2: Update the Systemd Service File
 ---------------------------------------
-Run this command to create the file:
-sudo nano /etc/systemd/system/daily-report.service
+Run: sudo nvim /etc/systemd/system/daily-report.service
 
-Paste the following configuration into nano (REPLACE THE PLACEHOLDERS with outputs from Step 1):
+Paste the following configuration:
 
 [Unit]
 Description=Daily Report Live Refresh Server
@@ -88,32 +93,22 @@ After=network.target
 Type=simple
 User=moreh
 WorkingDirectory=/home/moreh/npu-automate-tools
-# ⚠️ Make sure to use the absolute path to 'uv' from Step 1!
-ExecStart=/home/moreh/.local/bin/uv run server.py
+
+# 🌟 We use bash to wrap the execution, bypassing strict SELinux direct-execution blocks
+ExecStart=/bin/bash -c '/home/moreh/npu-automate-tools/.venv/bin/python create_daily_report/server.py'
+
 Restart=always
 RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
 
-(Save and exit nano: Press CTRL+O, Enter, then CTRL+X)
 
-STEP 3: Enable and Start the Service
+STEP 3: Reload and Start
 ------------------------------------
-Run these commands to tell Rocky 9 to use your new service:
+Apply the changes and start the server:
+
 sudo systemctl daemon-reload
-sudo systemctl enable daily-report.service
-sudo systemctl start daily-report.service
-sudo systemctl status daily-report.service  # Check if it says "active (running)"!
-
-STEP 4: Open Firewall Port (Rocky 9 Default)
---------------------------------------------
-Rocky 9 uses firewalld by default. To allow access to port 8000 from outside the VM:
-sudo firewall-cmd --permanent --add-port=8000/tcp
-sudo firewall-cmd --reload
-
-Troubleshooting:
-----------------
-If the refresh button throws an error, you can check the live Python logs with:
-sudo journalctl -u daily-report.service -f
+sudo systemctl restart daily-report.service
+sudo systemctl status daily-report.service  # It should now say "active (running)"
 """
