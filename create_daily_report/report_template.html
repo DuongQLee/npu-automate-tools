@@ -44,31 +44,15 @@
         a { color: var(--link-color); text-decoration: none; }
         mark { background-color: #ffea00; color: #000; padding: 0 2px; border-radius: 2px; }
 
-        /* 🌟 HEADER & NAVIGATION ALIGNMENTS */
+        /* HEADER & NAVIGATION */
         .header-container { display: flex; align-items: flex-start; justify-content: space-between; padding-bottom: 20px; border-bottom: 2px solid var(--border-color); }
         .nav-left, .nav-right { flex: 1; display: flex; gap: 10px; align-items: flex-start; }
         .nav-right { justify-content: flex-end; position: relative; }
         .header-title { flex: 2; text-align: center; }
         
-        .nav-btn { 
-            height: 40px; 
-            background: var(--bg-surface); 
-            border: 1px solid var(--border-color); 
-            padding: 0 16px; 
-            border-radius: 6px; 
-            font-weight: 600; 
-            color: var(--text-main); 
-            cursor: pointer; 
-            display: inline-flex; 
-            align-items: center; 
-            justify-content: center;
-            box-sizing: border-box;
-            transition: all 0.2s ease;
-        }
+        .nav-btn { height: 40px; background: var(--bg-surface); border: 1px solid var(--border-color); padding: 0 16px; border-radius: 6px; font-weight: 600; color: var(--text-main); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; transition: all 0.2s ease; }
         .nav-btn:hover:not([data-disabled="true"]) { background: var(--bg-surface-hover); border-color: var(--link-color); }
         .nav-btn svg { fill: currentColor; }
-
-        /* Refresh text positioning */
         #refreshStatus { position: absolute; top: 46px; right: 0; font-size: 0.75em; color: var(--text-muted); white-space: nowrap; text-align: right; margin-right: 4px;}
 
         /* 🔍 SEARCH ENGINE */
@@ -80,18 +64,20 @@
         .search-result-item { padding: 12px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; border: 1px solid transparent; transition: background 0.1s; }
         .search-result-item.selected { background: var(--bg-surface-hover); border-color: var(--link-color); }
         
-        .res-header { font-size: 0.95em; margin-bottom: 4px; display: flex; gap: 8px; align-items: baseline; width: 100%; }
+        .res-header { font-size: 0.95em; margin-bottom: 4px; display: flex; gap: 8px; align-items: center; width: 100%; }
+        .res-icon { width: 14px; height: 14px; flex-shrink: 0; fill: currentColor; }
         .res-key { color: var(--link-color); font-family: monospace; font-weight: bold; flex-shrink: 0; }
         .res-title { font-weight: 600; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-grow: 1; }
         .res-author { color: var(--text-muted); font-size: 0.85em; font-style: italic; flex-shrink: 0; }
         .res-time { color: var(--text-muted); font-size: 0.8em; font-family: monospace; margin-left: auto; flex-shrink: 0; }
         .res-snippet { display: block; font-size: 0.8em; color: var(--text-muted); opacity: 0.8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
 
+        /* ICONS & LAYOUT */
         summary { list-style: none; outline: none; cursor: pointer; position: relative; }
         summary::-webkit-details-marker { display: none; }
-        summary::before, .collapse-icon, .pr-row-icon { display: none !important; }
+        .ticket-title-wrapper { display: flex; align-items: center; gap: 8px; }
+        .jira-icon { width: 16px; height: 16px; flex-shrink: 0; }
 
-        /* LAYOUT BLOCKS */
         .epic-block { contain: content; margin-bottom: 24px; border-radius: 8px; background: var(--bg-surface); border: 1px solid var(--border-color); overflow: hidden; box-shadow: var(--shadow-sm); }
         .epic-summary { padding: 16px 20px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
         .epic-block[open] .epic-summary { border-bottom: 1px solid var(--border-color); }
@@ -105,7 +91,7 @@
         .sub-collapse { border-bottom: 1px solid var(--border-color); }
         .sub-content { padding: 16px; font-size: 0.95em; border-top: 1px dashed var(--border-color); background: var(--bg-surface-hover); }
         .ticket-id { font-family: monospace; opacity: 0.8; margin-right: 6px; }
-        .update-badge { padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: bold; }
+        .update-badge { padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: bold; flex-shrink: 0; }
         
         .count-tag { font-weight: bold; margin-left: 8px; }
         .count-grey { color: var(--text-muted); }
@@ -119,12 +105,24 @@
 
         @keyframes target-flash { 0% { background: rgba(255,234,0,0.4); } 100% { background: transparent; } }
         .jump-flash { animation: target-flash 2s ease-out; }
-        
         @keyframes spin { 100% { transform: rotate(360deg); } }
         .spin-icon { animation: spin 1.2s linear infinite; }
     </style>
 </head>
-<body>
+<body data-theme="light">
+    <svg style="display:none;">
+        <symbol id="icon-epic" viewBox="0 0 16 16" fill="none">
+            <path d="M8.5 1L2 9h5l-1 6 7-8H8l1.5-6z" fill="#904EE2" stroke="#904EE2" stroke-width="1" stroke-linejoin="round"/>
+        </symbol>
+        <symbol id="icon-task" viewBox="0 0 16 16" fill="none">
+            <rect x="1" y="1" width="14" height="14" rx="3" fill="#4C9AFF"/>
+            <path d="M4.5 8L7 10.5L11.5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </symbol>
+        <symbol id="icon-github" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.06-1.86 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+        </symbol>
+    </svg>
+
     <div class="header-container">
         <div class="nav-left">
             <button id="themeToggle" onclick="toggleTheme()" class="nav-btn" style="padding: 0 12px; font-size: 1.1em;" title="Toggle Dark/Light Mode">🌙</button>
@@ -157,7 +155,6 @@
         const state = { index: [], curIdx: -1, lastQ: "" };
         const generationTime = new Date("{{ generation_time_iso }}");
 
-        // 🧠 REFRESH LOGIC (Anti-spam & Fetch)
         function updateTimeAgo() {
             const now = new Date();
             const diffMs = now - generationTime;
@@ -204,11 +201,8 @@
                     body: JSON.stringify({ date: "{{ today_str }}" })
                 });
 
-                if (response.ok) {
-                    window.location.reload();
-                } else {
-                    throw new Error("Server Error");
-                }
+                if (response.ok) window.location.reload();
+                else throw new Error("Server Error");
             } catch (error) {
                 btn.innerHTML = originalSvg;
                 statusText.innerHTML = "<span style='color: var(--badge-text-danger); font-weight: bold;'>Error: Script unreachable</span>";
@@ -228,7 +222,6 @@
             document.documentElement.setAttribute("data-theme", savedTheme);
             document.getElementById("themeToggle").innerText = savedTheme === "dark" ? "☀️" : "🌙";
 
-            // Setup the "Last Updated" Date String format (e.g. 16 Mar 10:18)
             const day = generationTime.getDate();
             const month = generationTime.toLocaleString('en-GB', { month: 'short' });
             const hours = String(generationTime.getHours()).padStart(2, '0');
@@ -238,14 +231,11 @@
             updateTimeAgo();
             setInterval(updateTimeAgo, 60000);
 
-            // Setup Visibility for Next/Refresh
             const reportDate = "{{ today_str }}"; 
             const vnTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Ho_Chi_Minh"}));
             const curVNDate = `${vnTime.getFullYear()}-${String(vnTime.getMonth() + 1).padStart(2, '0')}-${String(vnTime.getDate()).padStart(2, '0')}`;
             
-            if (reportDate >= curVNDate) {
-                document.getElementById("nextBtn").style.display = "none";
-            }
+            if (reportDate >= curVNDate) document.getElementById("nextBtn").style.display = "none";
             if (reportDate !== curVNDate) {
                 document.getElementById("refreshBtn").style.display = "none";
                 document.getElementById("refreshStatus").style.display = "none";
@@ -256,6 +246,7 @@
                 state.index.push({
                     id: id, el: el,
                     key: (el.getAttribute('data-key') || '').toUpperCase(),
+                    type: (el.getAttribute('data-type') || 'issue').toLowerCase(),
                     author: (el.getAttribute('data-author') || '').toLowerCase(),
                     time: el.getAttribute('data-time') || '', 
                     title: (el.getAttribute('data-title') || el.textContent.substring(0, 60)).trim(),
@@ -285,7 +276,7 @@
             input.addEventListener('focus', () => { if (input.value.length > 1) dropdown.style.display = 'block'; });
             input.addEventListener('blur', () => { setTimeout(() => dropdown.style.display = 'none', 250); });
 
-            // 🧠 ALT+CLICK DUAL-STATE TOGGLE
+            // 🧠 ALT+CLICK DUAL-STATE LOGIC
             document.addEventListener('click', (e) => {
                 if (!e.altKey) return; 
                 if (e.target.closest('a')) e.preventDefault();
@@ -298,6 +289,7 @@
 
                 let d = s.parentElement;
 
+                // --- EPIC TOGGLE ---
                 if (d.classList.contains('epic-block')) {
                     const tasks = Array.from(d.querySelectorAll('.task-block'));
                     const isExpanded = tasks.length > 0 && tasks[0].hasAttribute('open');
@@ -322,6 +314,7 @@
                         });
                     }
                 } 
+                // --- ISSUE TOGGLE ---
                 else if (d.classList.contains('task-block')) {
                     d.setAttribute('open', '');
                     const allCom = d.querySelector('.all-comments');
@@ -355,12 +348,23 @@
             if (q.length < 2) { dropdown.style.display = 'none'; return; }
             const matches = state.index.filter(m => m.text.includes(q) || m.key.includes(q)).slice(0, 20);
             if (!matches.length) { dropdown.innerHTML = '<div style="padding:10px">No results</div>'; dropdown.style.display = 'block'; return; }
+            
             dropdown.innerHTML = matches.map((m, i) => {
-                const cleanSnippet = m.text.substring(m.text.indexOf(q) - 20, m.text.indexOf(q) + 40);
-                return `<div class="search-result-item ${i === state.curIdx ? 'selected' : ''}" onclick="jumpTo('${m.id}')">
+                const cleanSnippet = m.text.substring(Math.max(0, m.text.indexOf(q) - 20), m.text.indexOf(q) + 40);
+                
+                // SVG Selection logic based on indexed data-type
+                let icon = '<svg class="res-icon"><use href="#icon-task"></use></svg>'; 
+                if (m.type === 'epic' || m.type === 'epic-desc') icon = '<svg class="res-icon"><use href="#icon-epic"></use></svg>';
+                if (m.type === 'pr') icon = '<svg class="res-icon"><use href="#icon-github"></use></svg>';
+
+                return `
+                <div class="search-result-item ${i === state.curIdx ? 'selected' : ''}" onclick="jumpTo('${m.id}')">
                     <div class="res-header">
-                        <span class="res-key">[${m.key}]</span><span class="res-title">${m.title}</span>
-                        ${m.author ? `<span class="res-author">${m.author}</span>` : ''}${m.time ? `<span class="res-time">${m.time}</span>` : ''}
+                        ${icon}
+                        <span class="res-key">[${m.key}]</span>
+                        <span class="res-title">${m.title}</span>
+                        ${m.author ? `<span class="res-author">${m.author}</span>` : ''}
+                        ${m.time ? `<span class="res-time">${m.time}</span>` : ''}
                     </div>
                     <span class="res-snippet">...${cleanSnippet}...</span>
                 </div>`;
@@ -368,41 +372,76 @@
             dropdown.style.display = 'block';
         }
 
+        // 🧠 SAFE HIGHLIGHT ENGINE
+        function clearHighlights() {
+            document.querySelectorAll('mark.search-hl').forEach(m => {
+                const parent = m.parentNode;
+                if(parent) {
+                    parent.replaceChild(document.createTextNode(m.textContent), m);
+                    parent.normalize();
+                }
+            });
+        }
+
+        function highlightNode(node, regex) {
+            const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, null, false);
+            const nodes = [];
+            while(walker.nextNode()) nodes.push(walker.currentNode);
+            
+            nodes.forEach(n => {
+                if (n.parentNode && n.parentNode.nodeName !== 'SCRIPT' && n.parentNode.nodeName !== 'STYLE') {
+                    const text = n.nodeValue;
+                    const match = text.match(regex);
+                    if (match) {
+                        const mark = document.createElement("mark");
+                        mark.className = "search-hl";
+                        const wordNode = n.splitText(match.index);
+                        wordNode.splitText(match[0].length);
+                        mark.textContent = wordNode.textContent;
+                        wordNode.replaceWith(mark);
+                    }
+                }
+            });
+        }
+
         function filterDOM(q) {
             const epics = document.querySelectorAll('.epic-block');
-            document.querySelectorAll('.search-hl').forEach(m => m.replaceWith(document.createTextNode(m.textContent)));
-            document.body.normalize(); 
+            clearHighlights();
             
-            if (!q) { epics.forEach(e => e.removeAttribute('hidden')); document.querySelectorAll('.task-block').forEach(t => t.removeAttribute('hidden')); return; }
+            if (!q) { 
+                epics.forEach(e => e.removeAttribute('hidden')); 
+                document.querySelectorAll('.task-block').forEach(t => t.removeAttribute('hidden')); 
+                return; 
+            }
+            
             const regex = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, "gi");
+            
             epics.forEach(epic => {
                 const summary = epic.querySelector('.epic-summary');
                 const match = summary.textContent.toLowerCase().includes(q);
                 let vTasks = 0;
+                
                 epic.querySelectorAll('.task-block').forEach(task => {
                     if (task.textContent.toLowerCase().includes(q) || match) {
-                        task.removeAttribute('hidden'); vTasks++;
-                        if (task.textContent.toLowerCase().includes(q)) { task.setAttribute('open', ''); highlight(task, regex); }
-                    } else task.setAttribute('hidden', '');
+                        task.removeAttribute('hidden'); 
+                        vTasks++;
+                        if (task.textContent.toLowerCase().includes(q)) { 
+                            task.setAttribute('open', ''); 
+                            highlightNode(task, regex); 
+                        }
+                    } else {
+                        task.setAttribute('hidden', '');
+                    }
                 });
-                if (match || vTasks > 0) { epic.removeAttribute('hidden'); epic.setAttribute('open', ''); if (match) highlight(summary, regex); } 
-                else epic.setAttribute('hidden', '');
-            });
-        }
-
-        function highlight(node, regex) {
-            if (node.nodeType === 3) {
-                const m = node.nodeValue.match(regex);
-                if (m) {
-                    const mark = document.createElement("mark"); mark.className = "search-hl";
-                    const word = node.splitText(m.index); word.splitText(m[0].length);
-                    mark.textContent = word.textContent; word.replaceWith(mark);
-                    return 1;
+                
+                if (match || vTasks > 0) { 
+                    epic.removeAttribute('hidden'); 
+                    epic.setAttribute('open', ''); 
+                    if (match) highlightNode(summary, regex); 
+                } else {
+                    epic.setAttribute('hidden', '');
                 }
-            } else if (node.nodeType === 1 && !/SCRIPT|STYLE|MARK|SUMMARY/.test(node.tagName)) {
-                for (let i = 0; i < node.childNodes.length; i++) i += highlight(node.childNodes[i], regex);
-            }
-            return 0;
+            });
         }
 
         function jumpTo(id) {
@@ -419,14 +458,27 @@
     </script>
 
     {% macro render_comment(comment, color_hex, task_key) %}
-    <div class="searchable-item" data-key="{{ task_key }}" data-title="{{ comment.summary or 'Comment' }}" data-author="@{{ comment.author | replace(' ', '') }}" data-time="{{ comment.time_str }}" style='margin-bottom: 12px; padding: 16px; border: 1px solid var(--border-color); border-left: 4px solid {{ color_hex }}; border-radius: 4px; background: var(--bg-surface);'>
-        <div style='margin-bottom: 8px;'><strong>🗣️ {{ comment.author }}</strong> <span style='color: var(--text-muted); font-size: 0.85em; margin-left:10px'>{{ comment.time_str }}</span></div>
+    <div class="searchable-item" 
+         data-key="{{ task_key }}" 
+         data-type="comment"
+         data-title="{{ comment.summary or 'Comment' }}" 
+         data-author="@{{ comment.author | replace(' ', '') }}" 
+         data-time="{{ comment.time_str }}"
+         style='margin-bottom: 12px; padding: 16px; border: 1px solid var(--border-color); border-left: 4px solid {{ color_hex }}; border-radius: 4px; background: var(--bg-surface);'>
+        <div style='margin-bottom: 8px;'>
+            <strong>🗣️ {{ comment.author }}</strong> <span style='color: var(--text-muted); font-size: 0.85em; margin-left:10px'>{{ comment.time_str }}</span>
+        </div>
         {% if comment.summary %}
             <details class='comment-collapse'>
-                <summary style='font-weight:600; padding:10px; background:var(--bg-surface-muted); border-radius:4px;'>{{ comment.summary }}{% for t in comment.tags %}<span class='tag-pill' style='color:var(--link-color); font-size:0.8em; margin-left:6px; background:var(--badge-bg-info); padding:2px 8px; border-radius:12px;'>{{ t }}</span>{% endfor %}</summary>
+                <summary style='font-weight:600; padding:10px; background:var(--bg-surface-muted); border-radius:4px;'>
+                    {{ comment.summary }}
+                    {% for t in comment.tags %}<span class='tag-pill' style='color:var(--link-color); font-size:0.8em; margin-left:6px; background:var(--badge-bg-info); padding:2px 8px; border-radius:12px;'>{{ t }}</span>{% endfor %}
+                </summary>
                 <div style='padding-top:10px'>{{ comment.body | safe }}</div>
             </details>
-        {% else %}<div>{{ comment.body | safe }}</div>{% endif %}
+        {% else %}
+            <div>{{ comment.body | safe }}</div>
+        {% endif %}
     </div>
     {% endmacro %}
 
@@ -438,8 +490,12 @@
     {% else %}
         {% for epic in section.epics %}
         <details class="epic-block" {{ 'open' if not section.is_yesterday else '' }} style="border-top: 4px solid var(--badge-text-{{ epic.status_key }});">
-            <summary class="epic-summary searchable-item" data-key="{{ epic.key }}" data-title="{{ epic.summary }}" style="background:var(--badge-bg-{{ epic.status_key }})">
-                <div><a href="https://{{ domain }}/browse/{{ epic.key }}" class="ticket-id" target="_blank">[{{ epic.key }}]</a> {{ epic.summary }}</div>
+            <summary class="epic-summary searchable-item" data-type="epic" data-key="{{ epic.key }}" data-title="{{ epic.summary }}" style="background:var(--badge-bg-{{ epic.status_key }})">
+                <div class="ticket-title-wrapper">
+                    <svg class="jira-icon"><use href="#icon-epic"></use></svg>
+                    {% if epic.key != "OTHER" %}<a href="https://{{ domain }}/browse/{{ epic.key }}" class="ticket-id" target="_blank">[{{ epic.key }}]</a>{% endif %}
+                    {{ epic.summary }}
+                </div>
                 <span class="update-badge" style="color:var(--badge-text-{{ epic.status_key }})">{{ epic.epic_updates }} Updates</span>
             </summary>
             
@@ -447,22 +503,26 @@
                 {% if epic.key != "OTHER" %}
                 <details class="sub-collapse epic-desc">
                     <summary style="padding:10px 16px; font-weight:600">Epic Description</summary>
-                    <div class="sub-content searchable-item" data-key="{{ epic.key }}" data-title="Epic Description">{{ epic.desc_html | safe }}</div>
+                    <div class="sub-content searchable-item" data-type="epic-desc" data-key="{{ epic.key }}" data-title="Epic Description">{{ epic.desc_html | safe }}</div>
                 </details>
                 {% endif %}
                 
                 {% for task in epic.tasks %}
                 <div class="task-block">
                     <details>
-                        <summary class="task-summary searchable-item" data-key="{{ task.key }}" data-title="{{ task.summary }}">
-                            <div>🛠️ <a href="https://{{ domain }}/browse/{{ task.key }}" class="ticket-id" target="_blank">[{{ task.key }}]</a> {{ task.summary }}</div>
+                        <summary class="task-summary searchable-item" data-type="issue" data-key="{{ task.key }}" data-title="{{ task.summary }}">
+                            <div class="ticket-title-wrapper">
+                                <svg class="jira-icon"><use href="#icon-task"></use></svg>
+                                <a href="https://{{ domain }}/browse/{{ task.key }}" class="ticket-id" target="_blank">[{{ task.key }}]</a> 
+                                {{ task.summary }}
+                            </div>
                             <span class="update-badge {{ 'purple' if section.is_yesterday }}">{{ task.updates }} Updates</span>
                         </summary>
                         <div class="task-content">
                             
                             <details class="sub-collapse issue-desc">
                                 <summary style="padding:10px 16px; font-weight:600">Issue Description</summary>
-                                <div class="sub-content searchable-item" data-key="{{ task.key }}" data-title="Issue Description">{{ task.desc_html | safe }}</div>
+                                <div class="sub-content searchable-item" data-type="issue-desc" data-key="{{ task.key }}" data-title="Issue Description">{{ task.desc_html | safe }}</div>
                             </details>
                             
                             {% if task.prs %}
@@ -470,7 +530,7 @@
                                 <summary style="padding:10px 16px; font-weight:600">Pull Requests ({{ task.prs|length }})</summary>
                                 <div class="sub-content">
                                     {% for pr in task.prs %}
-                                    <details class="pr-collapse searchable-item" data-key="{{ task.key }}" data-title="{{ pr.clean_title }}" data-author="@{{ pr.author }}">
+                                    <details class="pr-collapse searchable-item" data-type="pr" data-key="{{ task.key }}" data-title="{{ pr.clean_title }}" data-author="@{{ pr.author }}">
                                         <summary style="padding:8px; font-weight:600">
                                             <a href="{{ pr.url }}" target="_blank">{{ task.key }}</a> {{ pr.clean_title }} 
                                             <span style="float:right; color:{{ pr.text_color }}">{{ pr.state_str }}</span>
@@ -529,14 +589,18 @@
         {% for epic in pending_epics %}
         {% set pen_status = "warn" if epic.status_key == "warn" else "todo" %}
         <details class="epic-block" style="border-top: 4px solid var(--badge-text-{{ pen_status }}); margin-bottom: 10px;">
-            <summary class="epic-summary searchable-item" data-key="{{ epic.key }}" style="background: var(--badge-bg-{{ pen_status }});">
-                <div><a href="https://{{ domain }}/browse/{{ epic.key }}" target="_blank" class="ticket-id">[{{ epic.key }}]</a> <span>{{ epic.summary }}</span></div>
+            <summary class="epic-summary searchable-item" data-type="epic" data-key="{{ epic.key }}" style="background: var(--badge-bg-{{ pen_status }});">
+                <div class="ticket-title-wrapper">
+                    <svg class="jira-icon"><use href="#icon-epic"></use></svg>
+                    <a href="https://{{ domain }}/browse/{{ epic.key }}" target="_blank" class="ticket-id">[{{ epic.key }}]</a> 
+                    <span>{{ epic.summary }}</span>
+                </div>
                 <span class="update-badge" style="color:var(--badge-text-{{ pen_status }})">{{ epic.status_badge | safe | striptags }}</span>
             </summary>
             <div class="epic-content">
                 <details class="sub-collapse epic-desc">
                     <summary style="padding:10px 16px; font-weight:600">📄 Epic Description</summary>
-                    <div class="sub-content searchable-item" data-key="{{ epic.key }}">{{ epic.desc_html | safe }}</div>
+                    <div class="sub-content searchable-item" data-type="epic-desc" data-key="{{ epic.key }}">{{ epic.desc_html | safe }}</div>
                 </details>
             </div>
         </details>
