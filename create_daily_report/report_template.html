@@ -73,7 +73,7 @@
         .res-snippet { display: block; font-size: 0.8em; color: var(--text-muted); opacity: 0.8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
 
         /* ICONS & CONSISTENT TICKET LAYOUTS */
-        summary { list-style: none; outline: none; cursor: pointer; position: relative; }
+        summary { list-style: none; outline: none; cursor: pointer; position: relative; user-select: none; }
         summary::-webkit-details-marker { display: none; }
         summary::before, .collapse-icon, .pr-row-icon { display: none !important; }
         
@@ -82,8 +82,19 @@
         .ticket-id { font-family: monospace; opacity: 0.8; margin-right: 2px; flex-shrink: 0; }
         .ticket-title-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-        /* BLOCKS */
-        .epic-block { contain: content; margin-bottom: 24px; border-radius: 8px; background: var(--bg-surface); border: 1px solid var(--border-color); overflow: hidden; box-shadow: var(--shadow-sm); }
+        /* BLOCKS & OPTIMIZATIONS */
+        .epic-block { 
+            contain: content; 
+            margin-bottom: 24px; 
+            border-radius: 8px; 
+            background: var(--bg-surface); 
+            border: 1px solid var(--border-color); 
+            overflow: hidden; 
+            box-shadow: var(--shadow-sm);
+            /* Render Optimizations */
+            content-visibility: auto;
+            contain-intrinsic-size: 500px;
+        }
         .epic-summary, .task-summary, .pr-summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
         .epic-summary { padding: 16px 20px; font-weight: 600; font-size: 1.05em; }
         .task-summary { padding: 12px 16px; font-weight: 600; }
@@ -104,6 +115,12 @@
         .count-grey { color: var(--text-muted); }
         .count-blue { color: var(--link-color); }
         .count-green { color: var(--badge-text-success); }
+
+        /* REFACTORED COMMENT CARD CSS */
+        .comment-card { margin-bottom: 12px; padding: 16px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-surface); }
+        .comment-header { margin-bottom: 8px; font-weight: bold; }
+        .comment-time { color: var(--text-muted); font-size: 0.85em; margin-left: 10px; font-weight: normal; }
+        .tag-pill { color: var(--link-color); font-size: 0.8em; margin-left: 6px; background: var(--badge-bg-info); padding: 2px 8px; border-radius: 12px; }
 
         .comment-group { margin-bottom: 12px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-surface); transition: transform 0.1s; }
         .comment-group:hover { transform: translateY(-1px); border-color: var(--link-color); }
@@ -161,6 +178,7 @@
     <script>
         const state = { index: [], curIdx: -1, lastQ: "" };
         const generationTime = new Date("{{ generation_time_iso }}");
+        let debounceTimer; // Search optimization
 
         function updateTimeAgo() {
             const now = new Date();
@@ -252,6 +270,24 @@
                 document.getElementById("refreshStatus").style.display = "none";
             }
 
+            // Optimization 2: Cache DOM text structure to avoid layout thrashing during searches
+            window.epicMap = [];
+
+            document.querySelectorAll('.epic-block').forEach((epic, index) => {
+                const summary = epic.querySelector('.epic-summary');
+                const tasks = Array.from(epic.querySelectorAll('.task-block')).map(task => ({
+                    el: task,
+                    text: task.textContent.toLowerCase()
+                }));
+                
+                window.epicMap.push({
+                    el: epic,
+                    summary: summary,
+                    text: summary ? summary.textContent.toLowerCase() : '',
+                    tasks: tasks
+                });
+            });
+
             document.querySelectorAll('.searchable-item').forEach((el, i) => {
                 const id = `si-${i}`; el.id = id;
                 state.index.push({
@@ -272,7 +308,14 @@
                 const q = input.value.trim().toLowerCase();
                 if (q === state.lastQ) return;
                 state.lastQ = q; state.curIdx = -1;
-                renderDropdown(q); filterDOM(q);
+                
+                renderDropdown(q); 
+                
+                // Optimization 1: Debounce DOM filtering logic
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    filterDOM(q);
+                }, 150);
             });
 
             input.addEventListener('keydown', (e) => {
@@ -287,27 +330,16 @@
             input.addEventListener('focus', () => { if (input.value.length > 1) dropdown.style.display = 'block'; });
             input.addEventListener('blur', () => { setTimeout(() => dropdown.style.display = 'none', 250); });
 
-            // 🧠 PREVENT MAC OS DOWNLOAD BEHAVIOR PRE-EMPTIVELY
             document.addEventListener('mousedown', (e) => {
-                if ((e.altKey || e.shiftKey) && e.target.closest('summary')) {
-                    e.preventDefault(); 
-                }
-            }, true);
-
-            // 🧠 MACBOOK COMPATIBLE SHIFT/ALT+CLICK DUAL-STATE LOGIC
-            document.addEventListener('click', (e) => {
-                // Now supports Shift+Click OR Alt+Click to bypass OS level quirks
-                if (!e.altKey && !e.shiftKey) return; 
-
-                let s = e.target.closest('summary'); 
+                if (!e.shiftKey && !e.altKey) return;
+                let s = e.target.closest('summary');
                 if (!s) return;
 
-                e.preventDefault(); 
+                e.preventDefault();
                 e.stopPropagation();
 
                 let d = s.parentElement;
 
-                // --- EPIC TOGGLE ---
                 if (d.classList.contains('epic-block')) {
                     const tasks = Array.from(d.querySelectorAll('.task-block'));
                     const isExpanded = tasks.length > 0 && tasks[0].hasAttribute('open');
@@ -332,7 +364,6 @@
                         });
                     }
                 } 
-                // --- ISSUE TOGGLE ---
                 else if (d.classList.contains('task-block')) {
                     d.setAttribute('open', '');
                     const allCom = d.querySelector('.all-comments');
@@ -357,6 +388,13 @@
                     }
                 }
             }, true);
+            
+            document.addEventListener('click', (e) => {
+                if ((e.shiftKey || e.altKey) && e.target.closest('summary')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            }, true);
         });
 
         function updateUI(items) { items.forEach((it, i) => { it.classList.toggle('selected', i === state.curIdx); if (i === state.curIdx) it.scrollIntoView({ block: 'nearest' }); }); }
@@ -369,8 +407,6 @@
             
             dropdown.innerHTML = matches.map((m, i) => {
                 const cleanSnippet = m.text.substring(Math.max(0, m.text.indexOf(q) - 20), m.text.indexOf(q) + 40);
-                
-                // SVG Selection logic based on indexed data-type
                 let icon = '<svg class="res-icon"><use href="#icon-task"></use></svg>'; 
                 if (m.type === 'epic' || m.type === 'epic-desc') icon = '<svg class="res-icon"><use href="#icon-epic"></use></svg>';
                 if (m.type === 'pr') icon = '<svg class="res-icon"><use href="#icon-github"></use></svg>';
@@ -390,74 +426,85 @@
             dropdown.style.display = 'block';
         }
 
-        // 🧠 SAFE HIGHLIGHT ENGINE
+        // 🧠 SAFE & CORRECT HIGHLIGHT ENGINE
         function clearHighlights() {
             document.querySelectorAll('mark.search-hl').forEach(m => {
                 const parent = m.parentNode;
                 if(parent) {
                     parent.replaceChild(document.createTextNode(m.textContent), m);
-                    parent.normalize();
+                    parent.normalize(); // Crucial: merges split text nodes back together
                 }
             });
         }
 
-        function highlightNode(node, regex) {
+        function highlightNode(node, keyword) {
             const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, null, false);
             const nodes = [];
             while(walker.nextNode()) nodes.push(walker.currentNode);
             
+            // Build non-global regex to safely grab exact indices iteratively
+            const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const localRegex = new RegExp(`(${escapedKeyword})`, "i");
+            
             nodes.forEach(n => {
-                if (n.parentNode && n.parentNode.nodeName !== 'SCRIPT' && n.parentNode.nodeName !== 'STYLE') {
-                    const text = n.nodeValue;
-                    const match = text.match(regex);
-                    if (match) {
+                if (n.parentNode && !['SCRIPT', 'STYLE', 'MARK', 'SUMMARY'].includes(n.parentNode.nodeName)) {
+                    let match;
+                    while ((match = localRegex.exec(n.nodeValue)) !== null) {
                         const mark = document.createElement("mark");
                         mark.className = "search-hl";
+                        
                         const wordNode = n.splitText(match.index);
-                        wordNode.splitText(match[0].length);
+                        const remainderNode = wordNode.splitText(match[0].length);
+                        
                         mark.textContent = wordNode.textContent;
                         wordNode.replaceWith(mark);
+                        
+                        n = remainderNode; // Advance pointer past the newly wrapped node
                     }
                 }
             });
         }
 
         function filterDOM(q) {
-            const epics = document.querySelectorAll('.epic-block');
             clearHighlights();
             
             if (!q) { 
-                epics.forEach(e => e.removeAttribute('hidden')); 
-                document.querySelectorAll('.task-block').forEach(t => t.removeAttribute('hidden')); 
+                window.epicMap.forEach(epicData => {
+                    epicData.el.removeAttribute('hidden');
+                    epicData.tasks.forEach(t => {
+                        t.el.removeAttribute('hidden');
+                        t.el.removeAttribute('open'); // Revert UI cleanly
+                    });
+                });
                 return; 
             }
             
-            const regex = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, "gi");
-            
-            epics.forEach(epic => {
-                const summary = epic.querySelector('.epic-summary');
-                const match = summary.textContent.toLowerCase().includes(q);
+            // Iterate using memory mapped elements (avoids expensive textContent layout thrashing)
+            window.epicMap.forEach(epicData => {
+                const matchEpic = epicData.text.includes(q);
                 let vTasks = 0;
                 
-                epic.querySelectorAll('.task-block').forEach(task => {
-                    if (task.textContent.toLowerCase().includes(q) || match) {
-                        task.removeAttribute('hidden'); 
+                epicData.tasks.forEach(taskData => {
+                    if (taskData.text.includes(q) || matchEpic) {
+                        taskData.el.removeAttribute('hidden'); 
                         vTasks++;
-                        if (task.textContent.toLowerCase().includes(q)) { 
-                            task.setAttribute('open', ''); 
-                            highlightNode(task, regex); 
+                        if (taskData.text.includes(q)) { 
+                            taskData.el.setAttribute('open', ''); 
+                            highlightNode(taskData.el, q); 
+                        } else {
+                            taskData.el.removeAttribute('open');
                         }
                     } else {
-                        task.setAttribute('hidden', '');
+                        taskData.el.setAttribute('hidden', '');
                     }
                 });
                 
-                if (match || vTasks > 0) { 
-                    epic.removeAttribute('hidden'); 
-                    epic.setAttribute('open', ''); 
-                    if (match) highlightNode(summary, regex); 
+                if (matchEpic || vTasks > 0) { 
+                    epicData.el.removeAttribute('hidden'); 
+                    epicData.el.setAttribute('open', ''); 
+                    if (matchEpic) highlightNode(epicData.summary, q); 
                 } else {
-                    epic.setAttribute('hidden', '');
+                    epicData.el.setAttribute('hidden', '');
                 }
             });
         }
@@ -476,21 +523,22 @@
     </script>
 
     {% macro render_comment(comment, color_hex, task_key) %}
-    <div class="searchable-item" 
+    <div class="searchable-item comment-card" 
          data-key="{{ task_key }}" 
          data-type="comment"
          data-title="{{ comment.summary or 'Comment' }}" 
          data-author="@{{ comment.author | replace(' ', '') }}" 
          data-time="{{ comment.time_str }}"
-         style='margin-bottom: 12px; padding: 16px; border: 1px solid var(--border-color); border-left: 4px solid {{ color_hex }}; border-radius: 4px; background: var(--bg-surface);'>
-        <div style='margin-bottom: 8px;'>
-            <strong>🗣️ {{ comment.author }}</strong> <span style='color: var(--text-muted); font-size: 0.85em; margin-left:10px'>{{ comment.time_str }}</span>
+         style="border-left-color: {{ color_hex }};">
+        <div class="comment-header">
+            <span>🗣️ {{ comment.author }}</span>
+            <span class="comment-time">{{ comment.time_str }}</span>
         </div>
         {% if comment.summary %}
             <details class='comment-collapse'>
                 <summary style='font-weight:600; padding:10px; background:var(--bg-surface-muted); border-radius:4px;'>
                     {{ comment.summary }}
-                    {% for t in comment.tags %}<span class='tag-pill' style='color:var(--link-color); font-size:0.8em; margin-left:6px; background:var(--badge-bg-info); padding:2px 8px; border-radius:12px;'>{{ t }}</span>{% endfor %}
+                    {% for t in comment.tags %}<span class='tag-pill'>{{ t }}</span>{% endfor %}
                 </summary>
                 <div style='padding-top:10px'>{{ comment.body | safe }}</div>
             </details>
