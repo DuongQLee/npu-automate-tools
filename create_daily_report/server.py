@@ -112,3 +112,58 @@ sudo systemctl daemon-reload
 sudo systemctl restart daily-report.service
 sudo systemctl status daily-report.service  # It should now say "active (running)"
 """
+
+# ==============================================================================
+# 🛠️ SYSTEMD SERVICE DEPLOYMENT GUIDE FOR ROCKY 9 (SELINUX FIXES)
+# ==============================================================================
+"""
+To run this server professionally in the background on Rocky 9 and avoid 203/EXEC 
+permission errors caused by SELinux, follow these exact steps:
+
+STEP 1: Fix Ownership & Permissions
+-----------------------------------
+Run these commands in your VM terminal to ensure the system can execute your virtual environment:
+
+# Ensure the moreh user owns the entire repository and virtual environment
+sudo chown -R moreh:moreh /home/moreh/npu-automate-tools
+
+# Ensure the python binary is explicitly marked as executable
+sudo chmod +x /home/moreh/npu-automate-tools/.venv/bin/python
+
+# Fix SELinux contexts (allows systemd to execute binaries in the home directory)
+sudo chcon -Rt bin_t /home/moreh/npu-automate-tools/.venv/bin/
+
+
+STEP 2: Update the Systemd Service File
+---------------------------------------
+Run: sudo nvim /etc/systemd/system/daily-report.service
+
+Paste the following configuration:
+
+[Unit]
+Description=Daily Report Live Refresh Server
+After=network.target
+
+[Service]
+Type=simple
+User=moreh
+WorkingDirectory=/home/moreh/npu-automate-tools
+
+# 🌟 We use bash to wrap the execution, bypassing strict SELinux direct-execution blocks
+ExecStart=/bin/bash -c '/home/moreh/npu-automate-tools/.venv/bin/python create_daily_report/server.py'
+
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+
+
+STEP 3: Reload and Start
+------------------------------------
+Apply the changes and start the server:
+
+sudo systemctl daemon-reload
+sudo systemctl restart daily-report.service
+sudo systemctl status daily-report.service  # It should now say "active (running)"
+"""

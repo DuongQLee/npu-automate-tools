@@ -72,25 +72,32 @@
         .res-time { color: var(--text-muted); font-size: 0.8em; font-family: monospace; margin-left: auto; flex-shrink: 0; }
         .res-snippet { display: block; font-size: 0.8em; color: var(--text-muted); opacity: 0.8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
 
-        /* ICONS & LAYOUT */
+        /* ICONS & CONSISTENT TICKET LAYOUTS */
         summary { list-style: none; outline: none; cursor: pointer; position: relative; }
         summary::-webkit-details-marker { display: none; }
-        .ticket-title-wrapper { display: flex; align-items: center; gap: 8px; }
+        summary::before, .collapse-icon, .pr-row-icon { display: none !important; }
+        
+        .ticket-title-wrapper { display: flex; align-items: center; gap: 8px; flex-grow: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
         .jira-icon { width: 16px; height: 16px; flex-shrink: 0; }
+        .ticket-id { font-family: monospace; opacity: 0.8; margin-right: 2px; flex-shrink: 0; }
+        .ticket-title-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+        /* BLOCKS */
         .epic-block { contain: content; margin-bottom: 24px; border-radius: 8px; background: var(--bg-surface); border: 1px solid var(--border-color); overflow: hidden; box-shadow: var(--shadow-sm); }
-        .epic-summary { padding: 16px 20px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+        .epic-summary, .task-summary, .pr-summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+        .epic-summary { padding: 16px 20px; font-weight: 600; font-size: 1.05em; }
+        .task-summary { padding: 12px 16px; font-weight: 600; }
+        .pr-summary { padding: 10px 16px; font-weight: 500; }
+
         .epic-block[open] .epic-summary { border-bottom: 1px solid var(--border-color); }
         .epic-content { padding: 0; background: var(--bg-body); }
 
         .task-block { border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface); margin: 16px; overflow: hidden; }
-        .task-summary { padding: 12px 16px; font-weight: 500; display: flex; justify-content: space-between; align-items: center; }
         .task-block[open] .task-summary { border-bottom: 1px solid var(--border-color); background: var(--bg-surface-muted); }
         .task-content { padding: 0; background: var(--bg-surface); }
 
         .sub-collapse { border-bottom: 1px solid var(--border-color); }
         .sub-content { padding: 16px; font-size: 0.95em; border-top: 1px dashed var(--border-color); background: var(--bg-surface-hover); }
-        .ticket-id { font-family: monospace; opacity: 0.8; margin-right: 6px; }
         .update-badge { padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: bold; flex-shrink: 0; }
         
         .count-tag { font-weight: bold; margin-left: 8px; }
@@ -146,7 +153,7 @@
     
     <div class="search-container">
         <div class="search-wrapper">
-            <input type="text" id="searchInput" placeholder="🔍 Search (Enter to jump | Escape to close | Alt+Click deep toggle)..." autocomplete="off">
+            <input type="text" id="searchInput" placeholder="🔍 Search (Enter to jump | Escape to close | Shift+Click deep toggle)..." autocomplete="off">
             <div id="searchResults" class="search-dropdown"></div>
         </div>
     </div>
@@ -201,11 +208,15 @@
                     body: JSON.stringify({ date: "{{ today_str }}" })
                 });
 
-                if (response.ok) window.location.reload();
-                else throw new Error("Server Error");
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    const errData = await response.json();
+                    throw new Error(errData.message || "Server Error");
+                }
             } catch (error) {
                 btn.innerHTML = originalSvg;
-                statusText.innerHTML = "<span style='color: var(--badge-text-danger); font-weight: bold;'>Error: Script unreachable</span>";
+                statusText.innerHTML = `<span style='color: var(--badge-text-danger); font-weight: bold;'>Error: ${error.message}</span>`;
             }
         }
 
@@ -276,10 +287,17 @@
             input.addEventListener('focus', () => { if (input.value.length > 1) dropdown.style.display = 'block'; });
             input.addEventListener('blur', () => { setTimeout(() => dropdown.style.display = 'none', 250); });
 
-            // 🧠 ALT+CLICK DUAL-STATE LOGIC
+            // 🧠 PREVENT MAC OS DOWNLOAD BEHAVIOR PRE-EMPTIVELY
+            document.addEventListener('mousedown', (e) => {
+                if ((e.altKey || e.shiftKey) && e.target.closest('summary')) {
+                    e.preventDefault(); 
+                }
+            }, true);
+
+            // 🧠 MACBOOK COMPATIBLE SHIFT/ALT+CLICK DUAL-STATE LOGIC
             document.addEventListener('click', (e) => {
-                if (!e.altKey) return; 
-                if (e.target.closest('a')) e.preventDefault();
+                // Now supports Shift+Click OR Alt+Click to bypass OS level quirks
+                if (!e.altKey && !e.shiftKey) return; 
 
                 let s = e.target.closest('summary'); 
                 if (!s) return;
@@ -494,7 +512,7 @@
                 <div class="ticket-title-wrapper">
                     <svg class="jira-icon"><use href="#icon-epic"></use></svg>
                     {% if epic.key != "OTHER" %}<a href="https://{{ domain }}/browse/{{ epic.key }}" class="ticket-id" target="_blank">[{{ epic.key }}]</a>{% endif %}
-                    {{ epic.summary }}
+                    <span class="ticket-title-text">{{ epic.summary }}</span>
                 </div>
                 <span class="update-badge" style="color:var(--badge-text-{{ epic.status_key }})">{{ epic.epic_updates }} Updates</span>
             </summary>
@@ -514,7 +532,7 @@
                             <div class="ticket-title-wrapper">
                                 <svg class="jira-icon"><use href="#icon-task"></use></svg>
                                 <a href="https://{{ domain }}/browse/{{ task.key }}" class="ticket-id" target="_blank">[{{ task.key }}]</a> 
-                                {{ task.summary }}
+                                <span class="ticket-title-text">{{ task.summary }}</span>
                             </div>
                             <span class="update-badge {{ 'purple' if section.is_yesterday }}">{{ task.updates }} Updates</span>
                         </summary>
@@ -531,9 +549,13 @@
                                 <div class="sub-content">
                                     {% for pr in task.prs %}
                                     <details class="pr-collapse searchable-item" data-type="pr" data-key="{{ task.key }}" data-title="{{ pr.clean_title }}" data-author="@{{ pr.author }}">
-                                        <summary style="padding:8px; font-weight:600">
-                                            <a href="{{ pr.url }}" target="_blank">{{ task.key }}</a> {{ pr.clean_title }} 
-                                            <span style="float:right; color:{{ pr.text_color }}">{{ pr.state_str }}</span>
+                                        <summary class="pr-summary">
+                                            <div class="ticket-title-wrapper">
+                                                <svg class="jira-icon"><use href="#icon-github"></use></svg>
+                                                <a href="{{ pr.url }}" class="ticket-id" target="_blank">[{{ task.key }}]</a> 
+                                                <span class="ticket-title-text">{{ pr.clean_title }}</span>
+                                            </div>
+                                            <span class="update-badge" style="color:{{ pr.text_color }}">{{ pr.state_str }}</span>
                                         </summary>
                                         <div style="padding:10px; border-top:1px dashed var(--border-color)">{{ pr.body | safe }}</div>
                                     </details>
@@ -579,8 +601,7 @@
                 {% endfor %}
             </div>
         </details>
-    </div>
-    {% endfor %}
+        {% endfor %}
     {% endif %}
     {% endfor %}
 
@@ -593,7 +614,7 @@
                 <div class="ticket-title-wrapper">
                     <svg class="jira-icon"><use href="#icon-epic"></use></svg>
                     <a href="https://{{ domain }}/browse/{{ epic.key }}" target="_blank" class="ticket-id">[{{ epic.key }}]</a> 
-                    <span>{{ epic.summary }}</span>
+                    <span class="ticket-title-text">{{ epic.summary }}</span>
                 </div>
                 <span class="update-badge" style="color:var(--badge-text-{{ pen_status }})">{{ epic.status_badge | safe | striptags }}</span>
             </summary>
