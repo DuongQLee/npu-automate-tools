@@ -14,3 +14,4 @@ wheels/
 
 # Repo hidden files
 mv-npu_daily_report/
+.DS_Store
