@@ -86,10 +86,10 @@ After=network.target
 
 [Service]
 Type=simple
-User=your_user
-WorkingDirectory=/home/your_user/your_repo
+User=moreh
+WorkingDirectory=/home/moreh/npu-automate-tools
 # ⚠️ Make sure to use the absolute path to 'uv' from Step 1!
-ExecStart=/home/your_user/.local/bin/uv run server.py
+ExecStart=/home/moreh/.local/bin/uv run server.py
 Restart=always
 RestartSec=3
 
