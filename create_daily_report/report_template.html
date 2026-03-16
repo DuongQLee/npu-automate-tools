@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>Daily Sync Snapshot ({{ today_str }})</title>
     <style>
-        /* ☀️ LIGHT THEME VARIABLES */
         :root {
             --bg-body: #f4f5f7;
             --bg-surface: #ffffff;
@@ -14,25 +13,18 @@
             --text-muted: #5e6c84;
             --border-color: #dfe1e6;
             --link-color: #0969da;
-            --code-bg: #f4f5f7;
-
-            --badge-bg-default: #dfe1e6; --badge-text-default: #42526e;
             --badge-bg-success: #e3fcef; --badge-text-success: #066637;
             --badge-bg-info: #deebff;    --badge-text-info: #0052cc;
             --badge-bg-purple: #eae6ff;  --badge-text-purple: #403294;
             --badge-bg-danger: #ffebe6;  --badge-text-danger: #bf2600;
             --badge-bg-warn: #fffae6;    --badge-text-warn: #ff8b00;
-
-            --pr-open: #2da44e;
-            --pr-merged: #8250df;
-            --pr-closed: #cf222e;
-
+            --badge-bg-todo: #f4f5f7;    --badge-text-todo: #42526e;
+            --pr-open: #2da44e; --pr-merged: #8250df; --pr-closed: #cf222e;
             --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
-            --shadow-md: 0 2px 8px rgba(9, 30, 66, 0.08);
-            --shadow-lg: 0 4px 12px rgba(9, 30, 66, 0.12);
+            --shadow-md: 0 4px 8px rgba(9, 30, 66, 0.08);
+            --shadow-lg: 0 8px 16px rgba(9, 30, 66, 0.12);
         }
 
-        /* 🌙 DARK THEME VARIABLES */
         [data-theme="dark"] {
             --bg-body: #0d1117;
             --bg-surface: #161b22;
@@ -42,507 +34,379 @@
             --text-muted: #8b949e;
             --border-color: #30363d;
             --link-color: #58a6ff;
-            --code-bg: #161b22;
-
-            --badge-bg-default: rgba(110, 118, 129, 0.4); --badge-text-default: #c9d1d9;
             --badge-bg-success: rgba(46, 160, 67, 0.15);  --badge-text-success: #3fb950;
             --badge-bg-info: rgba(56, 139, 253, 0.15);    --badge-text-info: #58a6ff;
             --badge-bg-purple: rgba(163, 113, 247, 0.15); --badge-text-purple: #d2a8ff;
             --badge-bg-danger: rgba(248, 81, 73, 0.15);   --badge-text-danger: #ff7b72;
             --badge-bg-warn: rgba(210, 153, 34, 0.15);    --badge-text-warn: #d29922;
-
-            --pr-open: #3fb950;
-            --pr-merged: #d2a8ff;
-            --pr-closed: #f85149;
-
-            --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
-            --shadow-md: 0 2px 8px rgba(0,0,0,0.6);
-            --shadow-lg: 0 4px 12px rgba(0,0,0,0.8);
+            --badge-bg-todo: rgba(110, 118, 129, 0.4);   --badge-text-todo: #c9d1d9;
         }
 
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg-body); color: var(--text-main); max-width: 1000px; margin: 40px auto 0 auto; padding: 0 20px; line-height: 1.6; transition: background 0.3s, color 0.3s; }
-        a { color: var(--link-color); text-decoration: none; } a:hover { text-decoration: underline; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg-body); color: var(--text-main); max-width: 1000px; margin: 40px auto 0 auto; padding: 0 20px; line-height: 1.6; transition: background 0.3s; }
+        a { color: var(--link-color); text-decoration: none; }
         mark { background-color: #ffea00; color: #000; padding: 0 2px; border-radius: 2px; }
-        
+
+        /* HEADER & NAVIGATION */
         .header-container { display: flex; align-items: center; justify-content: space-between; padding-bottom: 20px; border-bottom: 2px solid var(--border-color); }
-        .nav-left, .nav-right { flex: 1; display: flex; } .nav-left { justify-content: flex-start; } .nav-right { justify-content: flex-end; gap: 10px; }
-        .header-title { flex: 2; text-align: center; } h1 { margin: 0; font-size: 1.8em; color: var(--text-main); }
+        .nav-left, .nav-right { flex: 1; display: flex; gap: 10px; align-items: center; }
+        .nav-right { justify-content: flex-end; }
+        .header-title { flex: 2; text-align: center; }
         
-        .nav-btn { font-family: inherit; background: var(--bg-surface); border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.9em; box-shadow: var(--shadow-sm); transition: background 0.2s; color: var(--text-main); display: inline-flex; align-items: center; cursor: pointer; }
-        .nav-btn:hover:not(.disabled) { background: var(--bg-surface-hover); } .nav-btn.disabled { opacity: 0.4; cursor: not-allowed; background: var(--bg-body); box-shadow: none; }
-        
-        /* 🔍 SEARCH BAR & DROPDOWN UI */
-        .search-container { position: sticky; top: 0; z-index: 100; background: var(--bg-body); padding: 20px 0; margin-bottom: 10px; }
-        .search-wrapper { position: relative; width: 100%; }
-        #searchInput { width: 100%; padding: 14px 20px; font-size: 16px; border: 1px solid var(--border-color); border-radius: 8px; outline: none; box-sizing: border-box; background-color: var(--bg-surface); color: var(--text-main); box-shadow: var(--shadow-sm); transition: all 0.2s ease; }
-        #searchInput:focus { border-color: var(--link-color); box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15); }
-        
-        .search-dropdown { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow-lg); z-index: 200; display: none; max-height: 400px; overflow-y: auto; }
-        .search-result-item { padding: 12px 16px; border-bottom: 1px solid var(--border-color); cursor: pointer; font-size: 0.9em; transition: background 0.2s; }
-        .search-result-item:last-child { border-bottom: none; }
-        .search-result-item:hover { background: var(--bg-surface-hover); }
-        .search-result-item strong { color: var(--link-color); font-family: monospace; font-size: 1.1em; }
-        .search-result-item span.author { color: var(--text-muted); font-weight: 600; margin-right: 6px; }
-        .search-result-item span.snippet { color: var(--text-main); display: inline-block; margin-top: 4px; line-height: 1.4; word-break: break-word; }
+        .nav-btn { 
+            height: 40px; 
+            background: var(--bg-surface); 
+            border: 1px solid var(--border-color); 
+            padding: 0 16px; 
+            border-radius: 6px; 
+            font-weight: 600; 
+            color: var(--text-main); 
+            cursor: pointer; 
+            display: inline-flex; 
+            align-items: center; 
+            justify-content: center;
+            box-sizing: border-box;
+            transition: all 0.2s ease;
+        }
+        .nav-btn:hover { background: var(--bg-surface-hover); border-color: var(--link-color); }
+        .nav-btn svg { fill: currentColor; }
 
-        summary { list-style: none; } summary::-webkit-details-marker { display: none; }
+        /* 🔍 SEARCH ENGINE (Aligned) */
+        .search-container { position: sticky; top: 0; z-index: 2000; background: var(--bg-body); padding: 20px 0; }
+        .search-wrapper { position: relative; width: 100%; box-sizing: border-box; }
+        #searchInput { width: 100%; height: 48px; padding: 0 20px; font-size: 16px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-surface); color: var(--text-main); outline: none; box-sizing: border-box; box-shadow: var(--shadow-sm); }
         
-        .collapse-icon { display: inline-block; font-size: 1.3em; margin-right: 8px; color: var(--text-muted); transition: transform 0.2s; line-height: 1; vertical-align: middle; }
-        .epic-block[open] > .epic-summary .collapse-icon, .task-block[open] > .task-summary .collapse-icon { transform: rotate(90deg); }
-        .ticket-id { font-family: monospace; font-size: 0.95em; opacity: 0.85; margin-right: 6px; }
+        .search-dropdown { position: absolute; top: calc(100% + 8px); left: 0; right: 0; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: var(--shadow-lg); z-index: 2100; display: none; max-height: 500px; overflow-y: auto; padding: 8px; }
+        .search-result-item { padding: 12px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; border: 1px solid transparent; }
+        .search-result-item.selected { background: var(--bg-surface-hover); border-color: var(--link-color); }
+        
+        .res-header { font-size: 0.95em; margin-bottom: 4px; display: flex; gap: 8px; align-items: baseline; }
+        .res-key { color: var(--link-color); font-family: monospace; font-weight: bold; flex-shrink: 0; }
+        .res-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-grow: 1; }
+        .res-time { color: var(--text-muted); font-size: 0.8em; margin-left: auto; font-family: monospace; flex-shrink: 0; }
 
-        .epic-block { margin-bottom: 24px; border-radius: 8px; background: var(--bg-surface); box-shadow: var(--shadow-md); overflow: hidden; transition: all 0.2s; }
-        .epic-block[open] { box-shadow: var(--shadow-lg); }
-        .epic-summary { padding: 16px 20px; font-weight: 600; font-size: 1.15em; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid transparent; }
-        .epic-block[open] .epic-summary { border-bottom: 1px solid var(--border-color); } 
-        .epic-content { padding: 0; background: var(--bg-body); }
+        /* ❌ NO ARROWS */
+        summary { list-style: none; outline: none; cursor: pointer; }
+        summary::-webkit-details-marker { display: none; }
+
+        /* BLOCKS */
+        .epic-block { margin-bottom: 24px; border-radius: 8px; background: var(--bg-surface); border: 1px solid var(--border-color); overflow: hidden; box-shadow: var(--shadow-sm); }
+        .epic-summary { padding: 16px 20px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+        .task-block { border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface); margin: 16px; overflow: hidden; }
+        .task-summary { padding: 12px 16px; font-weight: 500; display: flex; justify-content: space-between; align-items: center; }
         
-        .task-block { margin: 16px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface); overflow: hidden; box-shadow: var(--shadow-sm); }
-        .task-summary { padding: 12px 16px; background: var(--bg-surface); font-weight: 500; font-size: 0.95em; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid transparent; transition: background 0.2s; }
-        .task-summary:hover { background: var(--bg-surface-hover); } .task-block[open] .task-summary { border-bottom: 1px solid var(--border-color); background: var(--bg-surface); }
-        .task-content { padding: 0; background: var(--bg-surface); }
+        .sub-collapse { border-bottom: 1px solid var(--border-color); }
+        .sub-content { padding: 16px; background: var(--bg-surface-hover); border-top: 1px dashed var(--border-color); }
+        .ticket-id { font-family: monospace; opacity: 0.8; margin-right: 6px; }
+        .update-badge { padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: bold; }
         
-        .update-badge { background: var(--badge-bg-success); color: var(--badge-text-success); padding: 4px 10px; border-radius: 12px; font-size: 0.85em; font-weight: bold; white-space: nowrap; } 
-        .update-badge.zero { background: var(--bg-body); color: var(--text-muted); font-weight: 500; } 
-        .update-badge.purple { background: var(--badge-bg-purple); color: var(--badge-text-purple); } 
-        .status-badge { padding: 3px 8px; border-radius: 12px; font-size: 0.75em; font-weight: bold; margin-left: 8px; white-space: nowrap; }
-        
-        .sub-collapse { margin: 0; background: transparent; border-bottom: 1px solid var(--border-color); }
-        .sub-collapse:last-child { border-bottom: none; }
-        .sub-collapse > summary { cursor: pointer; background: transparent; font-size: 0.9em; font-weight: 600; outline: none; padding: 10px 16px; color: var(--text-main); user-select: none; transition: background 0.2s; }
-        .sub-collapse > summary:hover { background: var(--bg-surface-muted); }
-        .sub-collapse > summary::before { content: '\203A'; display: inline-block; font-size: 1.3em; margin-right: 8px; color: var(--text-muted); transition: transform 0.2s; transform: rotate(0deg); line-height: 1; vertical-align: middle; }
-        .sub-collapse[open] > summary::before { transform: rotate(90deg); }
-        .sub-content { padding: 16px; font-size: 0.95em; border-top: 1px dashed var(--border-color); background: var(--bg-surface-hover); }
-        
-        .pr-collapse { border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 8px; background: var(--bg-surface); overflow: hidden; box-shadow: var(--shadow-sm); }
-        .pr-collapse:last-child { margin-bottom: 0; }
-        .pr-collapse > summary { cursor: pointer; padding: 0; outline: none; }
-        .pr-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; font-size: 0.95em; transition: background 0.2s; }
-        .pr-collapse > summary:hover .pr-row { background: var(--bg-surface-muted); }
-        .pr-row-icon { display: inline-block; font-size: 1.3em; margin-right: 8px; color: var(--text-muted); transition: transform 0.2s; transform: rotate(0deg); line-height: 1; vertical-align: middle; }
-        .pr-collapse[open] .pr-row-icon { transform: rotate(90deg); }
-        .pr-details { padding: 12px; border-top: 1px dashed var(--border-color); background: var(--bg-surface-hover); }
-        .pr-stats { display: flex; gap: 15px; font-size: 0.85em; margin-bottom: 12px; color: var(--text-muted); background: var(--bg-surface-muted); padding: 8px 12px; border-radius: 4px; }
-        .pr-desc { font-family: monospace; white-space: pre-wrap; font-size: 0.85em; color: var(--text-main); background: var(--bg-surface); padding: 12px; border: 1px solid var(--border-color); border-radius: 4px; max-height: 300px; overflow-y: auto; }
-        .pr-link { color: var(--link-color); text-decoration: none; font-weight: 600; } .pr-link:hover { text-decoration: underline; }
-        
-        .comments-container { padding: 0 4px; }
-        .comment-group { margin-bottom: 16px; }
-        .comment-group > summary { cursor: pointer; background: transparent; font-size: 0.95em; font-weight: 600; outline: none; padding: 8px 0; color: var(--text-main); user-select: none; border-bottom: 1px solid var(--border-color); margin-bottom: 12px; display: flex; align-items: center; transition: color 0.2s; }
-        .comment-group > summary:hover { color: var(--link-color); }
-        .comment-group > summary::before { content: '\203A'; display: inline-block; font-size: 1.3em; margin-right: 8px; color: var(--text-muted); transition: transform 0.2s; transform: rotate(0deg); line-height: 1; vertical-align: middle;}
-        .comment-group[open] > summary::before { transform: rotate(90deg); }
-        .tag-pill { color: var(--link-color); font-size: 0.8em; font-family: monospace; background: var(--badge-bg-info); padding: 2px 8px; border-radius: 12px; margin-left: 6px; white-space: nowrap; font-weight: 600; border: 1px solid var(--border-color); }
+        .count-tag { font-weight: bold; margin-left: 8px; }
+        .count-grey { color: var(--text-muted); }
+        .count-blue { color: var(--link-color); }
+        .count-green { color: var(--badge-text-success); }
+
+        .comment-group { margin-bottom: 12px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-surface); transition: transform 0.1s; }
+        .comment-group:hover { transform: translateY(-1px); border-color: var(--link-color); }
+        .comment-group > summary { padding: 14px 18px; font-weight: 700; font-size: 0.95em; display: flex; justify-content: space-between; }
+        .comment-group[open] > summary { border-bottom: 1px solid var(--border-color); background: var(--bg-surface-muted); }
+
+        @keyframes target-flash { 0% { background: rgba(255,234,0,0.4); } 100% { background: transparent; } }
+        .jump-flash { animation: target-flash 2s ease-out; }
     </style>
-    <script>
-        // 🌓 Theme Logic
-        function toggleTheme() {
-            const html = document.documentElement;
-            const currentTheme = html.getAttribute("data-theme");
-            const newTheme = currentTheme === "dark" ? "light" : "dark";
-            html.setAttribute("data-theme", newTheme);
-            localStorage.setItem("theme", newTheme);
-            document.getElementById("themeToggle").innerText = newTheme === "dark" ? "☀️" : "🌙";
-        }
-
-        // 🧠 GLOBAL VARIABLES FOR FAST SEARCH
-        let searchIndex = [];
-
-        document.addEventListener("DOMContentLoaded", function() {
-            // Theme Setup
-            const savedTheme = localStorage.getItem("theme");
-            const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-            if (savedTheme === "dark" || (!savedTheme && prefersDark)) {
-                document.documentElement.setAttribute("data-theme", "dark");
-                const toggleBtn = document.getElementById("themeToggle");
-                if(toggleBtn) toggleBtn.innerText = "☀️";
-            }
-
-            // Date Check Setup
-            const reportDate = "{{ today_str }}"; 
-            const vnTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Ho_Chi_Minh"}));
-            const currentVNDate = `${vnTime.getFullYear()}-${String(vnTime.getMonth() + 1).padStart(2, '0')}-${String(vnTime.getDate()).padStart(2, '0')}`;
-            if (reportDate >= currentVNDate) {
-                const nextBtn = document.getElementById("nextBtn");
-                if(nextBtn) { nextBtn.classList.add("disabled"); nextBtn.disabled = true; }
-            }
-
-            // 🧠 INDEX THE PAGE FOR INSTANT SEARCH PREVIEWS
-            document.querySelectorAll('.searchable-item').forEach(el => {
-                let textContent = el.textContent.replace(/\s+/g, ' ').trim();
-                searchIndex.push({
-                    el: el,
-                    key: el.getAttribute('data-key'),
-                    author: el.getAttribute('data-author') || '',
-                    text: textContent
-                });
-            });
-
-            // Handle Dropdown Dismissal
-            document.addEventListener('click', (e) => {
-                if (!e.target.closest('.search-wrapper')) {
-                    document.getElementById('searchResults').style.display = 'none';
-                }
-            });
-            
-            document.getElementById('searchInput').addEventListener('focus', () => {
-                if (document.getElementById('searchResults').innerHTML.trim() !== '') {
-                    document.getElementById('searchResults').style.display = 'block';
-                }
-            });
-        });
-
-        // 🧠 IDE APPROACH: Recursive Deep Toggle
-        document.addEventListener('click', function(e) {
-            let summary = e.target.closest('summary');
-            if (!summary) return;
-
-            let details = summary.parentElement;
-            let isEpic = details.classList.contains('epic-block');
-            let isTask = details.classList.contains('task-block');
-
-            if (e.altKey && (isEpic || isTask)) {
-                e.preventDefault(); 
-                details.setAttribute('open', '');
-
-                if (isEpic) {
-                    let tasks = details.querySelectorAll('.task-block');
-                    let epicDesc = details.querySelector('.epic-desc');
-                    let isOpeningSubs = true;
-                    if (tasks.length > 0) { isOpeningSubs = !tasks[0].hasAttribute('open'); } 
-                    else if (epicDesc) { isOpeningSubs = !epicDesc.hasAttribute('open'); }
-                    
-                    if (epicDesc) {
-                        if (isOpeningSubs) epicDesc.setAttribute('open', '');
-                        else epicDesc.removeAttribute('open');
-                    }
-
-                    tasks.forEach(task => {
-                        if (isOpeningSubs) {
-                            task.setAttribute('open', '');
-                            task.querySelectorAll('.sub-collapse').forEach(sub => sub.setAttribute('open', ''));
-                        } else {
-                            task.removeAttribute('open');
-                            task.querySelectorAll('.sub-collapse').forEach(sub => sub.removeAttribute('open'));
-                        }
-                    });
-
-                } else if (isTask) {
-                    let allInnerDetails = details.querySelectorAll('details');
-                    if (allInnerDetails.length === 0) return;
-                    let isOpeningSubs = !allInnerDetails[0].hasAttribute('open');
-                    allInnerDetails.forEach(d => {
-                        if (isOpeningSubs) d.setAttribute('open', '');
-                        else d.removeAttribute('open');
-                    });
-                }
-            }
-        });
-
-        function goToReport(dateStr) {
-            let path = window.location.pathname;
-            window.location.href = path.match(/\/today\/?(index\.html)?$/) ? '../MV-NPU_Daily_Report_' + dateStr + '.html' : 'MV-NPU_Daily_Report_' + dateStr + '.html';
-        }
-
-        function removeHighlights(container) {
-            const marks = container.querySelectorAll("mark.search-hl");
-            marks.forEach(mark => {
-                const parent = mark.parentNode;
-                parent.replaceChild(document.createTextNode(mark.textContent), mark);
-                parent.normalize();
-            });
-        }
-
-        function highlightDOMText(node, regex) {
-            if (node.nodeType === 3) {
-                const match = node.nodeValue.match(regex);
-                if (match) {
-                    const mark = document.createElement("mark");
-                    mark.className = "search-hl";
-                    const wordNode = node.splitText(match.index);
-                    wordNode.splitText(match[0].length);
-                    const wordClone = wordNode.cloneNode(true);
-                    mark.appendChild(wordClone);
-                    wordNode.parentNode.replaceChild(mark, wordNode);
-                    return 1;
-                }
-            } else if (node.nodeType === 1 && node.childNodes && !/(script|style|mark)/i.test(node.tagName)) {
-                let i = 0;
-                while (i < node.childNodes.length) {
-                    i += highlightDOMText(node.childNodes[i], regex);
-                    i++;
-                }
-            }
-            return 0;
-        }
-
-        function filterReport() {
-            const searchInput = document.getElementById('searchInput');
-            const searchResults = document.getElementById('searchResults');
-            const query = searchInput.value.trim().toLowerCase();
-            
-            // 1. Regex setup for safe highlighting
-            const safeQuery = query.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            const rawRegex = query ? new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, "gi") : null;
-            const safeRegex = safeQuery ? new RegExp(`(${safeQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, "gi") : null;
-
-            // 2. DOM Filter & Background Highlighting
-            document.querySelectorAll('.epic-block').forEach(epic => {
-                removeHighlights(epic);
-                const epicSummary = epic.querySelector('.epic-summary');
-                const epicDesc = epic.querySelector('.epic-desc');
-                
-                let epicMatches = query && (epicSummary.textContent.toLowerCase().includes(query) || (epicDesc && epicDesc.textContent.toLowerCase().includes(query)));
-
-                let hasTask = false;
-                epic.querySelectorAll('.task-block').forEach(task => {
-                    const taskMatches = query && task.textContent.toLowerCase().includes(query);
-                    if (taskMatches || epicMatches || !query) { 
-                        task.style.display = 'block'; hasTask = true; 
-                        if (query && taskMatches) { task.setAttribute('open', ''); highlightDOMText(task, rawRegex); }
-                    } else { task.style.display = 'none'; }
-                });
-
-                if (epicMatches || hasTask || (epic.querySelectorAll('.task-block').length === 0 && epicMatches) || !query) { 
-                    epic.style.display = 'block'; 
-                    if (query) { epic.setAttribute('open', ''); highlightDOMText(epicSummary, rawRegex); if (epicDesc) highlightDOMText(epicDesc, rawRegex); }
-                } else { epic.style.display = 'none'; }
-            });
-
-            // 3. 🔍 DROPDOWN LIST LOGIC (Top 5 matches)
-            searchResults.innerHTML = '';
-            if (!query) {
-                searchResults.style.display = 'none';
-                return;
-            }
-
-            let matches = [];
-            for (let item of searchIndex) {
-                let idx = item.text.toLowerCase().indexOf(query);
-                if (idx !== -1) {
-                    matches.push({ item, idx });
-                    if (matches.length >= 5) break; // Capture only Top 5
-                }
-            }
-
-            if (matches.length > 0) {
-                searchResults.style.display = 'block';
-                matches.forEach(match => {
-                    // Extract a safe 80-character snippet
-                    let start = Math.max(0, match.idx - 40);
-                    let end = Math.min(match.item.text.length, match.idx + query.length + 40);
-                    let snippet = match.item.text.substring(start, end);
-                    
-                    if (start > 0) snippet = '...' + snippet;
-                    if (end < match.item.text.length) snippet = snippet + '...';
-
-                    // Safely highlight the snippet
-                    let safeSnippet = snippet.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                    let highlightedSnippet = safeSnippet.replace(safeRegex, "<mark>$1</mark>");
-
-                    let div = document.createElement('div');
-                    div.className = 'search-result-item';
-                    
-                    let headerStr = `<strong>[${match.item.key}]</strong>`;
-                    if (match.item.author) {
-                        headerStr += ` <span class="author">${match.item.author}</span>`;
-                    }
-
-                    div.innerHTML = `${headerStr}<br><span class="snippet">${highlightedSnippet}</span>`;
-                    
-                    // Click execution
-                    div.onclick = () => {
-                        match.item.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        searchResults.style.display = 'none';
-                        
-                        // Briefly flash the element background to help the user locate it
-                        match.item.el.style.transition = "background 0.5s";
-                        let oldBg = match.item.el.style.background;
-                        match.item.el.style.background = "rgba(88, 166, 255, 0.2)";
-                        setTimeout(() => match.item.el.style.background = oldBg, 1500);
-                    };
-                    
-                    searchResults.appendChild(div);
-                });
-            } else {
-                searchResults.style.display = 'none';
-            }
-        }
-    </script>
 </head>
 <body>
     <div class="header-container">
-        <div class="nav-left"><button onclick="goToReport('{{ yesterday_str }}')" class="nav-btn">⬅️ Yesterday</button></div>
-        <div class="header-title"><h1>MV-NPU Daily Report {{ today_str }}</h1></div>
+        <div class="nav-left">
+            <button id="themeToggle" onclick="toggleTheme()" class="nav-btn" title="Toggle Dark/Light Mode">🌙</button>
+            <button onclick="goToReport('{{ yesterday_str }}')" class="nav-btn">⬅️ Yesterday</button>
+        </div>
+        <div class="header-title">
+            <h1 style="margin:0; font-size: 1.5em;">Daily Sync {{ today_str }}</h1>
+        </div>
         <div class="nav-right">
-            <button id="themeToggle" onclick="toggleTheme()" class="nav-btn" style="padding: 8px 12px; font-size: 1.1em;" title="Toggle Theme">🌙</button>
             <button id="nextBtn" onclick="goToReport('{{ next_str }}')" class="nav-btn">Next ➡️</button>
+            <button onclick="handleRefresh()" class="nav-btn" title="Refresh Page">
+                <svg width="18" height="18" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+            </button>
         </div>
     </div>
     
     <div class="search-container">
         <div class="search-wrapper">
-            <input type="text" id="searchInput" onkeyup="filterReport()" placeholder="🔍 Search tags, authors, issues... (Tip: Alt+Click headers to toggle contents)" autocomplete="off">
+            <input type="text" id="searchInput" placeholder="🔍 Search (Enter to jump | Escape to close | Alt+Click deep toggle)..." autocomplete="off">
             <div id="searchResults" class="search-dropdown"></div>
         </div>
     </div>
 
+    <script>
+        const state = { index: [], curIdx: -1, lastQ: "" };
+
+        function handleRefresh() {
+            // TODO: Implement refresh this page (e.g. re-fetching API data from the backend)
+            window.location.reload();
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const newTheme = html.getAttribute("data-theme") === "dark" ? "light" : "dark";
+            html.setAttribute("data-theme", newTheme);
+            localStorage.setItem("theme", newTheme);
+            document.getElementById("themeToggle").innerText = newTheme === "dark" ? "☀️" : "🌙";
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const savedTheme = localStorage.getItem("theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+            document.documentElement.setAttribute("data-theme", savedTheme);
+            document.getElementById("themeToggle").innerText = savedTheme === "dark" ? "☀️" : "🌙";
+
+            const reportDate = "{{ today_str }}"; 
+            const vnTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Ho_Chi_Minh"}));
+            const curVNDate = `${vnTime.getFullYear()}-${String(vnTime.getMonth() + 1).padStart(2, '0')}-${String(vnTime.getDate()).padStart(2, '0')}`;
+            if (reportDate >= curVNDate) document.getElementById("nextBtn").style.display = "none";
+
+            document.querySelectorAll('.searchable-item').forEach((el, i) => {
+                const id = `si-${i}`; el.id = id;
+                state.index.push({
+                    id: id, el: el,
+                    key: (el.getAttribute('data-key') || '').toUpperCase(),
+                    author: (el.getAttribute('data-author') || '').toLowerCase(),
+                    time: el.getAttribute('data-time') || '', 
+                    title: (el.getAttribute('data-title') || el.textContent.substring(0, 60)).trim(),
+                    text: el.textContent.toLowerCase().replace(/\s+/g, ' ')
+                });
+            });
+
+            const input = document.getElementById('searchInput');
+            const dropdown = document.getElementById('searchResults');
+
+            input.addEventListener('input', () => {
+                const q = input.value.trim().toLowerCase();
+                if (q === state.lastQ) return;
+                state.lastQ = q; state.curIdx = -1;
+                renderDropdown(q); filterDOM(q);
+            });
+
+            input.addEventListener('keydown', (e) => {
+                const items = dropdown.querySelectorAll('.search-result-item');
+                if (e.key === 'Escape') { e.preventDefault(); dropdown.style.display = 'none'; state.curIdx = -1; input.blur(); return; }
+                if (!items.length) return;
+                if (e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) { e.preventDefault(); state.curIdx = (state.curIdx + 1) % items.length; updateUI(items); }
+                else if (e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) { e.preventDefault(); state.curIdx = state.curIdx <= 0 ? items.length - 1 : state.curIdx - 1; updateUI(items); }
+                else if (e.key === 'Enter') { e.preventDefault(); const target = state.curIdx === -1 ? items[0] : items[state.curIdx]; if (target) { target.click(); input.blur(); } }
+            });
+
+            input.addEventListener('focus', () => { if (input.value.length > 1) dropdown.style.display = 'block'; });
+            input.addEventListener('blur', () => { setTimeout(() => dropdown.style.display = 'none', 250); });
+
+            // 🧠 HARDCORE MACBOOK ALT+CLICK FIX
+            document.querySelectorAll('summary').forEach(summary => {
+                summary.addEventListener('click', (e) => {
+                    if (!e.altKey) return; 
+                    
+                    e.preventDefault(); 
+                    e.stopPropagation();
+
+                    let d = summary.parentElement;
+                    
+                    if (d.classList.contains('epic-block')) {
+                        d.setAttribute('open', '');
+                        d.querySelectorAll('.task-block').forEach(t => t.setAttribute('open', ''));
+                    } 
+                    else if (d.classList.contains('task-block')) {
+                        d.setAttribute('open', '');
+                        
+                        // Check if deeply nested elements (PR diffs, old comments) are open
+                        const prDiffsOpen = Array.from(d.querySelectorAll('.pr-collapse')).some(c => c.hasAttribute('open'));
+                        const allCommentsOpen = Array.from(d.querySelectorAll('.comment-group')).some(c => c.querySelector('summary').textContent.includes('All Comments') && c.hasAttribute('open'));
+                        
+                        const isDeepOpen = prDiffsOpen || allCommentsOpen;
+
+                        if (!isDeepOpen) {
+                            // STATE B: Open absolutely everything
+                            d.querySelectorAll('details').forEach(det => det.setAttribute('open', ''));
+                        } else {
+                            // STATE A: Only Open Description, PR Lists, and Today's Comments
+                            d.querySelectorAll('details').forEach(det => {
+                                const sumText = det.querySelector('summary') ? det.querySelector('summary').textContent : '';
+                                
+                                if (det.classList.contains('sub-collapse')) {
+                                    det.setAttribute('open', '');
+                                } else if (det.classList.contains('comment-group')) {
+                                    if (sumText.includes('Comments on')) det.setAttribute('open', '');
+                                    else det.removeAttribute('open');
+                                } else {
+                                    // Close PR individual diffs and individual comment bodies
+                                    det.removeAttribute('open'); 
+                                }
+                            });
+                        }
+                    }
+                });
+            });
+        });
+
+        function updateUI(items) { items.forEach((it, i) => { it.classList.toggle('selected', i === state.curIdx); if (i === state.curIdx) it.scrollIntoView({ block: 'nearest' }); }); }
+
+        function renderDropdown(q) {
+            const dropdown = document.getElementById('searchResults');
+            if (q.length < 2) { dropdown.style.display = 'none'; return; }
+            const matches = state.index.filter(m => m.text.includes(q) || m.key.includes(q)).slice(0, 20);
+            if (!matches.length) { dropdown.innerHTML = '<div style="padding:10px">No results</div>'; dropdown.style.display = 'block'; return; }
+            dropdown.innerHTML = matches.map((m, i) => {
+                const cleanSnippet = m.text.substring(m.text.indexOf(q) - 20, m.text.indexOf(q) + 40);
+                return `<div class="search-result-item ${i === state.curIdx ? 'selected' : ''}" onclick="jumpTo('${m.id}')">
+                    <div class="res-header">
+                        <span class="res-key">[${m.key}]</span><span class="res-title">${m.title}</span>
+                        ${m.author ? `<span class="res-author">${m.author}</span>` : ''}${m.time ? `<span class="res-time">${m.time}</span>` : ''}
+                    </div>
+                    <span class="res-snippet">...${cleanSnippet}...</span>
+                </div>`;
+            }).join('');
+            dropdown.style.display = 'block';
+        }
+
+        function filterDOM(q) {
+            const epics = document.querySelectorAll('.epic-block');
+            document.querySelectorAll('.search-hl').forEach(m => m.replaceWith(document.createTextNode(m.textContent)));
+            if (!q) { epics.forEach(e => e.removeAttribute('hidden')); document.querySelectorAll('.task-block').forEach(t => t.removeAttribute('hidden')); return; }
+            const regex = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, "gi");
+            epics.forEach(epic => {
+                const summary = epic.querySelector('.epic-summary');
+                const match = summary.textContent.toLowerCase().includes(q);
+                let vTasks = 0;
+                epic.querySelectorAll('.task-block').forEach(task => {
+                    if (task.textContent.toLowerCase().includes(q) || match) {
+                        task.removeAttribute('hidden'); vTasks++;
+                        if (task.textContent.toLowerCase().includes(q)) { task.setAttribute('open', ''); highlight(task, regex); }
+                    } else task.setAttribute('hidden', '');
+                });
+                if (match || vTasks > 0) { epic.removeAttribute('hidden'); epic.setAttribute('open', ''); if (match) highlight(summary, regex); } 
+                else epic.setAttribute('hidden', '');
+            });
+        }
+
+        function highlight(node, regex) {
+            if (node.nodeType === 3) {
+                const m = node.nodeValue.match(regex);
+                if (m) {
+                    const mark = document.createElement("mark"); mark.className = "search-hl";
+                    const word = node.splitText(m.index); word.splitText(m[0].length);
+                    mark.textContent = word.textContent; word.replaceWith(mark);
+                    return 1;
+                }
+            } else if (node.nodeType === 1 && !/SCRIPT|STYLE|MARK|SUMMARY/.test(node.tagName)) {
+                for (let i = 0; i < node.childNodes.length; i++) i += highlight(node.childNodes[i], regex);
+            }
+            return 0;
+        }
+
+        function jumpTo(id) {
+            const target = document.getElementById(id); if (!target) return;
+            document.getElementById('searchResults').style.display = 'none';
+            let p = target.parentElement;
+            while (p) { if (p.tagName === 'DETAILS') p.setAttribute('open', ''); p = p.parentElement; }
+            if (target.tagName === 'DETAILS') target.setAttribute('open', '');
+            const inner = target.querySelector('.comment-collapse'); if (inner) inner.setAttribute('open', '');
+            setTimeout(() => { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); target.classList.add('jump-flash'); setTimeout(() => target.classList.remove('jump-flash'), 2000); }, 50);
+        }
+
+        function goToReport(dateStr) { window.location.href = window.location.pathname.includes('/today/') ? `../MV-NPU_Daily_Report_${dateStr}.html` : `MV-NPU_Daily_Report_${dateStr}.html`; }
+    </script>
+
     {% macro render_comment(comment, color_hex, task_key) %}
-    <div class="searchable-item" data-key="{{ task_key }}" data-author="@{{ comment.author | replace(' ', '') }}" style='margin-bottom: 12px; padding: 16px; border: 1px solid var(--border-color); border-left: 4px solid {{ color_hex }}; border-radius: 4px; background: var(--bg-surface); box-shadow: var(--shadow-sm);'>
-        <div style='margin-bottom: 8px; display: flex; align-items: center;'>
-            <strong style='color: var(--text-main); font-size: 0.95em;'>🗣️ {{ comment.author }}</strong> 
-            <span style='color: var(--text-muted); font-size: 0.85em; margin-left: 10px;'>{{ comment.time_str }}</span>
-        </div>
+    <div class="searchable-item" data-key="{{ task_key }}" data-title="{{ comment.summary or 'Comment' }}" data-author="@{{ comment.author | replace(' ', '') }}" data-time="{{ comment.time_str }}" style='margin-bottom: 12px; padding: 16px; border: 1px solid var(--border-color); border-left: 4px solid {{ color_hex }}; border-radius: 4px; background: var(--bg-surface);'>
+        <div style='margin-bottom: 8px;'><strong>🗣️ {{ comment.author }}</strong> <span style='color: var(--text-muted); font-size: 0.85em; margin-left:10px'>{{ comment.time_str }}</span></div>
         {% if comment.summary %}
             <details class='comment-collapse'>
-                <summary style='font-weight: 600; font-size: 0.95em; color: var(--text-main); cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-surface-muted); border-radius: 4px; border: 1px solid var(--border-color); outline: none;'>
-                    <span>{{ comment.summary }}</span>
-                    <div style='flex-shrink: 0;'>{% for t in comment.tags %}<span class='tag-pill'>{{ t }}</span>{% endfor %}</div>
-                </summary>
-                <div style='padding: 12px 4px 0 4px; font-size: 0.95em; color: var(--text-main);'>{{ comment.body | safe }}</div>
+                <summary style='font-weight:600; padding:10px; background:var(--bg-surface-muted); border-radius:4px;'>{{ comment.summary }}{% for t in comment.tags %}<span class='tag-pill' style='color:var(--link-color); font-size:0.8em; margin-left:6px; background:var(--badge-bg-info); padding:2px 8px; border-radius:12px;'>{{ t }}</span>{% endfor %}</summary>
+                <div style='padding-top:10px'>{{ comment.body | safe }}</div>
             </details>
-        {% else %}
-            <div style='font-size: 0.95em; color: var(--text-main); margin-top: 8px;'>{{ comment.body | safe }}</div>
-        {% endif %}
+        {% else %}<div>{{ comment.body | safe }}</div>{% endif %}
     </div>
     {% endmacro %}
 
     {% for section in sections %}
-    <h2 style='color: var(--text-main); margin-bottom: 15px; margin-top: {{ "0" if loop.first else "50px" }};'>{{ section.title }}</h2>
-    
-    {% if not section.epics %}
-        <p style='color: var(--text-muted);'><em>No active issues found for this day.</em></p>
-    {% else %}
-        {% for epic in section.epics %}
-        <details {{ 'open' if not section.is_yesterday else '' }} class='epic-block' style='border-top: 4px solid var(--badge-text-{{ epic.status_key }});'>
-            <summary class='epic-summary searchable-item' data-key='{{ epic.key }}' data-author='' style='background: var(--badge-bg-{{ epic.status_key }});'>
-                <div style='display: flex; align-items: center;'>
-                    <span class="collapse-icon">&#8250;</span>
-                    {% if epic.key != "OTHER" %}<a href='https://{{ domain }}/browse/{{ epic.key }}' target='_blank' class="ticket-id">[{{ epic.key }}]</a>{% else %}📌{% endif %}&nbsp;{{ epic.summary }}
-                </div>
-                <span class='update-badge {{ "purple" if section.is_yesterday else "" if epic.epic_updates > 0 else "zero" }}'>{{ epic.epic_updates }} Update{{ 's' if epic.epic_updates != 1 else '' }}</span>
+    <h2 style="margin-top:40px">{{ section.title }}</h2>
+    {% for epic in section.epics %}
+    <div class="epic-block">
+        <details {{ 'open' if not section.is_yesterday else '' }}>
+            <summary class="epic-summary searchable-item" data-key="{{ epic.key }}" data-title="{{ epic.summary }}" style="background:var(--badge-bg-{{ epic.status_key }})">
+                <div><a href="https://{{ domain }}/browse/{{ epic.key }}" class="ticket-id" target="_blank">[{{ epic.key }}]</a> {{ epic.summary }}</div>
+                <span class="update-badge" style="color:var(--badge-text-{{ epic.status_key }})">{{ epic.epic_updates }} Updates</span>
             </summary>
-            
-            <div class='epic-content'>
+            <div class="epic-content">
                 {% if epic.key != "OTHER" %}
-                <details class='sub-collapse epic-desc'><summary>📄 Epic Description</summary><div class='sub-content searchable-item' data-key='{{ epic.key }}' data-author=''>{{ epic.desc_html | safe }}</div></details>
+                <details class="sub-collapse epic-desc"><summary style="padding:10px 16px; font-weight:600">Epic Description</summary><div class="sub-content searchable-item" data-key="{{ epic.key }}" data-title="Epic Description">{{ epic.desc_html | safe }}</div></details>
                 {% endif %}
-
-                {% if not epic.tasks %}
-                <p style='color: var(--text-muted); margin-top: 15px; padding-left: 20px;'><em>No active issues currently linked to this Epic.</em></p>
-                {% endif %}
-
                 {% for task in epic.tasks %}
-                <details class='task-block'>
-                    <summary class='task-summary searchable-item' data-key='{{ task.key }}' data-author=''>
-                        <div style='display: flex; align-items: center; gap: 8px;'>
-                            <span class="collapse-icon">&#8250;</span>
-                            🛠️ <a href='https://{{ domain }}/browse/{{ task.key }}' target='_blank' class="ticket-id">[{{ task.key }}]</a> {{ task.summary }} {{ task.status_badge | safe }}
-                        </div>
-                        <span class='update-badge {{ "purple" if section.is_yesterday else "" if task.updates > 0 else "zero" }}'>{{ task.updates }} Update{{ 's' if task.updates != 1 else '' }}</span>
-                    </summary>
-                    <div class='task-content'>
-                        
-                        <details class='sub-collapse'><summary>Issue Description</summary><div class='sub-content searchable-item' data-key='{{ task.key }}' data-author=''>{{ task.desc_html | safe }}</div></details>
+                <div class="task-block">
+                    <details>
+                        <summary class="task-summary searchable-item" data-key="{{ task.key }}" data-title="{{ task.summary }}">
+                            <div>🛠️ <a href="https://{{ domain }}/browse/{{ task.key }}" class="ticket-id" target="_blank">[{{ task.key }}]</a> {{ task.summary }}</div>
+                            <span class="update-badge {{ 'purple' if section.is_yesterday }}">{{ task.updates }} Updates</span>
+                        </summary>
+                        <div class="task-content">
+                            <details class="sub-collapse"><summary style="padding:10px 16px; font-weight:600">Issue Description</summary><div class="sub-content searchable-item" data-key="{{ task.key }}" data-title="Issue Description">{{ task.desc_html | safe }}</div></details>
+                            {% if task.prs %}<details class="sub-collapse"><summary style="padding:10px 16px; font-weight:600">Pull Requests ({{ task.prs|length }})</summary><div class="sub-content">
+                                {% for pr in task.prs %}<details class="pr-collapse searchable-item" data-key="{{ task.key }}" data-title="{{ pr.clean_title }}" data-author="@{{ pr.author }}">
+                                    <summary style="padding:8px; font-weight:600"><a href="{{ pr.url }}" target="_blank">{{ task.key }}</a> {{ pr.clean_title }} <span style="float:right; color:{{ pr.text_color }}">{{ pr.state_str }}</span></summary>
+                                    <div style="padding:10px; border-top:1px dashed var(--border-color)">{{ pr.body | safe }}</div>
+                                </details>{% endfor %}
+                            </div></details>{% endif %}
 
-                        {% if task.prs %}
-                        <details class='sub-collapse'><summary>Pull Requests ({{ task.prs | length }})</summary>
-                            <div class='sub-content' style='padding: 12px;'>
-                                {% for pr in task.prs %}
-                                <details class='pr-collapse searchable-item' data-key='{{ task.key }}' data-author='@{{ pr.author }}'>
-                                    <summary>
-                                        <div class='pr-row'>
-                                            <div style='display: flex; align-items: center; overflow: hidden;'>
-                                                <span class='pr-row-icon'>&#8250;</span>
-                                                <a href='{{ pr.url }}' target='_blank' class='pr-link' style='display: flex; align-items: center; margin-right: 8px; white-space: nowrap;' onclick='event.stopPropagation()'>
-                                                    <svg height="14" viewBox="0 0 16 16" width="14" style="fill: currentColor; margin-right: 6px; vertical-align: middle;"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"></path></svg> 
-                                                    <span class="ticket-id">[{{ task.key }}]</span>
-                                                </a>
-                                                <span style='color: var(--text-main); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 480px;'>{{ pr.clean_title }}</span>
-                                                <span style='margin-left: 6px; color: var(--text-muted); white-space: nowrap;'>@{{ pr.author }}</span>
-                                            </div>
-                                            <span style='flex-shrink: 0; font-weight: bold; font-size: 0.85em; color: {{ pr.text_color }}; text-transform: uppercase;'>{{ pr.state_str }}</span>
-                                        </div>
-                                    </summary>
-                                    <div class='pr-details'>
-                                        <div class='pr-stats'>
-                                            <span>📁 {{ pr.changed_files }} files changed</span>
-                                            <span style='color: var(--pr-open); font-weight: 600;'>+{{ pr.additions }} lines</span>
-                                            <span style='color: var(--pr-closed); font-weight: 600;'>-{{ pr.deletions }} lines</span>
-                                            {% if pr.mergeable_state != "Unknown" %}
-                                                <span style='margin-left: auto;'>{{ pr.state_emoji }} State: <strong>{{ pr.mergeable_state }}</strong></span>
-                                            {% endif %}
-                                        </div>
-                                        <div class='pr-desc'>{{ pr.body | safe }}</div>
-                                    </div>
-                                </details>
-                                {% endfor %}
-                            </div>
-                        </details>
-                        {% endif %}
-
-                        <details class='sub-collapse'><summary>Comments ({{ task.target_comments|length + task.hist_comments|length }})</summary>
-                            <div class='sub-content' style='background: var(--bg-surface);'>
-                                {% if task.target_comments or task.hist_comments %}
-                                <div class='comments-container'>
-                                    <details class='comment-group'>
-                                        <summary>View All comments ({{ task.hist_comments|length + task.target_comments|length }})</summary>
-                                        <div>
-                                            {% for c in task.hist_comments %}
-                                                {{ render_comment(c, "var(--text-muted)", task.key) }}
-                                            {% endfor %}
-                                            {% for c in task.target_comments %}
-                                                {{ render_comment(c, "var(--text-muted)", task.key) }}
-                                            {% endfor %}
+                            {% set total_c = task.target_comments|length + task.hist_comments|length %}
+                            <details class="sub-collapse">
+                                <summary style="padding:10px 16px; font-weight:600">
+                                    Comments 
+                                    <span class="count-tag {{ 'count-blue' if task.status_key == 'info' else 'count-green' if task.status_key == 'success' else 'count-grey' if total_c == 0 else '' }}">({{ total_c }} total)</span>
+                                    <span class="count-tag {{ 'count-green' if task.target_comments|length > 0 else 'count-grey' }}">({{ task.target_comments|length }} new)</span>
+                                </summary>
+                                <div class="sub-content" style="padding: 20px 16px;">
+                                    <details class="comment-group">
+                                        <summary>All Comments <span style="font-weight: normal; opacity: 0.6">({{ total_c }})</span></summary>
+                                        <div class="comment-group-content">
+                                            {% for c in task.hist_comments %}{{ render_comment(c, "var(--text-muted)", task.key) }}{% endfor %}
+                                            {% for c in task.target_comments %}{{ render_comment(c, "var(--text-muted)", task.key) }}{% endfor %}
                                         </div>
                                     </details>
-
-                                    <details class='comment-group' open>
-                                        <summary>Issue comments on {{ section.date_str }} ({{ task.target_comments|length }})</summary>
-                                        <div>
+                                    <details class="comment-group" open>
+                                        <summary>Comments on {{ section.date_str }} <span style="font-weight: normal; opacity: 0.6">({{ task.target_comments|length }} New)</span></summary>
+                                        <div class="comment-group-content">
                                             {% if task.target_comments %}
-                                                {% for c in task.target_comments %}
-                                                    {{ render_comment(c, section.border_color, task.key) }}
-                                                {% endfor %}
+                                                {% for c in task.target_comments %}{{ render_comment(c, section.border_color, task.key) }}{% endfor %}
                                             {% else %}
-                                                <p style='color: var(--text-muted); font-size: 0.9em; margin: 0 0 16px 0;'><em>No comments made on this day.</em></p>
+                                                <p style="color:var(--text-muted); margin:0; font-style: italic;">No new comments recorded today.</p>
                                             {% endif %}
                                         </div>
                                     </details>
                                 </div>
-                                {% else %}
-                                <p style='margin: 0; color: var(--text-muted); font-size: 0.9em;'><em>No comments on this issue.</em></p>
-                                {% endif %}
-                            </div>
-                        </details>
+                            </details>
 
-                    </div>
-                </details>
+                        </div>
+                    </details>
+                </div>
                 {% endfor %}
             </div>
         </details>
-        {% endfor %}
-    {% endif %}
+    </div>
+    {% endfor %}
     {% endfor %}
 
-    <h2 style='color: var(--text-main); margin-bottom: 15px; margin-top: 50px;'>⏸️ Upcoming & On Hold Epics</h2>
+    <h2 style="margin-top:50px">⏸️ Upcoming & On Hold Epics</h2>
     {% if pending_epics %}
         {% for epic in pending_epics %}
-        <details class='epic-block' style='border-top: 4px solid var(--badge-text-{{ epic.status_key }}); margin-bottom: 10px;'>
-            <summary class='epic-summary searchable-item' data-key='{{ epic.key }}' data-author='' style='background: var(--badge-bg-{{ epic.status_key }});'>
-                <div style='display: flex; align-items: center;'>
-                    <span class="collapse-icon">&#8250;</span>
-                    <a href='https://{{ domain }}/browse/{{ epic.key }}' target='_blank' class="ticket-id">[{{ epic.key }}]</a> <span style='margin-left:8px;'>{{ epic.summary }}</span>
-                </div>
+        {% set pen_status = "warn" if epic.status_key == "warn" else "todo" %}
+        <details class='epic-block' style='border-top: 4px solid var(--badge-text-{{ pen_status }}); margin-bottom: 10px;'>
+            <summary class='epic-summary searchable-item' data-key='{{ epic.key }}' style='background: var(--badge-bg-{{ pen_status }});'>
+                <div><a href='https://{{ domain }}/browse/{{ epic.key }}' target='_blank' class="ticket-id">[{{ epic.key }}]</a> <span>{{ epic.summary }}</span></div>
+                <span class="update-badge" style="color:var(--badge-text-{{ pen_status }})">{{ epic.status_badge | safe | striptags }}</span>
             </summary>
             <div class='epic-content'>
-                <details class='sub-collapse epic-desc'><summary>📄 Epic Description</summary><div class='sub-content searchable-item' data-key='{{ epic.key }}' data-author=''>{{ epic.desc_html | safe }}</div></details>
+                <details class='sub-collapse epic-desc'><summary style="padding:10px 16px; font-weight:600">📄 Epic Description</summary><div class='sub-content searchable-item' data-key='{{ epic.key }}'>{{ epic.desc_html | safe }}</div></details>
             </div>
         </details>
         {% endfor %}
     {% else %}
-        <p style='color: var(--text-muted);'><em>No Epics are currently pending or on hold.</em></p>
+        <p style='color: var(--text-muted);'><em>None.</em></p>
     {% endif %}
 </body>
 </html>
