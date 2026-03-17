@@ -59,18 +59,6 @@
         .nav-btn svg { fill: currentColor; }
         #refreshStatus { position: absolute; top: 46px; right: 0; font-size: 0.75em; color: var(--text-muted); white-space: nowrap; text-align: right; margin-right: 4px;}
 
-        /* 📊 ROLLUP METRICS (EXECUTIVE SUMMARY) */
-        .metrics-dashboard { display: flex; flex-direction: column; gap: 16px; margin-bottom: 40px; }
-        .metrics-card { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; box-shadow: var(--shadow-sm); }
-        .metrics-card.yesterday { background: var(--bg-surface-muted); padding: 12px 20px; box-shadow: none; border: 1px dashed var(--border-color); }
-        .metrics-header { font-size: 1.1em; font-weight: 700; margin-bottom: 12px; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
-        .metrics-card.yesterday .metrics-header { font-size: 0.9em; margin-bottom: 8px; color: var(--text-muted); }
-        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 16px; }
-        .metric-item { display: flex; flex-direction: column; align-items: flex-start; }
-        .metric-val { font-size: 1.8em; font-weight: 800; color: var(--link-color); line-height: 1; }
-        .metrics-card.yesterday .metric-val { font-size: 1.3em; color: var(--text-muted); }
-        .metric-label { font-size: 0.8em; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
-
         /* 🔍 SEARCH ENGINE */
         .search-container { position: sticky; top: 0; z-index: 2000; background: var(--bg-body); padding: 20px 0; margin-bottom: 20px; }
         .search-wrapper { position: relative; width: 100%; box-sizing: border-box; }
@@ -83,9 +71,33 @@
         .res-icon { width: 14px; height: 14px; flex-shrink: 0; fill: currentColor; }
         .res-key { color: var(--link-color); font-family: monospace; font-weight: bold; flex-shrink: 0; }
         .res-title { font-weight: 600; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-grow: 1; }
-        .res-author { color: var(--text-muted); font-size: 0.85em; font-style: italic; flex-shrink: 0; }
-        .res-time { color: var(--text-muted); font-size: 0.8em; font-family: monospace; margin-left: auto; flex-shrink: 0; }
         .res-snippet { display: block; font-size: 0.8em; color: var(--text-muted); opacity: 0.8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+
+        /* 🚨 ACTIVE BLOCKERS MARQUEE */
+        .blocker-marquee { background: var(--badge-bg-danger); border: 1px solid var(--badge-text-danger); border-radius: 8px; padding: 16px; margin-bottom: 24px; box-shadow: var(--shadow-sm); }
+        .blocker-header { color: var(--badge-text-danger); font-weight: 800; font-size: 1.1em; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .blocker-list { display: flex; flex-direction: column; gap: 8px; }
+        .blocker-item { background: var(--bg-surface); padding: 8px 12px; border-radius: 6px; font-size: 0.9em; font-weight: 600; display: flex; justify-content: space-between; }
+        
+        /* 📊 COMPACT ROLLUP METRICS */
+        .metrics-dashboard { display: flex; flex-direction: column; gap: 16px; margin-bottom: 40px; }
+        .metrics-card { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow-sm); overflow: hidden;}
+        .metrics-card.yesterday { background: var(--bg-surface-muted); box-shadow: none; border: 1px dashed var(--border-color); }
+        .metrics-summary { padding: 12px 16px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; outline: none; }
+        .metrics-summary::-webkit-details-marker { display: none; }
+        .metrics-header { font-size: 1.05em; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
+        .metrics-card.yesterday .metrics-header { font-size: 0.95em; color: var(--text-muted); }
+        .metrics-grid { display: flex; gap: 24px; flex-wrap: wrap; }
+        .metric-item { display: flex; align-items: baseline; gap: 6px; }
+        .metric-val { font-size: 1.4em; font-weight: 800; color: var(--link-color); line-height: 1; }
+        .metrics-card.yesterday .metric-val { font-size: 1.2em; color: var(--text-muted); }
+        .metric-label { font-size: 0.8em; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+        
+        .workload-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; border-top: 1px solid var(--border-color); padding: 12px 16px; background: var(--bg-surface-hover); }
+        .developer-card { background: var(--bg-surface); padding: 8px 12px; border-radius: 6px; font-size: 0.85em; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 6px;}
+        .developer-name { font-weight: bold; color: var(--text-main); display: flex; justify-content: space-between; align-items: center;}
+        .dev-info { display: flex; align-items: center; gap: 6px;}
+        .wip-warning { color: var(--badge-text-danger); font-weight: bold; animation: target-flash 2s infinite; }
 
         /* ICONS & AVATARS */
         summary { list-style: none; outline: none; cursor: pointer; position: relative; user-select: none; }
@@ -96,19 +108,10 @@
         .jira-icon { width: 16px; height: 16px; flex-shrink: 0; }
         .ticket-id { font-family: monospace; opacity: 0.8; margin-right: 2px; flex-shrink: 0; }
         .ticket-title-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .avatar { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-color); background: var(--bg-surface-muted); }
+        .avatar { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-color); background: var(--bg-surface-muted); flex-shrink: 0;}
 
         /* GESTALT BLOCKS & OPTIMIZATIONS */
-        .epic-block { 
-            contain: content; 
-            margin-bottom: 24px; 
-            border-radius: 8px; 
-            background: var(--bg-surface); 
-            border: 1px solid var(--border-color); 
-            box-shadow: var(--shadow-md); /* Elevated Epics */
-            content-visibility: auto;
-            contain-intrinsic-size: 500px;
-        }
+        .epic-block { contain: content; margin-bottom: 24px; border-radius: 8px; background: var(--bg-surface); border: 1px solid var(--border-color); box-shadow: var(--shadow-md); content-visibility: auto; contain-intrinsic-size: 500px; }
         .epic-summary, .task-summary, .pr-summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
         .epic-summary { padding: 16px 20px; font-weight: 600; font-size: 1.05em; }
         .task-summary { padding: 12px 16px; font-weight: 600; font-size: 0.95em; }
@@ -119,18 +122,22 @@
 
         /* Depressed Tasks */
         .task-block { border-radius: 6px; background: var(--bg-surface); margin: 12px 16px; overflow: hidden; border: 1px solid var(--border-color); box-shadow: var(--shadow-sm); }
-        .task-block[open] .task-summary { border-bottom: 1px dashed var(--border-color); background: var(--bg-surface-muted); }
+        .task-block[open] .task-summary { border-bottom: 1px dashed var(--border-color); }
         .task-content { padding: 0; background: var(--bg-surface); }
 
         .sub-collapse { border-top: 1px dashed var(--border-color); }
         .sub-collapse:first-child { border-top: none; }
         .sub-content { padding: 16px; font-size: 0.95em; background: var(--bg-surface-hover); }
         
-        /* PR Specifics */
+        /* ALERTS & META DATA */
+        .meta-tags { display: flex; gap: 6px; align-items: center; font-size: 0.8em; color: var(--text-muted); font-weight: normal; margin-left: 8px;}
+        .stale-badge { background: var(--badge-bg-danger); color: var(--badge-text-danger); padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        .review-alert { background: var(--badge-bg-warn); color: var(--badge-text-warn); padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        .draft-pr { opacity: 0.6; }
+        
         .pr-meta { display: flex; gap: 12px; align-items: center; font-size: 0.85em; font-weight: normal; flex-shrink: 0; }
         .diff-add { color: #2da44e; font-weight: 600; }
         .diff-del { color: #cf222e; font-weight: 600; }
-        .pr-footer { font-size: 0.85em; color: var(--text-muted); display: flex; align-items: center; gap: 6px; padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--border-color); }
 
         .update-badge { padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: bold; flex-shrink: 0; }
         .count-tag { font-weight: bold; margin-left: 8px; }
@@ -158,19 +165,10 @@
 </head>
 <body data-theme="light">
     <svg style="display:none;">
-        <symbol id="icon-epic" viewBox="0 0 16 16" fill="none">
-            <path d="M8.5 1L2 9h5l-1 6 7-8H8l1.5-6z" fill="#904EE2" stroke="#904EE2" stroke-width="1" stroke-linejoin="round"/>
-        </symbol>
-        <symbol id="icon-task" viewBox="0 0 16 16" fill="none">
-            <rect x="1" y="1" width="14" height="14" rx="3" fill="#4C9AFF"/>
-            <path d="M4.5 8L7 10.5L11.5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </symbol>
-        <symbol id="icon-git-pr" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm13.25 5.5a2.25 2.25 0 1 1-3-2.122V5.25A2.25 2.25 0 0 0 9.5 3h-1.25a.75.75 0 0 1 0-1.5h1.25A3.75 3.75 0 0 1 13.25 5.25v1.378a2.251 2.251 0 0 1 1.5 2.122ZM1.5 12a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm12-8.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0ZM3 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm10.5 8.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z"></path>
-        </symbol>
-        <symbol id="icon-git-merge" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 5 3.25Zm2.25 3.128a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854v2.396h4.146a.25.25 0 0 1 .25.25v2.25a.25.25 0 0 1-.25.25H10v2.396a.25.25 0 0 1-.427.177L7.177 6.177a.25.25 0 0 1 0-.354Z"></path>
-        </symbol>
+        <symbol id="icon-epic" viewBox="0 0 16 16" fill="none"><path d="M8.5 1L2 9h5l-1 6 7-8H8l1.5-6z" fill="#904EE2" stroke="#904EE2" stroke-width="1" stroke-linejoin="round"/></symbol>
+        <symbol id="icon-task" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="14" height="14" rx="3" fill="#4C9AFF"/><path d="M4.5 8L7 10.5L11.5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="icon-git-pr" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm13.25 5.5a2.25 2.25 0 1 1-3-2.122V5.25A2.25 2.25 0 0 0 9.5 3h-1.25a.75.75 0 0 1 0-1.5h1.25A3.75 3.75 0 0 1 13.25 5.25v1.378a2.251 2.251 0 0 1 1.5 2.122ZM1.5 12a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm12-8.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0ZM3 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm10.5 8.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z"></path></symbol>
+        <symbol id="icon-git-merge" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 5 3.25Zm2.25 3.128a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854v2.396h4.146a.25.25 0 0 1 .25.25v2.25a.25.25 0 0 1-.25.25H10v2.396a.25.25 0 0 1-.427.177L7.177 6.177a.25.25 0 0 1 0-.354Z"></path></symbol>
     </svg>
 
     <div class="header-container">
@@ -193,33 +191,75 @@
             </div>
         </div>
     </div>
-    
-    <div class="metrics-dashboard">
-        <div class="metrics-card">
-            <div class="metrics-header">🔥 Today's Progress</div>
-            <div class="metrics-grid">
-                <div class="metric-item"><span class="metric-val">{{ today_metrics.tasks_updated }}</span><span class="metric-label">Tasks Updated</span></div>
-                <div class="metric-item"><span class="metric-val">{{ today_metrics.prs_merged }}</span><span class="metric-label">PRs Merged</span></div>
-                <div class="metric-item"><span class="metric-val">{{ today_metrics.prs_open }}</span><span class="metric-label">PRs Opened</span></div>
-                <div class="metric-item"><span class="metric-val">{{ today_metrics.comments_added }}</span><span class="metric-label">New Comments</span></div>
-            </div>
-        </div>
-        <div class="metrics-card yesterday">
-            <div class="metrics-header">⏪ Yesterday's Pulse</div>
-            <div class="metrics-grid">
-                <div class="metric-item"><span class="metric-val">{{ yesterday_metrics.tasks_updated }}</span><span class="metric-label">Tasks Updated</span></div>
-                <div class="metric-item"><span class="metric-val">{{ yesterday_metrics.prs_merged }}</span><span class="metric-label">PRs Merged</span></div>
-                <div class="metric-item"><span class="metric-val">{{ yesterday_metrics.prs_open }}</span><span class="metric-label">PRs Opened</span></div>
-                <div class="metric-item"><span class="metric-val">{{ yesterday_metrics.comments_added }}</span><span class="metric-label">New Comments</span></div>
-            </div>
-        </div>
-    </div>
 
     <div class="search-container">
         <div class="search-wrapper">
             <input type="text" id="searchInput" placeholder="🔍 Search (Enter to jump | Escape to close | Shift+Click deep toggle)..." autocomplete="off">
             <div id="searchResults" class="search-dropdown"></div>
         </div>
+    </div>
+
+    {% if active_blockers %}
+    <div class="blocker-marquee">
+        <div class="blocker-header">🚨 ACTIVE BLOCKERS & HIGH PRIORITY</div>
+        <div class="blocker-list">
+            {% for b in active_blockers %}
+            <div class="blocker-item">
+                <a href="https://{{ domain }}/browse/{{ b.key }}" target="_blank" style="color: var(--badge-text-danger);">[{{ b.key }}] {{ b.summary }}</a>
+                <div style="display: flex; align-items: center; gap: 4px; color: var(--text-muted); font-weight: normal;">
+                    {% if b.assignee_avatar %}<img src="{{ b.assignee_avatar }}" class="avatar" style="width: 16px; height: 16px;">{% else %}👤{% endif %} {{ b.assignee }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    {% macro render_workload(metrics) %}
+    <div class="workload-grid">
+        {% for dev, stats in metrics.workload.items() %}
+        <div class="developer-card">
+            <div class="developer-name">
+                <div class="dev-info">
+                    {% if stats.avatar_url %}<img src="{{ stats.avatar_url }}" class="avatar" alt="{{ dev }}">{% else %}👤{% endif %}
+                    {{ dev }}
+                </div>
+                {% if stats.active > 3 %}<span class="wip-warning" title="WIP Limit Exceeded">⚠️ WIP ({{ stats.active }})</span>{% endif %}
+            </div>
+            <div style="color: var(--text-muted);">
+                Active: <strong>{{ stats.active }}</strong> | Merged: <strong>{{ stats.prs_merged }}</strong> | Blocked: <strong>{{ stats.blocked }}</strong>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endmacro %}
+
+    <div class="metrics-dashboard">
+        <details class="metrics-card" open>
+            <summary class="metrics-summary">
+                <div class="metrics-header">🔥 Today's Progress</div>
+                <div class="metrics-grid">
+                    <div class="metric-item"><span class="metric-val">{{ today_metrics.tasks_updated }}</span><span class="metric-label">Tasks Updated</span></div>
+                    <div class="metric-item"><span class="metric-val">{{ today_metrics.prs_merged }}</span><span class="metric-label">PRs Merged</span></div>
+                    <div class="metric-item"><span class="metric-val">{{ today_metrics.prs_open }}</span><span class="metric-label">PRs Opened</span></div>
+                    <div class="metric-item"><span class="metric-val">{{ today_metrics.comments_added }}</span><span class="metric-label">New Comments</span></div>
+                </div>
+            </summary>
+            {{ render_workload(today_metrics) }}
+        </details>
+        
+        <details class="metrics-card yesterday">
+            <summary class="metrics-summary">
+                <div class="metrics-header">⏪ Yesterday's Pulse</div>
+                <div class="metrics-grid">
+                    <div class="metric-item"><span class="metric-val">{{ yesterday_metrics.tasks_updated }}</span><span class="metric-label">Tasks Updated</span></div>
+                    <div class="metric-item"><span class="metric-val">{{ yesterday_metrics.prs_merged }}</span><span class="metric-label">PRs Merged</span></div>
+                    <div class="metric-item"><span class="metric-val">{{ yesterday_metrics.prs_open }}</span><span class="metric-label">PRs Opened</span></div>
+                    <div class="metric-item"><span class="metric-val">{{ yesterday_metrics.comments_added }}</span><span class="metric-label">New Comments</span></div>
+                </div>
+            </summary>
+            {{ render_workload(yesterday_metrics) }}
+        </details>
     </div>
 
     <script>
@@ -335,6 +375,7 @@
             });
 
             document.querySelectorAll('.searchable-item').forEach((el, i) => {
+                if (el.classList.contains("metrics-summary")) return; // skip metrics
                 const id = `si-${i}`; el.id = id;
                 let iconHtml = '<svg class="res-icon"><use href="#icon-task"></use></svg>'; 
                 let dType = (el.getAttribute('data-type') || 'issue').toLowerCase();
@@ -347,7 +388,6 @@
                     type: dType,
                     iconHtml: iconHtml,
                     author: (el.getAttribute('data-author') || '').toLowerCase(),
-                    time: el.getAttribute('data-time') || '', 
                     title: (el.getAttribute('data-title') || el.textContent.substring(0, 60)).trim(),
                     text: el.textContent.toLowerCase().replace(/\s+/g, ' ')
                 });
@@ -381,7 +421,7 @@
             document.addEventListener('mousedown', (e) => {
                 if (!e.shiftKey && !e.altKey) return;
                 let s = e.target.closest('summary');
-                if (!s) return;
+                if (!s || s.classList.contains('metrics-summary')) return;
 
                 e.preventDefault();
                 e.stopPropagation();
@@ -438,7 +478,7 @@
             }, true);
             
             document.addEventListener('click', (e) => {
-                if ((e.shiftKey || e.altKey) && e.target.closest('summary')) {
+                if ((e.shiftKey || e.altKey) && e.target.closest('summary:not(.metrics-summary)')) {
                     e.preventDefault();
                     e.stopPropagation();
                 }
@@ -462,7 +502,6 @@
                         <span class="res-key">[${m.key}]</span>
                         <span class="res-title">${m.title}</span>
                         ${m.author ? `<span class="res-author">${m.author}</span>` : ''}
-                        ${m.time ? `<span class="res-time">${m.time}</span>` : ''}
                     </div>
                     <span class="res-snippet">...${cleanSnippet}...</span>
                 </div>`;
@@ -569,13 +608,12 @@
          data-type="comment"
          data-title="{{ comment.summary or 'Comment' }}" 
          data-author="@{{ comment.author | replace(' ', '') }}" 
-         data-time="{{ comment.time_str }}"
          style="border-left-color: {{ color_hex }};">
         <div class="comment-header">
             {% if comment.avatar_url %}
                 <img src="{{ comment.avatar_url }}" class="avatar" alt="Avatar">
             {% else %}
-                <span>🗣️</span>
+                <span>👤</span>
             {% endif %}
             <span>{{ comment.author }}</span>
             <span class="comment-time">{{ comment.time_str }}</span>
@@ -608,7 +646,10 @@
                     {% if epic.key != "OTHER" %}<a href="https://{{ domain }}/browse/{{ epic.key }}" class="ticket-id" target="_blank">[{{ epic.key }}]</a>{% endif %}
                     <span class="ticket-title-text">{{ epic.summary }}</span>
                 </div>
-                <span class="update-badge" style="color:var(--badge-text-{{ epic.status_key }})">{{ epic.epic_updates }} Updates</span>
+                <div class="meta-tags">
+                    {% if epic.is_stale %}<span class="stale-badge" title="No updates in 3+ days">⚠️ STALE</span>{% endif %}
+                    <span class="update-badge" style="color:var(--badge-text-{{ epic.status_key }})">{{ epic.epic_updates }} Updates</span>
+                </div>
             </summary>
             
             <div class="epic-content">
@@ -629,7 +670,15 @@
                                 <a href="https://{{ domain }}/browse/{{ task.key }}" class="ticket-id" target="_blank">[{{ task.key }}]</a> 
                                 <span class="ticket-title-text">{{ task.summary }}</span>
                             </div>
-                            <span class="update-badge {{ 'purple' if section.is_yesterday }}">{{ task.updates }} Updates</span>
+                            <div class="meta-tags">
+                                <span title="In Progress for {{ task.cycle_days }} days">⏳ {{ task.cycle_days }}d</span>
+                                {% if task.is_stale %}<span class="stale-badge" title="No updates in 3+ days">⚠️ STALE</span>{% endif %}
+                                <div style="display: flex; align-items: center; gap: 4px; font-weight: 600; color: var(--text-main);">
+                                    {% if task.assignee_avatar %}<img src="{{ task.assignee_avatar }}" class="avatar" style="width: 16px; height: 16px;">{% else %}👤{% endif %}
+                                    {{ task.assignee }}
+                                </div>
+                                <span class="update-badge {{ 'purple' if section.is_yesterday }}">{{ task.updates }} Updates</span>
+                            </div>
                         </summary>
                         <div class="task-content">
                             
@@ -643,14 +692,18 @@
                                 <summary style="padding:10px 16px; font-weight:600">Pull Requests ({{ task.prs|length }})</summary>
                                 <div class="sub-content">
                                     {% for pr in task.prs %}
-                                    <details class="pr-collapse searchable-item" data-type="pr" data-key="{{ task.key }}" data-title="{{ pr.clean_title }}" data-author="@{{ pr.author }}">
+                                    <details class="pr-collapse searchable-item {% if pr.is_draft %}draft-pr{% endif %}" data-type="pr" data-key="{{ task.key }}" data-title="{{ pr.clean_title }}" data-author="@{{ pr.author }}">
                                         <summary class="pr-summary">
                                             <div class="ticket-title-wrapper">
                                                 <svg class="jira-icon" style="color: {{ pr.text_color }}"><use href="#{{ pr.icon }}"></use></svg>
                                                 <a href="{{ pr.url }}" class="ticket-id" target="_blank">[{{ task.key }}]</a> 
                                                 <span class="ticket-title-text">{{ pr.clean_title }}</span>
+                                                {% if pr.complexity_badge %}<span style="font-size: 0.8em; margin-left: 8px;">{{ pr.complexity_badge }}</span>{% endif %}
                                             </div>
                                             <div class="pr-meta">
+                                                <span title="{{ pr.time_str }}">⏳ {{ pr.cycle_str }}</span>
+                                                {% if pr.pr_stale %}<span class="stale-badge" title="No updates in 3+ days">⚠️ STALE</span>{% endif %}
+                                                {% if pr.pr_review_alert %}<span class="review-alert" title="Open > 48 hours without review">🚨 REVIEW</span>{% endif %}
                                                 {% if pr.avatar_url %}<img src="{{ pr.avatar_url }}" class="avatar" alt="{{ pr.author }}">{% endif %}
                                                 <span class="diff-add">+{{ pr.additions }}</span>
                                                 <span class="diff-del">-{{ pr.deletions }}</span>
@@ -658,10 +711,11 @@
                                         </summary>
                                         <div style="padding:10px 16px; border-top:1px dashed var(--border-color)">
                                             <div>{{ pr.body | safe }}</div>
-                                            <div class="pr-footer">
-                                                <svg style="width: 12px; height: 12px; fill: currentColor;"><use href="#{{ pr.icon }}"></use></svg>
-                                                {{ pr.time_str }}
+                                            {% if pr.requested_reviewers %}
+                                            <div style="font-size: 0.85em; color: var(--text-muted); padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--border-color);">
+                                                👀 Reviewers: {{ pr.requested_reviewers | join(', ') }}
                                             </div>
+                                            {% endif %}
                                         </div>
                                     </details>
                                     {% endfor %}

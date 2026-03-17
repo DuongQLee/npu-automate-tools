@@ -27,8 +27,9 @@ def fetch_issues(jql):
     search_url = f"{jira_base_url}/search/jql"
     params = {
         "jql": jql,
-        "fields": "summary,issuetype,attachment,parent,description,status",
-        "expand": "renderedFields",  # 🌟 MAGIC: Jira returns HTML instead of ADF JSON
+        # 🌟 NEW: Added assignee, priority, created, and updated fields for advanced metrics
+        "fields": "summary,issuetype,attachment,parent,description,status,assignee,priority,created,updated",
+        "expand": "renderedFields",
         "maxResults": 100,
     }
 
@@ -48,7 +49,7 @@ def fetch_comments(issue_key):
         return COMMENT_CACHE[issue_key]
 
     comments_url = f"{jira_base_url}/issue/{issue_key}/comment"
-    params = {"expand": "renderedBody"}  # 🌟 MAGIC: Jira returns HTML comments
+    params = {"expand": "renderedBody"}
 
     response = requests.get(comments_url, headers=headers, auth=auth, params=params)
     if response.status_code == 200:

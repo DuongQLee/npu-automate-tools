@@ -1,6 +1,6 @@
 import html
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
 import config
 import github_client
@@ -25,6 +25,21 @@ def get_status_badge(status_name):
     elif s == "on hold":
         bg, text = "var(--badge-bg-warn)", "var(--badge-text-warn)"
     return f"<span class='status-badge' style='background: {bg}; color: {text};'>{status_name.upper()}</span>"
+
+
+def calculate_days_ago(date_str, is_github=False):
+    if not date_str:
+        return 0
+    try:
+        if is_github:
+            dt = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ").replace(
+                tzinfo=timezone.utc
+            )
+        else:
+            dt = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S.%f%z")
+        return (datetime.now(timezone.utc) - dt).days
+    except Exception:
+        return 0
 
 
 def parse_comment(html_text):
@@ -89,13 +104,15 @@ def parse_comment(html_text):
 
 def map_issue_data(issue, target_date_str):
     key = issue["key"]
+    fields = issue.get("fields", {})
     desc_html = (
         issue.get("renderedFields", {}).get("description")
         or "<em>No description provided.</em>"
     )
 
-    status_name = issue["fields"].get("status", {}).get("name", "")
+    status_name = fields.get("status", {}).get("name", "")
     status_raw = status_name.lower()
+
     if status_raw in ["done", "closed"]:
         status_key = "success"
     elif status_raw in ["in progress", "in review"]:
@@ -109,14 +126,25 @@ def map_issue_data(issue, target_date_str):
     else:
         status_key = "todo"
 
+    assignee = fields.get("assignee")
+    assignee_name = assignee["displayName"] if assignee else "Unassigned"
+    assignee_avatar = (
+        assignee.get("avatarUrls", {}).get("48x48", "") if assignee else ""
+    )
+    priority = fields.get("priority", {}).get("name", "")
+
+    created_at = fields.get("created")
+    updated_at = fields.get("updated")
+
+    cycle_days = max(1, calculate_days_ago(created_at))
+    is_blocker = status_key == "danger" or priority in ["Highest", "High"]
+
     target_comments, hist_comments = [], []
     for c in jira_client.fetch_comments(key):
         dt_vn = datetime.strptime(c["created"], "%Y-%m-%dT%H:%M:%S.%f%z").astimezone(
             config.VN_TZ
         )
         c_sum, c_tags, c_body = parse_comment(c.get("renderedBody", ""))
-
-        # 🌟 NEW: Extract Avatar URL from Jira API payload
         avatar_url = c.get("author", {}).get("avatarUrls", {}).get("48x48", "")
 
         comment_obj = {
@@ -134,31 +162,71 @@ def map_issue_data(issue, target_date_str):
             hist_comments.append(comment_obj)
 
     prs = []
+    pr_is_active = False  # Tracks if any PR attached to this issue has recent activity
+
     for pr in github_client.get_prs_for_issue(key):
         state = pr.get("state")
         merged_at = pr.get("merged_at")
-        updated_at = pr.get("updated_at")
+        pr_updated_at = pr.get("updated_at")
         closed_at = pr.get("closed_at")
+        pr_created_at = pr.get("created_at")
+        is_draft = pr.get("draft", False)
 
-        # 🌟 NEW: Sophisticated GitHub PR parsing for Dates, Avatars, Icons, and Diffs
+        pr_stale = (
+            calculate_days_ago(pr_updated_at, is_github=True) >= 3 and state == "open"
+        )
+        if state == "open" and not pr_stale:
+            pr_is_active = True
+
         if state == "closed" and merged_at:
             state_str, text_color, icon = "Merged", "var(--pr-merged)", "icon-git-merge"
             ts = datetime.strptime(merged_at, "%Y-%m-%dT%H:%M:%SZ").strftime(
                 "%b %d, %H:%M"
             )
-            time_str = f"Merged at {ts}"
+            time_str = f"Merged {ts}"
+            cycle = max(
+                1,
+                (
+                    datetime.strptime(merged_at, "%Y-%m-%dT%H:%M:%SZ")
+                    - datetime.strptime(pr_created_at, "%Y-%m-%dT%H:%M:%SZ")
+                ).days,
+            )
+            cycle_str = f"{cycle}d"
         elif state == "closed":
             state_str, text_color, icon = "Closed", "var(--pr-closed)", "icon-git-pr"
             ts = datetime.strptime(
-                closed_at or updated_at, "%Y-%m-%dT%H:%M:%SZ"
+                closed_at or pr_updated_at, "%Y-%m-%dT%H:%M:%SZ"
             ).strftime("%b %d, %H:%M")
-            time_str = f"Closed at {ts}"
+            time_str = f"Closed {ts}"
+            cycle_str = f"Closed"
         else:
-            state_str, text_color, icon = "Open", "var(--pr-open)", "icon-git-pr"
-            ts = datetime.strptime(updated_at, "%Y-%m-%dT%H:%M:%SZ").strftime(
+            state_str, text_color, icon = (
+                "Draft" if is_draft else "Open",
+                "var(--text-muted)" if is_draft else "var(--pr-open)",
+                "icon-git-pr",
+            )
+            ts = datetime.strptime(pr_updated_at, "%Y-%m-%dT%H:%M:%SZ").strftime(
                 "%b %d, %H:%M"
             )
-            time_str = f"Updated at {ts}"
+            time_str = f"Updated {ts}"
+            cycle = max(1, calculate_days_ago(pr_created_at, is_github=True))
+            cycle_str = f"{cycle}d"
+
+        pr_review_alert = (
+            state == "open"
+            and not is_draft
+            and calculate_days_ago(pr_created_at, is_github=True) >= 2
+        )
+        requested_reviewers = [r["login"] for r in pr.get("requested_reviewers", [])]
+
+        additions = pr.get("additions", 0)
+        deletions = pr.get("deletions", 0)
+        total_lines = additions + deletions
+        complexity_badge = (
+            "🚨 Alert: Massive PR"
+            if total_lines > 1000
+            else ("⚠️ Warning: Large PR" if total_lines > 500 else "")
+        )
 
         clean_title = re.sub(
             r"\[?MV-\d+\]?\s*", "", pr.get("title", ""), flags=re.IGNORECASE
@@ -174,18 +242,36 @@ def map_issue_data(issue, target_date_str):
                 "state_str": state_str,
                 "text_color": text_color,
                 "icon": icon,
-                "additions": pr.get("additions", 0),
-                "deletions": pr.get("deletions", 0),
+                "additions": additions,
+                "deletions": deletions,
                 "time_str": time_str,
+                "cycle_str": cycle_str,
+                "is_draft": is_draft,
+                "pr_stale": pr_stale,
+                "pr_review_alert": pr_review_alert,
+                "requested_reviewers": requested_reviewers,
+                "complexity_badge": complexity_badge,
                 "body": markdown.markdown(raw_body, extensions=["extra", "nl2br"]),
             }
         )
+
+    # Issue is ONLY stale if Jira ticket has no updates AND none of its PRs are active
+    is_stale = (
+        calculate_days_ago(updated_at) >= 3
+        and not pr_is_active
+        and status_key in ["info", "todo", "purple"]
+    )
 
     return {
         "key": key,
         "summary": issue["fields"]["summary"],
         "status_badge": get_status_badge(status_name),
         "status_key": status_key,
+        "assignee": assignee_name,
+        "assignee_avatar": assignee_avatar,
+        "is_stale": is_stale,
+        "cycle_days": cycle_days,
+        "is_blocker": is_blocker,
         "desc_html": desc_html,
         "updates": len(target_comments),
         "target_comments": target_comments,
@@ -222,22 +308,68 @@ def map_section_data(epics, tasks, target_date_str):
             emap["OTHER"]["tasks"].append(task_data)
             emap["OTHER"]["epic_updates"] += task_data["updates"]
 
+    # 🌟 Cascading Staleness Logic for Epics
+    for epic_data in emap.values():
+        if epic_data["key"] == "OTHER":
+            continue
+        has_active_task = any(not t["is_stale"] for t in epic_data["tasks"])
+        # If Epic has comments today, or if any child task is actively moving, the Epic is NOT stale.
+        if epic_data["epic_updates"] > 0 or has_active_task:
+            epic_data["is_stale"] = False
+
     return [e for k, e in emap.items() if not (k == "OTHER" and not e["tasks"])]
 
 
 def calculate_metrics(epics):
-    metrics = {"tasks_updated": 0, "comments_added": 0, "prs_merged": 0, "prs_open": 0}
+    metrics = {
+        "tasks_updated": 0,
+        "comments_added": 0,
+        "prs_merged": 0,
+        "prs_open": 0,
+        "workload": {},
+    }
     for e in epics:
         for t in e.get("tasks", []):
             if t["updates"] > 0:
                 metrics["tasks_updated"] += 1
             metrics["comments_added"] += t["updates"]
+
+            assignee = t.get("assignee", "Unassigned")
+            assignee_avatar = t.get("assignee_avatar", "")
+
+            if assignee not in metrics["workload"]:
+                metrics["workload"][assignee] = {
+                    "active": 0,
+                    "prs_open": 0,
+                    "prs_merged": 0,
+                    "blocked": 0,
+                    "avatar_url": assignee_avatar,
+                }
+
+            if t["status_key"] in ["info", "purple"]:
+                metrics["workload"][assignee]["active"] += 1
+            if t["is_blocker"]:
+                metrics["workload"][assignee]["blocked"] += 1
+
             for pr in t.get("prs", []):
                 if pr["state_str"] == "Merged":
                     metrics["prs_merged"] += 1
+                    metrics["workload"][assignee]["prs_merged"] += 1
                 elif pr["state_str"] == "Open":
                     metrics["prs_open"] += 1
+                    metrics["workload"][assignee]["prs_open"] += 1
     return metrics
+
+
+def extract_blockers(data_sections):
+    blockers = {}
+    for section in data_sections:
+        if section.get("is_blocker"):
+            blockers[section["key"]] = section
+        for t in section.get("tasks", []):
+            if t.get("is_blocker"):
+                blockers[t["key"]] = t
+    return list(blockers.values())
 
 
 def generate_report(
@@ -256,6 +388,8 @@ def generate_report(
     today_data = map_section_data(active_epics, active_tasks, today_str)
     yesterday_data = map_section_data(yesterday_epics, yesterday_tasks, yesterday_str)
 
+    active_blockers = extract_blockers(today_data + yesterday_data)
+
     context = {
         "domain": config.ATLASSIAN_DOMAIN,
         "today_str": today_str,
@@ -264,6 +398,7 @@ def generate_report(
         "generation_time_iso": datetime.now(config.VN_TZ).isoformat(),
         "today_metrics": calculate_metrics(today_data),
         "yesterday_metrics": calculate_metrics(yesterday_data),
+        "active_blockers": active_blockers,
         "sections": [
             {
                 "title": f"📅 Activity on {today_str}",
