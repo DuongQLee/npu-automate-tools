@@ -50,7 +50,7 @@
         mark { background-color: #ffea00; color: #000; padding: 0 2px; border-radius: 2px; }
 
         /* HEADER & NAVIGATION */
-        .header-container { display: flex; align-items: flex-start; justify-content: space-between; padding-bottom: 20px; border-bottom: 2px solid var(--border-color); margin-bottom: 30px; }
+        .header-container { display: flex; align-items: flex-start; justify-content: space-between; padding-bottom: 20px; border-bottom: 2px solid var(--border-color); margin-bottom: 20px; }
         .nav-left, .nav-right { flex: 1; display: flex; gap: 10px; align-items: flex-start; }
         .nav-right { justify-content: flex-end; position: relative; }
         .header-title { flex: 2; text-align: center; }
@@ -60,9 +60,10 @@
         #refreshStatus { position: absolute; top: 46px; right: 0; font-size: 0.75em; color: var(--text-muted); white-space: nowrap; text-align: right; margin-right: 4px;}
 
         /* 🔍 SEARCH ENGINE */
-        .search-container { position: sticky; top: 0; z-index: 2000; background: var(--bg-body); padding: 20px 0; margin-bottom: 20px; }
+        .search-container { position: sticky; top: 0; z-index: 2000; background: var(--bg-body); padding: 10px 0 20px 0; margin-bottom: 10px; }
         .search-wrapper { position: relative; width: 100%; box-sizing: border-box; }
-        #searchInput { width: 100%; height: 48px; padding: 0 20px; font-size: 16px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-surface); color: var(--text-main); outline: none; box-sizing: border-box; box-shadow: var(--shadow-sm); }
+        #searchInput { width: 100%; height: 48px; padding: 0 20px; font-size: 16px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-surface); color: var(--text-main); outline: none; box-sizing: border-box; box-shadow: var(--shadow-sm); transition: box-shadow 0.2s ease, border-color 0.2s ease; }
+        #searchInput:focus { border-color: var(--link-color); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.15); }
         .search-dropdown { position: absolute; top: calc(100% + 8px); left: 0; right: 0; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: var(--shadow-lg); z-index: 2100; display: none; max-height: 500px; overflow-y: auto; padding: 8px; }
         .search-result-item { padding: 12px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; border: 1px solid transparent; transition: background 0.1s; }
         .search-result-item.selected { background: var(--bg-surface-hover); border-color: var(--link-color); }
@@ -74,30 +75,42 @@
         .res-snippet { display: block; font-size: 0.8em; color: var(--text-muted); opacity: 0.8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
 
         /* 🚨 ACTIVE BLOCKERS MARQUEE */
-        .blocker-marquee { background: var(--badge-bg-danger); border: 1px solid var(--badge-text-danger); border-radius: 8px; padding: 16px; margin-bottom: 24px; box-shadow: var(--shadow-sm); }
+        .blocker-marquee { background: var(--badge-bg-danger); border: 1px solid var(--badge-text-danger); border-radius: 8px; padding: 16px; margin-bottom: 20px; box-shadow: var(--shadow-sm); }
         .blocker-header { color: var(--badge-text-danger); font-weight: 800; font-size: 1.1em; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
         .blocker-list { display: flex; flex-direction: column; gap: 8px; }
         .blocker-item { background: var(--bg-surface); padding: 8px 12px; border-radius: 6px; font-size: 0.9em; font-weight: 600; display: flex; justify-content: space-between; }
         
-        /* 📊 COMPACT ROLLUP METRICS */
+        /* 📊 RE-DESIGNED COMPACT ROLLUP METRICS */
         .metrics-dashboard { display: flex; flex-direction: column; gap: 16px; margin-bottom: 40px; }
-        .metrics-card { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow-sm); overflow: hidden;}
-        .metrics-card.yesterday { background: var(--bg-surface-muted); box-shadow: none; border: 1px dashed var(--border-color); }
-        .metrics-summary { padding: 12px 16px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; outline: none; }
-        .metrics-summary::-webkit-details-marker { display: none; }
-        .metrics-header { font-size: 1.05em; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
-        .metrics-card.yesterday .metrics-header { font-size: 0.95em; color: var(--text-muted); }
-        .metrics-grid { display: flex; gap: 24px; flex-wrap: wrap; }
-        .metric-item { display: flex; align-items: baseline; gap: 6px; }
-        .metric-val { font-size: 1.4em; font-weight: 800; color: var(--link-color); line-height: 1; }
-        .metrics-card.yesterday .metric-val { font-size: 1.2em; color: var(--text-muted); }
-        .metric-label { font-size: 0.8em; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+        .metrics-card { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow-sm); overflow: hidden; transition: all 0.2s ease;}
+        .metrics-card:hover { border-color: var(--text-muted); box-shadow: var(--shadow-md); }
+        .metrics-card.yesterday { background: var(--bg-surface-muted); box-shadow: none; opacity: 0.95; }
+        .metrics-card.yesterday:hover { border-color: var(--border-color); box-shadow: none; opacity: 1; }
         
-        .workload-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; border-top: 1px solid var(--border-color); padding: 12px 16px; background: var(--bg-surface-hover); }
-        .developer-card { background: var(--bg-surface); padding: 8px 12px; border-radius: 6px; font-size: 0.85em; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 6px;}
-        .developer-name { font-weight: bold; color: var(--text-main); display: flex; justify-content: space-between; align-items: center;}
-        .dev-info { display: flex; align-items: center; gap: 6px;}
-        .wip-warning { color: var(--badge-text-danger); font-weight: bold; animation: target-flash 2s infinite; }
+        .metrics-summary { padding: 20px; cursor: pointer; display: flex; flex-direction: column; gap: 16px; outline: none; }
+        .metrics-summary::-webkit-details-marker { display: none; }
+        
+        .metrics-header { font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px; }
+        .metrics-grid { display: flex; gap: 32px; flex-wrap: wrap; align-items: center; }
+        
+        .metric-item { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+        .metric-val { font-size: 2rem; font-weight: 600; color: var(--text-main); line-height: 1; font-variant-numeric: tabular-nums; }
+        .metrics-card.yesterday .metric-val { font-size: 1.5rem; color: var(--text-muted); }
+        .metric-label { font-size: 0.8rem; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: 0.02em; }
+        .metric-label svg { width: 14px; height: 14px; fill: currentColor; }
+        
+        .workload-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; border-top: 1px solid var(--border-color); padding: 16px 20px; background: var(--bg-surface-hover); }
+        .developer-card { background: var(--bg-surface); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px;}
+        .developer-header { display: flex; justify-content: space-between; align-items: center; }
+        .dev-info { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text-main); font-size: 0.9rem;}
+        .dev-badges { display: flex; align-items: center; gap: 6px; }
+        
+        .dev-stats-row { display: flex; gap: 16px; align-items: center; }
+        .dev-stat { display: flex; align-items: center; gap: 4px; font-size: 0.85rem; color: var(--text-muted); font-weight: 500; }
+        .dev-stat svg { width: 14px; height: 14px; fill: currentColor; }
+        
+        .stale-icon { width: 14px; height: 14px; fill: var(--badge-text-warn); }
+        .wip-badge { background: var(--badge-bg-danger); color: var(--badge-text-danger); font-size: 0.7rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em; }
 
         /* ICONS & AVATARS */
         summary { list-style: none; outline: none; cursor: pointer; position: relative; user-select: none; }
@@ -131,8 +144,8 @@
         
         /* ALERTS & META DATA */
         .meta-tags { display: flex; gap: 6px; align-items: center; font-size: 0.8em; color: var(--text-muted); font-weight: normal; margin-left: 8px;}
-        .stale-badge { background: var(--badge-bg-danger); color: var(--badge-text-danger); padding: 2px 6px; border-radius: 4px; font-weight: bold; }
-        .review-alert { background: var(--badge-bg-warn); color: var(--badge-text-warn); padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        .stale-badge { background: var(--badge-bg-warn); color: var(--badge-text-warn); padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        .review-alert { background: var(--badge-bg-danger); color: var(--badge-text-danger); padding: 2px 6px; border-radius: 4px; font-weight: bold; }
         .draft-pr { opacity: 0.6; }
         
         .pr-meta { display: flex; gap: 12px; align-items: center; font-size: 0.85em; font-weight: normal; flex-shrink: 0; }
@@ -169,6 +182,8 @@
         <symbol id="icon-task" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="14" height="14" rx="3" fill="#4C9AFF"/><path d="M4.5 8L7 10.5L11.5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
         <symbol id="icon-git-pr" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm13.25 5.5a2.25 2.25 0 1 1-3-2.122V5.25A2.25 2.25 0 0 0 9.5 3h-1.25a.75.75 0 0 1 0-1.5h1.25A3.75 3.75 0 0 1 13.25 5.25v1.378a2.251 2.251 0 0 1 1.5 2.122ZM1.5 12a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm12-8.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0ZM3 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm10.5 8.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z"></path></symbol>
         <symbol id="icon-git-merge" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 5 3.25Zm2.25 3.128a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854v2.396h4.146a.25.25 0 0 1 .25.25v2.25a.25.25 0 0 1-.25.25H10v2.396a.25.25 0 0 1-.427.177L7.177 6.177a.25.25 0 0 1 0-.354Z"></path></symbol>
+        <symbol id="icon-comment" viewBox="0 0 16 16" fill="currentColor"><path d="M1.75 1h12.5c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0 1 14.25 13H8.061l-2.574 2.573A1.458 1.458 0 0 1 3 14.543V13H1.75A1.75 1.75 0 0 1 0 11.25v-8.5C0 1.784.784 1 1.75 1ZM1.5 2.75v8.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.75.75 0 0 1 .53-.22h6.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25H1.75a.25.25 0 0 0-.25.25Z"></path></symbol>
+        <symbol id="icon-alert" viewBox="0 0 16 16" fill="currentColor"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.396C16.29 13.682 15.385 15 14.082 15H1.918c-1.303 0-2.208-1.318-1.543-2.557Zm1.763 1.2a.25.25 0 0 0-.44 0L1.698 13.643a.25.25 0 0 0 .22.357h12.164a.25.25 0 0 0 .22-.357Zm.655 8.003a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm-.825-5.5a.75.75 0 0 1 1.5 0v2.5a.75.75 0 0 1-1.5 0Z"></path></symbol>
     </svg>
 
     <div class="header-container">
@@ -215,19 +230,24 @@
     </div>
     {% endif %}
     
-    {% macro render_workload(metrics) %}
+    {% macro render_workload(metrics, is_today) %}
     <div class="workload-grid">
         {% for dev, stats in metrics.workload.items() %}
         <div class="developer-card">
-            <div class="developer-name">
+            <div class="developer-header">
                 <div class="dev-info">
                     {% if stats.avatar_url %}<img src="{{ stats.avatar_url }}" class="avatar" alt="{{ dev }}">{% else %}👤{% endif %}
                     {{ dev }}
                 </div>
-                {% if stats.active > 3 %}<span class="wip-warning" title="WIP Limit Exceeded">⚠️ WIP ({{ stats.active }})</span>{% endif %}
+                <div class="dev-badges">
+                    {% if is_today and stats.has_stale %}<svg class="stale-icon" title="Has Stale Items (No updates in 3+ days)"><use href="#icon-alert"></use></svg>{% endif %}
+                    {% if stats.active > 3 %}<span class="wip-badge" title="WIP Limit Exceeded">WIP: {{ stats.active }}</span>{% endif %}
+                </div>
             </div>
-            <div style="color: var(--text-muted);">
-                Active: <strong>{{ stats.active }}</strong> | Merged: <strong>{{ stats.prs_merged }}</strong> | Blocked: <strong>{{ stats.blocked }}</strong>
+            <div class="dev-stats-row">
+                <div class="dev-stat" title="Active Tasks"><svg><use href="#icon-task"></use></svg> {{ stats.active }}</div>
+                <div class="dev-stat" title="Merged PRs"><svg><use href="#icon-git-merge"></use></svg> {{ stats.prs_merged }}</div>
+                <div class="dev-stat" title="New Comments"><svg><use href="#icon-comment"></use></svg> {{ stats.comments }}</div>
             </div>
         </div>
         {% endfor %}
@@ -237,28 +257,60 @@
     <div class="metrics-dashboard">
         <details class="metrics-card" open>
             <summary class="metrics-summary">
-                <div class="metrics-header">🔥 Today's Progress</div>
+                <div class="metrics-header">🔥 TODAY'S PROGRESS</div>
                 <div class="metrics-grid">
-                    <div class="metric-item"><span class="metric-val">{{ today_metrics.tasks_updated }}</span><span class="metric-label">Tasks Updated</span></div>
-                    <div class="metric-item"><span class="metric-val">{{ today_metrics.prs_merged }}</span><span class="metric-label">PRs Merged</span></div>
-                    <div class="metric-item"><span class="metric-val">{{ today_metrics.prs_open }}</span><span class="metric-label">PRs Opened</span></div>
-                    <div class="metric-item"><span class="metric-val">{{ today_metrics.comments_added }}</span><span class="metric-label">New Comments</span></div>
+                    <div class="metric-item" title="Tasks Updated">
+                        <span class="metric-val">{{ today_metrics.tasks_updated }}</span>
+                        <span class="metric-label"><svg><use href="#icon-task"></use></svg> Tasks</span>
+                    </div>
+                    <div class="metric-item" title="PRs Merged">
+                        <span class="metric-val">{{ today_metrics.prs_merged }}</span>
+                        <span class="metric-label"><svg><use href="#icon-git-merge"></use></svg> Merged</span>
+                    </div>
+                    <div class="metric-item" title="PRs Opened">
+                        <span class="metric-val">{{ today_metrics.prs_open }}</span>
+                        <span class="metric-label"><svg><use href="#icon-git-pr"></use></svg> Open</span>
+                    </div>
+                    <div class="metric-item" title="New Comments">
+                        <span class="metric-val">{{ today_metrics.comments_added }}</span>
+                        <span class="metric-label"><svg><use href="#icon-comment"></use></svg> Comments</span>
+                    </div>
+                    <div class="metric-item" title="Stale Items">
+                        <span class="metric-val" style="color:var(--badge-text-warn)">{{ today_metrics.stale_items }}</span>
+                        <span class="metric-label"><svg style="fill:var(--badge-text-warn)"><use href="#icon-alert"></use></svg> Stale</span>
+                    </div>
                 </div>
             </summary>
-            {{ render_workload(today_metrics) }}
+            {{ render_workload(today_metrics, True) }}
         </details>
         
         <details class="metrics-card yesterday">
             <summary class="metrics-summary">
-                <div class="metrics-header">⏪ Yesterday's Pulse</div>
+                <div class="metrics-header">⏪ YESTERDAY'S PULSE</div>
                 <div class="metrics-grid">
-                    <div class="metric-item"><span class="metric-val">{{ yesterday_metrics.tasks_updated }}</span><span class="metric-label">Tasks Updated</span></div>
-                    <div class="metric-item"><span class="metric-val">{{ yesterday_metrics.prs_merged }}</span><span class="metric-label">PRs Merged</span></div>
-                    <div class="metric-item"><span class="metric-val">{{ yesterday_metrics.prs_open }}</span><span class="metric-label">PRs Opened</span></div>
-                    <div class="metric-item"><span class="metric-val">{{ yesterday_metrics.comments_added }}</span><span class="metric-label">New Comments</span></div>
+                    <div class="metric-item" title="Tasks Updated">
+                        <span class="metric-val">{{ yesterday_metrics.tasks_updated }}</span>
+                        <span class="metric-label"><svg><use href="#icon-task"></use></svg> Tasks</span>
+                    </div>
+                    <div class="metric-item" title="PRs Merged">
+                        <span class="metric-val">{{ yesterday_metrics.prs_merged }}</span>
+                        <span class="metric-label"><svg><use href="#icon-git-merge"></use></svg> Merged</span>
+                    </div>
+                    <div class="metric-item" title="PRs Opened">
+                        <span class="metric-val">{{ yesterday_metrics.prs_open }}</span>
+                        <span class="metric-label"><svg><use href="#icon-git-pr"></use></svg> Open</span>
+                    </div>
+                    <div class="metric-item" title="New Comments">
+                        <span class="metric-val">{{ yesterday_metrics.comments_added }}</span>
+                        <span class="metric-label"><svg><use href="#icon-comment"></use></svg> Comments</span>
+                    </div>
+                    <div class="metric-item" title="Stale Items">
+                        <span class="metric-val" style="color:var(--text-muted)">{{ yesterday_metrics.stale_items }}</span>
+                        <span class="metric-label"><svg style="fill:var(--text-muted)"><use href="#icon-alert"></use></svg> Stale</span>
+                    </div>
                 </div>
             </summary>
-            {{ render_workload(yesterday_metrics) }}
+            {{ render_workload(yesterday_metrics, False) }}
         </details>
     </div>
 
@@ -375,7 +427,7 @@
             });
 
             document.querySelectorAll('.searchable-item').forEach((el, i) => {
-                if (el.classList.contains("metrics-summary")) return; // skip metrics
+                if (el.classList.contains("metrics-summary")) return; 
                 const id = `si-${i}`; el.id = id;
                 let iconHtml = '<svg class="res-icon"><use href="#icon-task"></use></svg>'; 
                 let dType = (el.getAttribute('data-type') || 'issue').toLowerCase();
@@ -701,7 +753,7 @@
                                                 {% if pr.complexity_badge %}<span style="font-size: 0.8em; margin-left: 8px;">{{ pr.complexity_badge }}</span>{% endif %}
                                             </div>
                                             <div class="pr-meta">
-                                                <span title="{{ pr.time_str }}">⏳ {{ pr.cycle_str }}</span>
+                                                <span title="{{ pr.time_str }}">⏳ {{ pr.cycle_days }}d</span>
                                                 {% if pr.pr_stale %}<span class="stale-badge" title="No updates in 3+ days">⚠️ STALE</span>{% endif %}
                                                 {% if pr.pr_review_alert %}<span class="review-alert" title="Open > 48 hours without review">🚨 REVIEW</span>{% endif %}
                                                 {% if pr.avatar_url %}<img src="{{ pr.avatar_url }}" class="avatar" alt="{{ pr.author }}">{% endif %}

@@ -162,12 +162,14 @@ def map_issue_data(issue, target_date_str):
             hist_comments.append(comment_obj)
 
     prs = []
-    pr_is_active = False  # Tracks if any PR attached to this issue has recent activity
+    pr_is_active = False
 
     for pr in github_client.get_prs_for_issue(key):
         state = pr.get("state")
         merged_at = pr.get("merged_at")
-        pr_updated_at = pr.get("updated_at")
+        pr_updated_at = pr.get(
+            "updated_at"
+        )  # Auto-bumps on GitHub for commits, comments, reviews
         closed_at = pr.get("closed_at")
         pr_created_at = pr.get("created_at")
         is_draft = pr.get("draft", False)
@@ -191,14 +193,13 @@ def map_issue_data(issue, target_date_str):
                     - datetime.strptime(pr_created_at, "%Y-%m-%dT%H:%M:%SZ")
                 ).days,
             )
-            cycle_str = f"{cycle}d"
         elif state == "closed":
             state_str, text_color, icon = "Closed", "var(--pr-closed)", "icon-git-pr"
             ts = datetime.strptime(
                 closed_at or pr_updated_at, "%Y-%m-%dT%H:%M:%SZ"
             ).strftime("%b %d, %H:%M")
             time_str = f"Closed {ts}"
-            cycle_str = f"Closed"
+            cycle = max(1, calculate_days_ago(pr_created_at, is_github=True))
         else:
             state_str, text_color, icon = (
                 "Draft" if is_draft else "Open",
@@ -210,7 +211,6 @@ def map_issue_data(issue, target_date_str):
             )
             time_str = f"Updated {ts}"
             cycle = max(1, calculate_days_ago(pr_created_at, is_github=True))
-            cycle_str = f"{cycle}d"
 
         pr_review_alert = (
             state == "open"
@@ -245,7 +245,7 @@ def map_issue_data(issue, target_date_str):
                 "additions": additions,
                 "deletions": deletions,
                 "time_str": time_str,
-                "cycle_str": cycle_str,
+                "cycle_days": cycle,
                 "is_draft": is_draft,
                 "pr_stale": pr_stale,
                 "pr_review_alert": pr_review_alert,
@@ -255,10 +255,11 @@ def map_issue_data(issue, target_date_str):
             }
         )
 
-    # Issue is ONLY stale if Jira ticket has no updates AND none of its PRs are active
+    # Issue staleness relies on Jira updates OR active PRs
     is_stale = (
         calculate_days_ago(updated_at) >= 3
         and not pr_is_active
+        and len(target_comments) == 0
         and status_key in ["info", "todo", "purple"]
     )
 
@@ -308,12 +309,10 @@ def map_section_data(epics, tasks, target_date_str):
             emap["OTHER"]["tasks"].append(task_data)
             emap["OTHER"]["epic_updates"] += task_data["updates"]
 
-    # 🌟 Cascading Staleness Logic for Epics
     for epic_data in emap.values():
         if epic_data["key"] == "OTHER":
             continue
         has_active_task = any(not t["is_stale"] for t in epic_data["tasks"])
-        # If Epic has comments today, or if any child task is actively moving, the Epic is NOT stale.
         if epic_data["epic_updates"] > 0 or has_active_task:
             epic_data["is_stale"] = False
 
@@ -326,13 +325,20 @@ def calculate_metrics(epics):
         "comments_added": 0,
         "prs_merged": 0,
         "prs_open": 0,
+        "stale_items": 0,
         "workload": {},
     }
     for e in epics:
+        if e.get("is_stale"):
+            metrics["stale_items"] += 1
+
         for t in e.get("tasks", []):
             if t["updates"] > 0:
                 metrics["tasks_updated"] += 1
             metrics["comments_added"] += t["updates"]
+
+            if t.get("is_stale"):
+                metrics["stale_items"] += 1
 
             assignee = t.get("assignee", "Unassigned")
             assignee_avatar = t.get("assignee_avatar", "")
@@ -342,22 +348,31 @@ def calculate_metrics(epics):
                     "active": 0,
                     "prs_open": 0,
                     "prs_merged": 0,
-                    "blocked": 0,
+                    "comments": 0,
+                    "has_stale": False,
                     "avatar_url": assignee_avatar,
                 }
 
             if t["status_key"] in ["info", "purple"]:
                 metrics["workload"][assignee]["active"] += 1
-            if t["is_blocker"]:
-                metrics["workload"][assignee]["blocked"] += 1
+
+            metrics["workload"][assignee]["comments"] += t["updates"]
+
+            if t.get("is_stale"):
+                metrics["workload"][assignee]["has_stale"] = True
 
             for pr in t.get("prs", []):
+                if pr.get("pr_stale"):
+                    metrics["stale_items"] += 1
+                    metrics["workload"][assignee]["has_stale"] = True
+
                 if pr["state_str"] == "Merged":
                     metrics["prs_merged"] += 1
                     metrics["workload"][assignee]["prs_merged"] += 1
                 elif pr["state_str"] == "Open":
                     metrics["prs_open"] += 1
                     metrics["workload"][assignee]["prs_open"] += 1
+
     return metrics
 
 
