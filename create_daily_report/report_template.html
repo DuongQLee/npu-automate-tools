@@ -20,7 +20,7 @@
             --badge-bg-warn: #fffae6;    --badge-text-warn: #ff8b00;
             --badge-bg-todo: #f4f5f7;    --badge-text-todo: #42526e;
             --pr-open: #2da44e; --pr-merged: #8250df; --pr-closed: #cf222e;
-            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow-sm: 0 1px 2px rgba(9, 30, 66, 0.05);
             --shadow-md: 0 4px 8px rgba(9, 30, 66, 0.08);
             --shadow-lg: 0 8px 16px rgba(9, 30, 66, 0.12);
         }
@@ -40,6 +40,9 @@
             --badge-bg-danger: rgba(248, 81, 73, 0.15);   --badge-text-danger: #ff7b72;
             --badge-bg-warn: rgba(210, 153, 34, 0.15);    --badge-text-warn: #d29922;
             --badge-bg-todo: rgba(110, 118, 129, 0.4);    --badge-text-todo: #c9d1d9;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+            --shadow-md: 0 4px 8px rgba(0,0,0,0.6);
+            --shadow-lg: 0 8px 16px rgba(0,0,0,0.8);
         }
 
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg-body); color: var(--text-main); max-width: 1000px; margin: 40px auto 0 auto; padding: 0 20px; line-height: 1.6; transition: background 0.3s; }
@@ -47,21 +50,31 @@
         mark { background-color: #ffea00; color: #000; padding: 0 2px; border-radius: 2px; }
 
         /* HEADER & NAVIGATION */
-        .header-container { display: flex; align-items: flex-start; justify-content: space-between; padding-bottom: 20px; border-bottom: 2px solid var(--border-color); }
+        .header-container { display: flex; align-items: flex-start; justify-content: space-between; padding-bottom: 20px; border-bottom: 2px solid var(--border-color); margin-bottom: 30px; }
         .nav-left, .nav-right { flex: 1; display: flex; gap: 10px; align-items: flex-start; }
         .nav-right { justify-content: flex-end; position: relative; }
         .header-title { flex: 2; text-align: center; }
-        
         .nav-btn { height: 40px; background: var(--bg-surface); border: 1px solid var(--border-color); padding: 0 16px; border-radius: 6px; font-weight: 600; color: var(--text-main); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; transition: all 0.2s ease; }
         .nav-btn:hover:not([data-disabled="true"]) { background: var(--bg-surface-hover); border-color: var(--link-color); }
         .nav-btn svg { fill: currentColor; }
         #refreshStatus { position: absolute; top: 46px; right: 0; font-size: 0.75em; color: var(--text-muted); white-space: nowrap; text-align: right; margin-right: 4px;}
 
+        /* 📊 ROLLUP METRICS (EXECUTIVE SUMMARY) */
+        .metrics-dashboard { display: flex; flex-direction: column; gap: 16px; margin-bottom: 40px; }
+        .metrics-card { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; box-shadow: var(--shadow-sm); }
+        .metrics-card.yesterday { background: var(--bg-surface-muted); padding: 12px 20px; box-shadow: none; border: 1px dashed var(--border-color); }
+        .metrics-header { font-size: 1.1em; font-weight: 700; margin-bottom: 12px; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
+        .metrics-card.yesterday .metrics-header { font-size: 0.9em; margin-bottom: 8px; color: var(--text-muted); }
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 16px; }
+        .metric-item { display: flex; flex-direction: column; align-items: flex-start; }
+        .metric-val { font-size: 1.8em; font-weight: 800; color: var(--link-color); line-height: 1; }
+        .metrics-card.yesterday .metric-val { font-size: 1.3em; color: var(--text-muted); }
+        .metric-label { font-size: 0.8em; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+
         /* 🔍 SEARCH ENGINE */
-        .search-container { position: sticky; top: 0; z-index: 2000; background: var(--bg-body); padding: 20px 0; }
+        .search-container { position: sticky; top: 0; z-index: 2000; background: var(--bg-body); padding: 20px 0; margin-bottom: 20px; }
         .search-wrapper { position: relative; width: 100%; box-sizing: border-box; }
         #searchInput { width: 100%; height: 48px; padding: 0 20px; font-size: 16px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-surface); color: var(--text-main); outline: none; box-sizing: border-box; box-shadow: var(--shadow-sm); }
-        
         .search-dropdown { position: absolute; top: calc(100% + 8px); left: 0; right: 0; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: var(--shadow-lg); z-index: 2100; display: none; max-height: 500px; overflow-y: auto; padding: 8px; }
         .search-result-item { padding: 12px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; border: 1px solid transparent; transition: background 0.1s; }
         .search-result-item.selected { background: var(--bg-surface-hover); border-color: var(--link-color); }
@@ -74,7 +87,7 @@
         .res-time { color: var(--text-muted); font-size: 0.8em; font-family: monospace; margin-left: auto; flex-shrink: 0; }
         .res-snippet { display: block; font-size: 0.8em; color: var(--text-muted); opacity: 0.8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
 
-        /* ICONS & CONSISTENT TICKET LAYOUTS */
+        /* ICONS & AVATARS */
         summary { list-style: none; outline: none; cursor: pointer; position: relative; user-select: none; }
         summary::-webkit-details-marker { display: none; }
         summary::before, .collapse-icon, .pr-row-icon { display: none !important; }
@@ -83,51 +96,59 @@
         .jira-icon { width: 16px; height: 16px; flex-shrink: 0; }
         .ticket-id { font-family: monospace; opacity: 0.8; margin-right: 2px; flex-shrink: 0; }
         .ticket-title-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .avatar { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-color); background: var(--bg-surface-muted); }
 
-        /* BLOCKS & OPTIMIZATIONS */
+        /* GESTALT BLOCKS & OPTIMIZATIONS */
         .epic-block { 
             contain: content; 
             margin-bottom: 24px; 
             border-radius: 8px; 
             background: var(--bg-surface); 
             border: 1px solid var(--border-color); 
-            overflow: hidden; 
-            box-shadow: var(--shadow-sm);
-            /* Render Optimizations */
+            box-shadow: var(--shadow-md); /* Elevated Epics */
             content-visibility: auto;
             contain-intrinsic-size: 500px;
         }
         .epic-summary, .task-summary, .pr-summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
         .epic-summary { padding: 16px 20px; font-weight: 600; font-size: 1.05em; }
-        .task-summary { padding: 12px 16px; font-weight: 600; }
-        .pr-summary { padding: 10px 16px; font-weight: 500; }
+        .task-summary { padding: 12px 16px; font-weight: 600; font-size: 0.95em; }
+        .pr-summary { padding: 10px 16px; font-weight: 500; font-size: 0.95em; }
 
         .epic-block[open] .epic-summary { border-bottom: 1px solid var(--border-color); }
-        .epic-content { padding: 0; background: var(--bg-body); }
+        .epic-content { padding: 0 0 16px 0; background: var(--bg-body); }
 
-        .task-block { border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface); margin: 16px; overflow: hidden; }
-        .task-block[open] .task-summary { border-bottom: 1px solid var(--border-color); }
+        /* Depressed Tasks */
+        .task-block { border-radius: 6px; background: var(--bg-surface); margin: 12px 16px; overflow: hidden; border: 1px solid var(--border-color); box-shadow: var(--shadow-sm); }
+        .task-block[open] .task-summary { border-bottom: 1px dashed var(--border-color); background: var(--bg-surface-muted); }
         .task-content { padding: 0; background: var(--bg-surface); }
 
-        .sub-collapse { border-bottom: 1px solid var(--border-color); }
-        .sub-content { padding: 16px; font-size: 0.95em; border-top: 1px dashed var(--border-color); background: var(--bg-surface-hover); }
-        .update-badge { padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: bold; flex-shrink: 0; }
+        .sub-collapse { border-top: 1px dashed var(--border-color); }
+        .sub-collapse:first-child { border-top: none; }
+        .sub-content { padding: 16px; font-size: 0.95em; background: var(--bg-surface-hover); }
         
+        /* PR Specifics */
+        .pr-meta { display: flex; gap: 12px; align-items: center; font-size: 0.85em; font-weight: normal; flex-shrink: 0; }
+        .diff-add { color: #2da44e; font-weight: 600; }
+        .diff-del { color: #cf222e; font-weight: 600; }
+        .pr-footer { font-size: 0.85em; color: var(--text-muted); display: flex; align-items: center; gap: 6px; padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--border-color); }
+
+        .update-badge { padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: bold; flex-shrink: 0; }
         .count-tag { font-weight: bold; margin-left: 8px; }
         .count-grey { color: var(--text-muted); }
         .count-blue { color: var(--link-color); }
         .count-green { color: var(--badge-text-success); }
 
-        /* REFACTORED COMMENT CARD CSS */
-        .comment-card { margin-bottom: 12px; padding: 16px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-surface); }
-        .comment-header { margin-bottom: 8px; font-weight: bold; }
-        .comment-time { color: var(--text-muted); font-size: 0.85em; margin-left: 10px; font-weight: normal; }
+        /* COMMENT CARDS */
+        .comment-card { margin-bottom: 12px; padding: 16px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface); box-shadow: var(--shadow-sm); }
+        .comment-header { margin-bottom: 10px; font-weight: bold; display: flex; align-items: center; gap: 8px; }
+        .comment-time { color: var(--text-muted); font-size: 0.85em; font-weight: normal; margin-left: auto; }
         .tag-pill { color: var(--link-color); font-size: 0.8em; margin-left: 6px; background: var(--badge-bg-info); padding: 2px 8px; border-radius: 12px; }
 
         .comment-group { margin-bottom: 12px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-surface); transition: transform 0.1s; }
-        .comment-group:hover { transform: translateY(-1px); border-color: var(--link-color); }
+        .comment-group:hover { transform: translateY(-1px); border-color: var(--link-color); box-shadow: var(--shadow-md); }
         .comment-group > summary { padding: 14px 18px; font-weight: 700; font-size: 0.95em; display: flex; justify-content: space-between; }
         .comment-group[open] > summary { border-bottom: 1px solid var(--border-color); background: var(--bg-surface-muted); }
+        .comment-group-content { padding: 16px; background: var(--bg-surface-hover); }
 
         @keyframes target-flash { 0% { background: rgba(255,234,0,0.4); } 100% { background: transparent; } }
         .jump-flash { animation: target-flash 2s ease-out; }
@@ -144,8 +165,11 @@
             <rect x="1" y="1" width="14" height="14" rx="3" fill="#4C9AFF"/>
             <path d="M4.5 8L7 10.5L11.5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </symbol>
-        <symbol id="icon-github" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.06-1.86 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+        <symbol id="icon-git-pr" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm13.25 5.5a2.25 2.25 0 1 1-3-2.122V5.25A2.25 2.25 0 0 0 9.5 3h-1.25a.75.75 0 0 1 0-1.5h1.25A3.75 3.75 0 0 1 13.25 5.25v1.378a2.251 2.251 0 0 1 1.5 2.122ZM1.5 12a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm12-8.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0ZM3 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm10.5 8.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z"></path>
+        </symbol>
+        <symbol id="icon-git-merge" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 5 3.25Zm2.25 3.128a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854v2.396h4.146a.25.25 0 0 1 .25.25v2.25a.25.25 0 0 1-.25.25H10v2.396a.25.25 0 0 1-.427.177L7.177 6.177a.25.25 0 0 1 0-.354Z"></path>
         </symbol>
     </svg>
 
@@ -170,6 +194,27 @@
         </div>
     </div>
     
+    <div class="metrics-dashboard">
+        <div class="metrics-card">
+            <div class="metrics-header">🔥 Today's Progress</div>
+            <div class="metrics-grid">
+                <div class="metric-item"><span class="metric-val">{{ today_metrics.tasks_updated }}</span><span class="metric-label">Tasks Updated</span></div>
+                <div class="metric-item"><span class="metric-val">{{ today_metrics.prs_merged }}</span><span class="metric-label">PRs Merged</span></div>
+                <div class="metric-item"><span class="metric-val">{{ today_metrics.prs_open }}</span><span class="metric-label">PRs Opened</span></div>
+                <div class="metric-item"><span class="metric-val">{{ today_metrics.comments_added }}</span><span class="metric-label">New Comments</span></div>
+            </div>
+        </div>
+        <div class="metrics-card yesterday">
+            <div class="metrics-header">⏪ Yesterday's Pulse</div>
+            <div class="metrics-grid">
+                <div class="metric-item"><span class="metric-val">{{ yesterday_metrics.tasks_updated }}</span><span class="metric-label">Tasks Updated</span></div>
+                <div class="metric-item"><span class="metric-val">{{ yesterday_metrics.prs_merged }}</span><span class="metric-label">PRs Merged</span></div>
+                <div class="metric-item"><span class="metric-val">{{ yesterday_metrics.prs_open }}</span><span class="metric-label">PRs Opened</span></div>
+                <div class="metric-item"><span class="metric-val">{{ yesterday_metrics.comments_added }}</span><span class="metric-label">New Comments</span></div>
+            </div>
+        </div>
+    </div>
+
     <div class="search-container">
         <div class="search-wrapper">
             <input type="text" id="searchInput" placeholder="🔍 Search (Enter to jump | Escape to close | Shift+Click deep toggle)..." autocomplete="off">
@@ -180,7 +225,7 @@
     <script>
         const state = { index: [], curIdx: -1, lastQ: "" };
         const generationTime = new Date("{{ generation_time_iso }}");
-        let debounceTimer; // Search optimization
+        let debounceTimer; 
 
         function updateTimeAgo() {
             const now = new Date();
@@ -272,7 +317,6 @@
                 document.getElementById("refreshStatus").style.display = "none";
             }
 
-            // Optimization 2: Cache DOM text structure to avoid layout thrashing during searches
             window.epicMap = [];
 
             document.querySelectorAll('.epic-block').forEach((epic, index) => {
@@ -292,10 +336,16 @@
 
             document.querySelectorAll('.searchable-item').forEach((el, i) => {
                 const id = `si-${i}`; el.id = id;
+                let iconHtml = '<svg class="res-icon"><use href="#icon-task"></use></svg>'; 
+                let dType = (el.getAttribute('data-type') || 'issue').toLowerCase();
+                if (dType === 'epic' || dType === 'epic-desc') iconHtml = '<svg class="res-icon"><use href="#icon-epic"></use></svg>';
+                if (dType === 'pr') iconHtml = '<svg class="res-icon" style="color:var(--pr-open)"><use href="#icon-git-pr"></use></svg>';
+                
                 state.index.push({
                     id: id, el: el,
                     key: (el.getAttribute('data-key') || '').toUpperCase(),
-                    type: (el.getAttribute('data-type') || 'issue').toLowerCase(),
+                    type: dType,
+                    iconHtml: iconHtml,
                     author: (el.getAttribute('data-author') || '').toLowerCase(),
                     time: el.getAttribute('data-time') || '', 
                     title: (el.getAttribute('data-title') || el.textContent.substring(0, 60)).trim(),
@@ -312,12 +362,8 @@
                 state.lastQ = q; state.curIdx = -1;
                 
                 renderDropdown(q); 
-                
-                // Optimization 1: Debounce DOM filtering logic
                 clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(() => {
-                    filterDOM(q);
-                }, 150);
+                debounceTimer = setTimeout(() => { filterDOM(q); }, 150);
             });
 
             input.addEventListener('keydown', (e) => {
@@ -409,14 +455,10 @@
             
             dropdown.innerHTML = matches.map((m, i) => {
                 const cleanSnippet = m.text.substring(Math.max(0, m.text.indexOf(q) - 20), m.text.indexOf(q) + 40);
-                let icon = '<svg class="res-icon"><use href="#icon-task"></use></svg>'; 
-                if (m.type === 'epic' || m.type === 'epic-desc') icon = '<svg class="res-icon"><use href="#icon-epic"></use></svg>';
-                if (m.type === 'pr') icon = '<svg class="res-icon"><use href="#icon-github"></use></svg>';
-
                 return `
                 <div class="search-result-item ${i === state.curIdx ? 'selected' : ''}" onclick="jumpTo('${m.id}')">
                     <div class="res-header">
-                        ${icon}
+                        ${m.iconHtml}
                         <span class="res-key">[${m.key}]</span>
                         <span class="res-title">${m.title}</span>
                         ${m.author ? `<span class="res-author">${m.author}</span>` : ''}
@@ -428,13 +470,12 @@
             dropdown.style.display = 'block';
         }
 
-        // 🧠 SAFE & CORRECT HIGHLIGHT ENGINE
         function clearHighlights() {
             document.querySelectorAll('mark.search-hl').forEach(m => {
                 const parent = m.parentNode;
                 if(parent) {
                     parent.replaceChild(document.createTextNode(m.textContent), m);
-                    parent.normalize(); // Crucial: merges split text nodes back together
+                    parent.normalize(); 
                 }
             });
         }
@@ -444,7 +485,6 @@
             const nodes = [];
             while(walker.nextNode()) nodes.push(walker.currentNode);
             
-            // Build non-global regex to safely grab exact indices iteratively
             const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const localRegex = new RegExp(`(${escapedKeyword})`, "i");
             
@@ -461,7 +501,7 @@
                         mark.textContent = wordNode.textContent;
                         wordNode.replaceWith(mark);
                         
-                        n = remainderNode; // Advance pointer past the newly wrapped node
+                        n = remainderNode; 
                     }
                 }
             });
@@ -475,13 +515,12 @@
                     epicData.el.removeAttribute('hidden');
                     epicData.tasks.forEach(t => {
                         t.el.removeAttribute('hidden');
-                        t.el.removeAttribute('open'); // Revert UI cleanly
+                        t.el.removeAttribute('open'); 
                     });
                 });
                 return; 
             }
             
-            // Iterate using memory mapped elements (avoids expensive textContent layout thrashing)
             window.epicMap.forEach(epicData => {
                 const matchEpic = epicData.text.includes(q);
                 let vTasks = 0;
@@ -533,7 +572,12 @@
          data-time="{{ comment.time_str }}"
          style="border-left-color: {{ color_hex }};">
         <div class="comment-header">
-            <span>🗣️ {{ comment.author }}</span>
+            {% if comment.avatar_url %}
+                <img src="{{ comment.avatar_url }}" class="avatar" alt="Avatar">
+            {% else %}
+                <span>🗣️</span>
+            {% endif %}
+            <span>{{ comment.author }}</span>
             <span class="comment-time">{{ comment.time_str }}</span>
         </div>
         {% if comment.summary %}
@@ -602,13 +646,23 @@
                                     <details class="pr-collapse searchable-item" data-type="pr" data-key="{{ task.key }}" data-title="{{ pr.clean_title }}" data-author="@{{ pr.author }}">
                                         <summary class="pr-summary">
                                             <div class="ticket-title-wrapper">
-                                                <svg class="jira-icon"><use href="#icon-github"></use></svg>
+                                                <svg class="jira-icon" style="color: {{ pr.text_color }}"><use href="#{{ pr.icon }}"></use></svg>
                                                 <a href="{{ pr.url }}" class="ticket-id" target="_blank">[{{ task.key }}]</a> 
                                                 <span class="ticket-title-text">{{ pr.clean_title }}</span>
                                             </div>
-                                            <span class="update-badge" style="color:{{ pr.text_color }}">{{ pr.state_str }}</span>
+                                            <div class="pr-meta">
+                                                {% if pr.avatar_url %}<img src="{{ pr.avatar_url }}" class="avatar" alt="{{ pr.author }}">{% endif %}
+                                                <span class="diff-add">+{{ pr.additions }}</span>
+                                                <span class="diff-del">-{{ pr.deletions }}</span>
+                                            </div>
                                         </summary>
-                                        <div style="padding:10px; border-top:1px dashed var(--border-color)">{{ pr.body | safe }}</div>
+                                        <div style="padding:10px 16px; border-top:1px dashed var(--border-color)">
+                                            <div>{{ pr.body | safe }}</div>
+                                            <div class="pr-footer">
+                                                <svg style="width: 12px; height: 12px; fill: currentColor;"><use href="#{{ pr.icon }}"></use></svg>
+                                                {{ pr.time_str }}
+                                            </div>
+                                        </div>
                                     </details>
                                     {% endfor %}
                                 </div>
