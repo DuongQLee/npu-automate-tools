@@ -2,10 +2,16 @@ name: Jira Daily Report Schedule
 
 on:
   schedule:
-    - cron: '*/15 1-12 * * *'
-    - cron: '0,30 0,13-16,18-23 * * *'
-    - cron: '30 17 * * *'
-    - cron: '1 17 * * *'
+    # 1. Snapshot: 00:10 UTC (Tue-Sat) -> Covers the 00:10 UTC requirement
+    - cron: '10 0 * * 2-6'
+    # 2. Snapshot: 17:10 UTC (Mon-Fri) -> Covers the 00:10 GMT+7 requirement (which is 17:10 UTC the previous day)
+    - cron: '10 17 * * 1-5'
+    # 3. Working Hours: Every 10 mins from 01:00 UTC to 12:50 UTC (08:00 to 19:50 GMT+7) Mon-Fri
+    - cron: '*/10 1-12 * * 1-5'
+    # 4. Off-Hours: Every 30 mins from 13:00 UTC to 23:30 UTC Mon-Fri
+    - cron: '0,30 13-23 * * 1-5'
+    # 5. Off-Hours (Midnight block): Every 30 mins at 00:00 and 00:30 UTC Mon-Fri
+    - cron: '0,30 0 * * 1-5'
   workflow_dispatch: 
 
 concurrency:
@@ -39,10 +45,11 @@ jobs:
           HOUR=$(date -u +'%H')
           MINUTE=$(date -u +'%M')
           
-          if [ "$HOUR" == "17" ] && [ "$MINUTE" == "01" ]; then
-            echo "🌙 Midnight Rollover detected! Generating Yesterday (-1) and Today (0)..."
+          # Check if this is the 00:10 UTC or 17:10 UTC run (allowing a 5-min buffer for GitHub Action startup delays)
+          if { [ "$HOUR" == "00" ] || [ "$HOUR" == "17" ]; } && [ "$MINUTE" -ge 10 ] && [ "$MINUTE" -lt 15 ]; then
+            echo "🌙 Midnight Rollover detected ($HOUR:$MINUTE UTC)! Generating Yesterday (-1) and Today (0)..."
             uv run create_daily_report/main.py -d -1 0
           else
-            echo "☀️ Standard Run! Generating Today (0) only..."
+            echo "☀️ Standard Run ($HOUR:$MINUTE UTC)! Generating Today (0) only..."
             uv run create_daily_report/main.py -d 0
           fi
