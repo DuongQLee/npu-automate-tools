@@ -1,13 +1,9 @@
 #!/bin/bash
 
-# Navigate to the persistent directory
-cd /home/moreh/npu-automate-tools || exit
+export PATH="/home/moreh/.cargo/bin:/home/moreh/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
-# Pull the latest changes from your repo
+cd /home/moreh/npu-automate-tools || exit 1
+
 git pull origin main
-
-# Sync dependencies instantly using uv
 uv sync
-
-# Run the Python script, passing along any arguments (like -d 0 or -d -1 0)
 uv run create_daily_report/main.py "$@"
