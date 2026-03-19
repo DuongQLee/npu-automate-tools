@@ -1,75 +1,54 @@
-#name: Jira Daily Report Schedule
+# ==============================================================================
+# HISTORY & CONTEXT:
+# Initially, this workflow was configured to run automatically via GitHub Actions
+# cron schedules (generating midnight snapshots and intra-day updates).
+# However, due to the inherent delays and unreliability in GitHub's cron execution, 
+# the automated scheduling has been migrated to a native `cron` job directly on 
+# the persistent Rocky 9 VM for exact, reliable,-to-the-minute execution.
 #
-#on:
-#  schedule:
-#    # 🌟 SNAPSHOT SCHEDULE (Runs the Rollover script: generates yesterday AND today)
-#    # 1. 00:10 UTC (Tue-Sat)
-#    - cron: '10 0 * * 2-6'
-#    # 2. 17:10 UTC (Mon-Fri) -> This is 00:10 GMT+7 (Vietnam Midnight)
-#    - cron: '10 17 * * 1-5'
-#
-#    # 🌟 INTRA-DAY SCHEDULE (Runs the Standard script: generates today only)
-#    # 3. Working Hours: Every 10 mins from 01:00 UTC to 12:50 UTC (08:00 to 19:50 GMT+7) Mon-Fri
-#    - cron: '*/10 1-12 * * 1-5'
-#    # 4. Off-Hours: Every 30 mins from 13:00 UTC to 23:30 UTC Mon-Fri
-#    - cron: '0,30 13-23 * * 1-5'
-#    # 5. Off-Hours (Midnight block): Every 30 mins at 00:00 and 00:30 UTC Mon-Fri
-#    - cron: '0,30 0 * * 1-5'
-#
-#  workflow_dispatch: 
-#    # Allows manual triggering from the GitHub UI for testing
-#
-#concurrency:
-#  group: "npu-daily-report"
-#  cancel-in-progress: false
-#
-#jobs:
-#  # =====================================================================
-#  # JOB 1: MIDNIGHT SNAPSHOT (Generates -1 and 0)
-#  # =====================================================================
-#  snapshot-report:
-#    # This job ONLY runs if the trigger time was 00:10 or 17:10 UTC
-#    if: github.event.schedule == '10 0 * * 2-6' || github.event.schedule == '10 17 * * 1-5'
-#    runs-on: self-hosted
-#    steps:
-#      - name: Setup uv
-#        uses: astral-sh/setup-uv@v5
-#
-#      - name: 🌙 Run Midnight Snapshot (Yesterday & Today)
-#        env:
-#          API_TOKEN: ${{ secrets.API_TOKEN }}
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#          RESULT_FOLDER: /home/moreh/npu-automate-tools/mv-npu_daily_report 
-#        run: |
-#          cd /home/moreh/npu-automate-tools
-#          git fetch origin main
-#          git reset --hard origin/main
-#          uv sync
-#          
-#          echo "🌙 Midnight Rollover detected! Generating Yesterday (-1) and Today (0)..."
-#          uv run create_daily_report/main.py -d -1 0
-#
-#  # =====================================================================
-#  # JOB 2: STANDARD INTRA-DAY REPORT (Generates 0 only)
-#  # =====================================================================
-#  standard-report:
-#    # This job ONLY runs for the standard 10-min / 30-min intervals
-#    if: github.event.schedule != '10 0 * * 2-6' && github.event.schedule != '10 17 * * 1-5'
-#    runs-on: self-hosted
-#    steps:
-#      - name: Setup uv
-#        uses: astral-sh/setup-uv@v5
-#
-#      - name: ☀️ Run Standard Update (Today Only)
-#        env:
-#          API_TOKEN: ${{ secrets.API_TOKEN }}
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#          RESULT_FOLDER: /home/moreh/npu-automate-tools/mv-npu_daily_report 
-#        run: |
-#          cd /home/moreh/npu-automate-tools
-#          git fetch origin main
-#          git reset --hard origin/main
-#          uv sync
-#          
-#          echo "☀️ Standard Run! Generating Today (0) only..."
-#          uv run create_daily_report/main.py -d 0
+# CURRENT PURPOSE:
+# This workflow is now configured for MANUAL TRIGGERING ONLY. 
+# It allows developers to manually force a report generation from the GitHub 
+# Actions UI for testing, debugging, or recovery purposes.
+# ==============================================================================
+
+name: Jira Daily Report Schedule
+
+on:
+  workflow_dispatch: 
+    inputs:
+      days:
+        description: 'Days to generate (e.g., "0" for today, "-1 0" for yesterday & today)'
+        required: true
+        default: '0'
+
+concurrency:
+  group: "npu-daily-report"
+  cancel-in-progress: false
+
+jobs:
+  manual-report:
+    runs-on: self-hosted
+    steps:
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: 🚀 Run Manual Report Generation
+        env:
+          API_TOKEN: ${{ secrets.API_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RESULT_FOLDER: /home/moreh/npu-automate-tools/mv-npu_daily_report 
+        run: |
+          cd /home/moreh/npu-automate-tools
+          
+          # Pull the latest code
+          git fetch origin main
+          git reset --hard origin/main
+          
+          # Sync dependencies
+          uv sync
+          
+          echo "🚀 Manual Run triggered from GitHub UI!"
+          echo "Generating report for target day(s): ${{ github.event.inputs.days }}"
+          
+          uv run create_daily_report/main.py -d ${{ github.event.inputs.days }}
