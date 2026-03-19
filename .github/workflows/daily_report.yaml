@@ -1,55 +1,75 @@
-name: Jira Daily Report Schedule
-
-on:
-  schedule:
-    # 1. Snapshot: 00:10 UTC (Tue-Sat) -> Covers the 00:10 UTC requirement
-    - cron: '10 0 * * 2-6'
-    # 2. Snapshot: 17:10 UTC (Mon-Fri) -> Covers the 00:10 GMT+7 requirement (which is 17:10 UTC the previous day)
-    - cron: '10 17 * * 1-5'
-    # 3. Working Hours: Every 10 mins from 01:00 UTC to 12:50 UTC (08:00 to 19:50 GMT+7) Mon-Fri
-    - cron: '*/10 1-12 * * 1-5'
-    # 4. Off-Hours: Every 30 mins from 13:00 UTC to 23:30 UTC Mon-Fri
-    - cron: '0,30 13-23 * * 1-5'
-    # 5. Off-Hours (Midnight block): Every 30 mins at 00:00 and 00:30 UTC Mon-Fri
-    - cron: '0,30 0 * * 1-5'
-  workflow_dispatch: 
-
-concurrency:
-  group: "npu-daily-report"
-  cancel-in-progress: false
-
-jobs:
-  run-report:
-    runs-on: self-hosted
-    steps:
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v5
-
-      - name: Sync and Run Snapshot Scripts
-        env:
-          API_TOKEN: ${{ secrets.API_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RESULT_FOLDER: /home/moreh/npu-automate-tools/mv-npu_daily_report 
-        run: |
-          # 1. Navigate directly to your persistent project folder
-          cd /home/moreh/npu-automate-tools
-          
-          # 2. Pull the latest code
-          git fetch origin main
-          git reset --hard origin/main
-          
-          # 3. Sync dependencies in the correct project root
-          uv sync
-          
-          # 4. Execute the script from the project root
-          HOUR=$(date -u +'%H')
-          MINUTE=$(date -u +'%M')
-          
-          # Check if this is the 00:10 UTC or 17:10 UTC run (allowing a 5-min buffer for GitHub Action startup delays)
-          if { [ "$HOUR" == "00" ] || [ "$HOUR" == "17" ]; } && [ "$MINUTE" -ge 10 ] && [ "$MINUTE" -lt 15 ]; then
-            echo "🌙 Midnight Rollover detected ($HOUR:$MINUTE UTC)! Generating Yesterday (-1) and Today (0)..."
-            uv run create_daily_report/main.py -d -1 0
-          else
-            echo "☀️ Standard Run ($HOUR:$MINUTE UTC)! Generating Today (0) only..."
-            uv run create_daily_report/main.py -d 0
-          fi
+#name: Jira Daily Report Schedule
+#
+#on:
+#  schedule:
+#    # 🌟 SNAPSHOT SCHEDULE (Runs the Rollover script: generates yesterday AND today)
+#    # 1. 00:10 UTC (Tue-Sat)
+#    - cron: '10 0 * * 2-6'
+#    # 2. 17:10 UTC (Mon-Fri) -> This is 00:10 GMT+7 (Vietnam Midnight)
+#    - cron: '10 17 * * 1-5'
+#
+#    # 🌟 INTRA-DAY SCHEDULE (Runs the Standard script: generates today only)
+#    # 3. Working Hours: Every 10 mins from 01:00 UTC to 12:50 UTC (08:00 to 19:50 GMT+7) Mon-Fri
+#    - cron: '*/10 1-12 * * 1-5'
+#    # 4. Off-Hours: Every 30 mins from 13:00 UTC to 23:30 UTC Mon-Fri
+#    - cron: '0,30 13-23 * * 1-5'
+#    # 5. Off-Hours (Midnight block): Every 30 mins at 00:00 and 00:30 UTC Mon-Fri
+#    - cron: '0,30 0 * * 1-5'
+#
+#  workflow_dispatch: 
+#    # Allows manual triggering from the GitHub UI for testing
+#
+#concurrency:
+#  group: "npu-daily-report"
+#  cancel-in-progress: false
+#
+#jobs:
+#  # =====================================================================
+#  # JOB 1: MIDNIGHT SNAPSHOT (Generates -1 and 0)
+#  # =====================================================================
+#  snapshot-report:
+#    # This job ONLY runs if the trigger time was 00:10 or 17:10 UTC
+#    if: github.event.schedule == '10 0 * * 2-6' || github.event.schedule == '10 17 * * 1-5'
+#    runs-on: self-hosted
+#    steps:
+#      - name: Setup uv
+#        uses: astral-sh/setup-uv@v5
+#
+#      - name: 🌙 Run Midnight Snapshot (Yesterday & Today)
+#        env:
+#          API_TOKEN: ${{ secrets.API_TOKEN }}
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#          RESULT_FOLDER: /home/moreh/npu-automate-tools/mv-npu_daily_report 
+#        run: |
+#          cd /home/moreh/npu-automate-tools
+#          git fetch origin main
+#          git reset --hard origin/main
+#          uv sync
+#          
+#          echo "🌙 Midnight Rollover detected! Generating Yesterday (-1) and Today (0)..."
+#          uv run create_daily_report/main.py -d -1 0
+#
+#  # =====================================================================
+#  # JOB 2: STANDARD INTRA-DAY REPORT (Generates 0 only)
+#  # =====================================================================
+#  standard-report:
+#    # This job ONLY runs for the standard 10-min / 30-min intervals
+#    if: github.event.schedule != '10 0 * * 2-6' && github.event.schedule != '10 17 * * 1-5'
+#    runs-on: self-hosted
+#    steps:
+#      - name: Setup uv
+#        uses: astral-sh/setup-uv@v5
+#
+#      - name: ☀️ Run Standard Update (Today Only)
+#        env:
+#          API_TOKEN: ${{ secrets.API_TOKEN }}
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#          RESULT_FOLDER: /home/moreh/npu-automate-tools/mv-npu_daily_report 
+#        run: |
+#          cd /home/moreh/npu-automate-tools
+#          git fetch origin main
+#          git reset --hard origin/main
+#          uv sync
+#          
+#          echo "☀️ Standard Run! Generating Today (0) only..."
+#          uv run create_daily_report/main.py -d 0
