@@ -651,7 +651,7 @@
             setTimeout(() => { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); target.classList.add('jump-flash'); setTimeout(() => target.classList.remove('jump-flash'), 2000); }, 50);
         }
 
-        function goToReport(dateStr) { window.location.href = window.location.pathname.includes('/today/') ? `../MV-NPU_Daily_Report_${dateStr}.html` : `MV-NPU_Daily_Report_${dateStr}.html`; }
+        function goToReport(dateStr) { window.location.href = `/${dateStr}`; }
     </script>
 
     {% macro render_comment(comment, color_hex, task_key) %}

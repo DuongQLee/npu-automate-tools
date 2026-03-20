@@ -24,19 +24,20 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
         if path == "" or path == "today":
             target_date = datetime.now(config.VN_TZ).strftime("%Y-%m-%d")
         else:
-            # 2. Extract date if they request a specific file (e.g. MV-NPU_Daily_Report_2026-03-20.html)
+            # 2. Extract date for clean URLs (e.g., localhost:8000/2026-03-20)
             match = re.search(r"(\d{4}-\d{2}-\d{2})", path)
             if match:
                 target_date = match.group(1)
             else:
-                # Let standard handler serve it (e.g. if you request a raw static asset)
+                # Let standard handler serve it (for static assets)
                 return super().do_GET()
 
-        json_filename = f"MV-NPU_Daily_Report_{target_date}.json"
+        # Look for the simplified JSON filename
+        json_filename = f"{target_date}.json"
         json_path = os.path.join(DIRECTORY, json_filename)
 
         if os.path.exists(json_path):
-            # 3. Read the stored API data and generate HTML dynamically!
+            # 3. Read the stored API data and generate HTML dynamically
             with open(json_path, "r", encoding="utf-8") as f:
                 context = json.load(f)
 
@@ -50,7 +51,7 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
             self.send_response(404)
             self.send_header("Content-type", "text/html; charset=utf-8")
             self.end_headers()
-            error_html = f"<h1>404 Not Found</h1><p>No JSON API data found for {target_date}. The cron job has not generated it yet.</p>"
+            error_html = f"<h1>404 Not Found</h1><p>No JSON API data found for {target_date}.</p>"
             self.wfile.write(error_html.encode("utf-8"))
 
     def do_POST(self):

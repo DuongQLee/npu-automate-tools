@@ -80,7 +80,7 @@ def run_daily_snapshot(target_user_date):
         )
     os.makedirs(save_dir, exist_ok=True)
 
-    target_filename = f"MV-NPU_Daily_Report_{today_str}.json"
+    target_filename = f"{today_str}.json"
     file_path = os.path.join(save_dir, target_filename)
 
     with open(file_path, "w", encoding="utf-8") as f:
