@@ -165,15 +165,46 @@ def map_issue_data(issue, target_date_str):
     pr_is_active = False
 
     for pr in github_client.get_prs_for_issue(key):
-        state = pr.get("state")
-        merged_at = pr.get("merged_at")
-        pr_updated_at = pr.get(
-            "updated_at"
-        )  # Auto-bumps on GitHub for commits, comments, reviews
-        closed_at = pr.get("closed_at")
+        raw_state = pr.get("state")
+        raw_merged_at = pr.get("merged_at")
+        pr_updated_at = pr.get("updated_at")
+        raw_closed_at = pr.get("closed_at")
         pr_created_at = pr.get("created_at")
         is_draft = pr.get("draft", False)
 
+        # Helper to convert GitHub UTC ISO string to local VN date string
+        def get_vn_date_str(iso_utc_str):
+            if not iso_utc_str:
+                return None
+            dt = datetime.strptime(iso_utc_str, "%Y-%m-%dT%H:%M:%SZ").replace(
+                tzinfo=timezone.utc
+            )
+            return dt.astimezone(config.VN_TZ).strftime("%Y-%m-%d")
+
+        created_date = get_vn_date_str(pr_created_at)
+
+        # 1. If PR didn't exist on this target date yet, don't show it at all
+        if created_date and created_date > target_date_str:
+            continue
+
+        # 2. Retroactively fix the state if it was merged/closed AFTER the target date
+        state = raw_state
+        merged_at = raw_merged_at
+        closed_at = raw_closed_at
+
+        if raw_state == "closed":
+            merged_date = get_vn_date_str(raw_merged_at)
+            closed_date = get_vn_date_str(raw_closed_at)
+
+            if merged_date and merged_date > target_date_str:
+                state = "open"
+                merged_at = None
+                closed_at = None
+            elif closed_date and closed_date > target_date_str:
+                state = "open"
+                closed_at = None
+
+        # The rest of your PR logic remains exactly the same, but now uses the time-aware 'state'
         pr_stale = (
             calculate_days_ago(pr_updated_at, is_github=True) >= 3 and state == "open"
         )
