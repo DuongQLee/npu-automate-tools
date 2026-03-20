@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 from datetime import datetime, timedelta
 
@@ -28,12 +29,11 @@ def resolve_dates(user_date):
 def run_daily_snapshot(target_user_date):
     today_str, yesterday_str, next_str = resolve_dates(target_user_date)
     print(
-        f"🗓️  Generating HTML Snapshot | Target (Vietnam): {today_str} | Target Yesterday (Vietnam): {yesterday_str}\n"
+        f"🗓️  Generating JSON Snapshot | Target (Vietnam): {today_str} | Target Yesterday: {yesterday_str}\n"
         + "-" * 60
     )
 
     actual_system_today = datetime.now(config.VN_TZ).strftime("%Y-%m-%d")
-    is_actual_today = today_str == actual_system_today
     done_jql_today = f'(status changed to "Done" on "{today_str}" OR status changed to "Closed" on "{today_str}")'
 
     # 1. Fetch Jira Data
@@ -59,8 +59,8 @@ def run_daily_snapshot(target_user_date):
     )
     github_client.preload_github_prs(all_issues)
 
-    # 3. Process & Render HTML via Jinja2
-    html = html_generator.generate_report(
+    # 3. Process & Build JSON Context
+    context = html_generator.build_context(
         today_str,
         yesterday_str,
         next_str,
@@ -71,7 +71,7 @@ def run_daily_snapshot(target_user_date):
         pending_epics,
     )
 
-    # 4. Save File
+    # 4. Save JSON File
     if os.path.isabs(config.RESULT_FOLDER):
         save_dir = config.RESULT_FOLDER
     else:
@@ -80,27 +80,13 @@ def run_daily_snapshot(target_user_date):
         )
     os.makedirs(save_dir, exist_ok=True)
 
-    target_filename = f"MV-NPU_Daily_Report_{today_str}.html"
+    target_filename = f"MV-NPU_Daily_Report_{today_str}.json"
     file_path = os.path.join(save_dir, target_filename)
 
     with open(file_path, "w", encoding="utf-8") as f:
-        f.write(html)
+        json.dump(context, f, ensure_ascii=False, indent=2)
 
-    print("-" * 60 + f"\n🏁 HTML Snapshot complete! Saved securely to:\n{file_path}")
-
-    # 5. Update /today symlink
-    if is_actual_today:
-        today_dir = os.path.join(save_dir, "today")
-        os.makedirs(today_dir, exist_ok=True)
-        symlink_path = os.path.join(today_dir, "index.html")
-        if os.path.exists(symlink_path) or os.path.islink(symlink_path):
-            os.remove(symlink_path)
-        os.symlink(f"../{target_filename}", symlink_path)
-        print(f"🔗 Clean URL active: /today -> {target_filename}")
-    else:
-        print(
-            f"⏭️ Skipping symlink update. ({today_str} is not today's actual date: {actual_system_today})"
-        )
+    print("-" * 60 + f"\n🏁 JSON Snapshot complete! Saved securely to:\n{file_path}")
 
 
 if __name__ == "__main__":

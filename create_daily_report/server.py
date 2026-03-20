@@ -1,10 +1,13 @@
 import http.server
 import json
 import os
+import re
 import socketserver
 import subprocess
+from datetime import datetime
 
 import config
+import html_generator
 
 PORT = 8000
 DIRECTORY = config.RESULT_FOLDER
@@ -13,6 +16,42 @@ DIRECTORY = config.RESULT_FOLDER
 class ReportHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=DIRECTORY, **kwargs)
+
+    def do_GET(self):
+        path = self.path.strip("/")
+
+        # 1. Intercept /today or root requests
+        if path == "" or path == "today":
+            target_date = datetime.now(config.VN_TZ).strftime("%Y-%m-%d")
+        else:
+            # 2. Extract date if they request a specific file (e.g. MV-NPU_Daily_Report_2026-03-20.html)
+            match = re.search(r"(\d{4}-\d{2}-\d{2})", path)
+            if match:
+                target_date = match.group(1)
+            else:
+                # Let standard handler serve it (e.g. if you request a raw static asset)
+                return super().do_GET()
+
+        json_filename = f"MV-NPU_Daily_Report_{target_date}.json"
+        json_path = os.path.join(DIRECTORY, json_filename)
+
+        if os.path.exists(json_path):
+            # 3. Read the stored API data and generate HTML dynamically!
+            with open(json_path, "r", encoding="utf-8") as f:
+                context = json.load(f)
+
+            html_output = html_generator.render_html(context)
+
+            self.send_response(200)
+            self.send_header("Content-type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(html_output.encode("utf-8"))
+        else:
+            self.send_response(404)
+            self.send_header("Content-type", "text/html; charset=utf-8")
+            self.end_headers()
+            error_html = f"<h1>404 Not Found</h1><p>No JSON API data found for {target_date}. The cron job has not generated it yet.</p>"
+            self.wfile.write(error_html.encode("utf-8"))
 
     def do_POST(self):
         if self.path == "/api/refresh":
@@ -24,15 +63,13 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
             print(f"🔄 Browser requested live refresh for date: {target_date}")
 
             try:
-                # 🌟 THE FIX: Execute the script using the exact virtual environment Python binary!
-                # This completely bypasses the need for `uv` to be in the system PATH.
                 python_bin = os.path.join(config.repo_root, ".venv", "bin", "python")
                 main_script = os.path.join(config.script_dir, "main.py")
 
                 subprocess.run(
                     [python_bin, main_script, "--date", target_date],
                     check=True,
-                    cwd=config.repo_root,  # Forces execution from the repo root
+                    cwd=config.repo_root,
                 )
 
                 self.send_response(200)
@@ -55,62 +92,7 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
 if __name__ == "__main__":
     os.makedirs(DIRECTORY, exist_ok=True)
     with socketserver.TCPServer(("", PORT), ReportHandler) as httpd:
-        print(f"🚀 Serving Daily Reports UI at http://localhost:{PORT}")
-        print(f"🔄 Live API Engine listening at http://localhost:{PORT}/api/refresh")
+        print(
+            f"🚀 Serving Live Reports via JSON Engine at http://localhost:{PORT}/today"
+        )
         httpd.serve_forever()
-
-
-# ==============================================================================
-# 🛠️ SYSTEMD SERVICE DEPLOYMENT GUIDE FOR ROCKY 9 (SELINUX FIXES)
-# ==============================================================================
-"""
-To run this server professionally in the background on Rocky 9 and avoid 203/EXEC 
-permission errors caused by SELinux, follow these exact steps:
-
-STEP 1: Fix Ownership & Permissions
------------------------------------
-Run these commands in your VM terminal to ensure the system can execute your virtual environment:
-
-# Ensure the moreh user owns the entire repository and virtual environment
-sudo chown -R moreh:moreh /home/moreh/npu-automate-tools
-
-# Ensure the python binary is explicitly marked as executable
-sudo chmod +x /home/moreh/npu-automate-tools/.venv/bin/python
-
-# Fix SELinux contexts (allows systemd to execute binaries in the home directory)
-sudo chcon -Rt bin_t /home/moreh/npu-automate-tools/.venv/bin/
-
-
-STEP 2: Update the Systemd Service File
----------------------------------------
-Run: sudo nvim /etc/systemd/system/daily-report.service
-
-Paste the following configuration:
-
-[Unit]
-Description=Daily Report Live Refresh Server
-After=network.target
-
-[Service]
-Type=simple
-User=moreh
-WorkingDirectory=/home/moreh/npu-automate-tools
-
-# 🌟 We use bash to wrap the execution, bypassing strict SELinux direct-execution blocks
-ExecStart=/bin/bash -c '/home/moreh/npu-automate-tools/.venv/bin/python create_daily_report/server.py'
-
-Restart=always
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-
-
-STEP 3: Reload and Start
-------------------------------------
-Apply the changes and start the server:
-
-sudo systemctl daemon-reload
-sudo systemctl restart daily-report.service
-sudo systemctl status daily-report.service  # It should now say "active (running)"
-"""

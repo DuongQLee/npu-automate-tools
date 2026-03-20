@@ -387,7 +387,7 @@ def extract_blockers(data_sections):
     return list(blockers.values())
 
 
-def generate_report(
+def build_context(
     today_str,
     yesterday_str,
     next_str,
@@ -397,9 +397,6 @@ def generate_report(
     yesterday_tasks,
     pending_epics,
 ):
-    env = Environment(loader=FileSystemLoader(config.script_dir))
-    template = env.get_template("report_template.html")
-
     today_data = map_section_data(active_epics, active_tasks, today_str)
     yesterday_data = map_section_data(yesterday_epics, yesterday_tasks, yesterday_str)
 
@@ -430,5 +427,10 @@ def generate_report(
         ],
         "pending_epics": [map_issue_data(e, today_str) for e in pending_epics],
     }
+    return context
 
+
+def render_html(context):
+    env = Environment(loader=FileSystemLoader(config.script_dir))
+    template = env.get_template("report_template.html")
     return template.render(context)
