@@ -45,6 +45,12 @@ def preload_github_prs(all_issues):
                 pr_res = requests.get(pr_url, headers=gh_headers)
                 if pr_res.status_code == 200:
                     pr_data = pr_res.json()
+                    reviews_url = f"{pr_url}/reviews"
+                    reviews_res = requests.get(reviews_url, headers=gh_headers)
+                    if reviews_res.status_code == 200:
+                        pr_data["reviews"] = reviews_res.json()
+                    else:
+                        pr_data["reviews"] = []
                     search_text = f"{pr_data.get('title','')} {pr_data.get('body','')} {pr_data.get('head',{}).get('ref','')}"
                     matches = set(re.findall(r"(MV-\d+)", search_text, re.IGNORECASE))
 

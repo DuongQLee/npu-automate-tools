@@ -43,42 +43,45 @@ def calculate_days_ago(date_str, is_github=False):
 
 
 def parse_comment(html_text):
-    text = re.sub(
-        r"<(?:strong|b|em|i)[^>]*>\s*(Summary|Tags|Body)\s*</(?:strong|b|em|i)>\s*:",
-        r"\1:",
-        html_text,
-        flags=re.IGNORECASE,
+    # Fix relative Atlassian links for attachments and images so they are clickable
+    html_text = re.sub(
+        r'href="(/[^"]+)"', rf'href="https://{config.ATLASSIAN_DOMAIN}\1"', html_text
     )
+    html_text = re.sub(
+        r'src="(/[^"]+)"', rf'src="https://{config.ATLASSIAN_DOMAIN}\1"', html_text
+    )
+
+    # Normalize headers: [Summary], <b>Summary</b>:, <b>Summary:</b>, Summary:
+    text = re.sub(r"\[(Summary|Tags|Body)\]", r"\1:", html_text, flags=re.IGNORECASE)
     text = re.sub(
-        r"<(?:strong|b|em|i)[^>]*>\s*(Summary|Tags|Body)\s*:\s*</(?:strong|b|em|i)>",
+        r"<(?:strong|b|em|i)[^>]*>\s*(Summary|Tags|Body)\s*:?\s*</(?:strong|b|em|i)>:?",
         r"\1:",
         text,
         flags=re.IGNORECASE,
     )
 
     sum_match = re.search(
-        r"Summary:\s*(.*?)(?:<br[^>]*>|</p>|</div>|Tags:|Body:|$)", text, re.IGNORECASE
+        r"Summary:\s*(.*?)(?:<br[^>]*>|</p>|</div>|Tags:|Body:|$)",
+        text,
+        re.IGNORECASE | re.DOTALL,
     )
     c_summary = (
         re.sub(r"<[^>]+>", "", sum_match.group(1)).strip() if sum_match else None
     )
 
     tags_match = re.search(
-        r"Tags:\s*(.*?)(?:<br[^>]*>|</p>|</div>|Body:|$)", text, re.IGNORECASE
+        r"Tags:\s*(.*?)(?:<br[^>]*>|</p>|</div>|Body:|$)",
+        text,
+        re.IGNORECASE | re.DOTALL,
     )
     c_tags = re.sub(r"<[^>]+>", "", tags_match.group(1)).strip() if tags_match else ""
     tags_list = [t.strip() for t in c_tags.split(",") if t.strip()]
 
-    if re.search(r"Body:", text, re.IGNORECASE):
-        c_body = (
-            re.search(
-                r"Body:\s*(?:</p>|<br[^>]*>|</div>)?(.*)",
-                text,
-                re.IGNORECASE | re.DOTALL,
-            )
-            .group(1)
-            .strip()
-        )
+    body_match = re.search(
+        r"Body:\s*(?:</p>|<br[^>]*>|</div>)?(.*)", text, re.IGNORECASE | re.DOTALL
+    )
+    if body_match:
+        c_body = body_match.group(1).strip()
     else:
         c_body = text
         if sum_match:
@@ -87,7 +90,7 @@ def parse_comment(html_text):
                 "",
                 c_body,
                 count=1,
-                flags=re.IGNORECASE,
+                flags=re.IGNORECASE | re.DOTALL,
             )
         if tags_match:
             c_body = re.sub(
@@ -95,7 +98,7 @@ def parse_comment(html_text):
                 "",
                 c_body,
                 count=1,
-                flags=re.IGNORECASE,
+                flags=re.IGNORECASE | re.DOTALL,
             )
         c_body = c_body.strip()
 
@@ -248,8 +251,25 @@ def map_issue_data(issue, target_date_str):
             and not is_draft
             and calculate_days_ago(pr_created_at, is_github=True) >= 2
         )
-        requested_reviewers = [r["login"] for r in pr.get("requested_reviewers", [])]
+        reviewers_state = {}
+        for r in pr.get("requested_reviewers", []):
+            reviewers_state[r["login"]] = "waiting"
 
+        for rev in pr.get("reviews", []):
+            user = rev.get("user", {}).get("login")
+            rev_state = rev.get("state", "").upper()
+            # A newer review overrides the waiting state
+            if user and rev_state in ["APPROVED", "CHANGES_REQUESTED"]:
+                reviewers_state[user] = rev_state
+
+        reviewer_badges = []
+        for user, rev_state in reviewers_state.items():
+            if rev_state == "APPROVED":
+                reviewer_badges.append(f"✅ {user}")
+            elif rev_state == "CHANGES_REQUESTED":
+                reviewer_badges.append(f"❌ {user}")
+            else:
+                reviewer_badges.append(f"🟡 {user}")
         additions = pr.get("additions", 0)
         deletions = pr.get("deletions", 0)
         total_lines = additions + deletions

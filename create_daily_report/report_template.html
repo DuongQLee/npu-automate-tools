@@ -1,342 +1,1005 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <title>Daily Sync Snapshot ({{ today_str }})</title>
-    <style>
-        :root {
-            --bg-body: #f4f5f7;
-            --bg-surface: #ffffff;
-            --bg-surface-hover: #fafbfc;
-            --bg-surface-muted: #f6f8fa;
-            --text-main: #172b4d;
-            --text-muted: #5e6c84;
-            --border-color: #dfe1e6;
-            --link-color: #0969da;
-            --badge-bg-success: #e3fcef; --badge-text-success: #066637;
-            --badge-bg-info: #deebff;    --badge-text-info: #0052cc;
-            --badge-bg-purple: #eae6ff;  --badge-text-purple: #403294;
-            --badge-bg-danger: #ffebe6;  --badge-text-danger: #bf2600;
-            --badge-bg-warn: #fffae6;    --badge-text-warn: #ff8b00;
-            --badge-bg-todo: #f4f5f7;    --badge-text-todo: #42526e;
-            --pr-open: #2da44e; --pr-merged: #8250df; --pr-closed: #cf222e;
-            --shadow-sm: 0 1px 2px rgba(9, 30, 66, 0.05);
-            --shadow-md: 0 4px 8px rgba(9, 30, 66, 0.08);
-            --shadow-lg: 0 8px 16px rgba(9, 30, 66, 0.12);
-        }
+  <meta charset="UTF-8">
+  <title>Daily Sync Snapshot ({{ today_str }})</title>
+  <style>
+    :root {
+      --bg-body: #f4f5f7;
+      --bg-surface: #ffffff;
+      --bg-surface-hover: #fafbfc;
+      --bg-surface-muted: #f6f8fa;
+      --text-main: #172b4d;
+      --text-muted: #5e6c84;
+      --border-color: #dfe1e6;
+      --link-color: #0969da;
+      --badge-bg-success: #e3fcef;
+      --badge-text-success: #066637;
+      --badge-bg-info: #deebff;
+      --badge-text-info: #0052cc;
+      --badge-bg-purple: #eae6ff;
+      --badge-text-purple: #403294;
+      --badge-bg-danger: #ffebe6;
+      --badge-text-danger: #bf2600;
+      --badge-bg-warn: #fffae6;
+      --badge-text-warn: #ff8b00;
+      --badge-bg-todo: #f4f5f7;
+      --badge-text-todo: #42526e;
+      --pr-open: #2da44e;
+      --pr-merged: #8250df;
+      --pr-closed: #cf222e;
+      --shadow-sm: 0 1px 2px rgba(9, 30, 66, 0.05);
+      --shadow-md: 0 4px 8px rgba(9, 30, 66, 0.08);
+      --shadow-lg: 0 8px 16px rgba(9, 30, 66, 0.12);
+    }
 
-        [data-theme="dark"] {
-            --bg-body: #0d1117;
-            --bg-surface: #161b22;
-            --bg-surface-hover: #21262d;
-            --bg-surface-muted: #010409;
-            --text-main: #c9d1d9;
-            --text-muted: #8b949e;
-            --border-color: #30363d;
-            --link-color: #58a6ff;
-            --badge-bg-success: rgba(46, 160, 67, 0.15);  --badge-text-success: #3fb950;
-            --badge-bg-info: rgba(56, 139, 253, 0.15);    --badge-text-info: #58a6ff;
-            --badge-bg-purple: rgba(163, 113, 247, 0.15); --badge-text-purple: #d2a8ff;
-            --badge-bg-danger: rgba(248, 81, 73, 0.15);   --badge-text-danger: #ff7b72;
-            --badge-bg-warn: rgba(210, 153, 34, 0.15);    --badge-text-warn: #d29922;
-            --badge-bg-todo: rgba(110, 118, 129, 0.4);    --badge-text-todo: #c9d1d9;
-            --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
-            --shadow-md: 0 4px 8px rgba(0,0,0,0.6);
-            --shadow-lg: 0 8px 16px rgba(0,0,0,0.8);
-        }
+    [data-theme="dark"] {
+      --bg-body: #0d1117;
+      --bg-surface: #161b22;
+      --bg-surface-hover: #21262d;
+      --bg-surface-muted: #010409;
+      --text-main: #c9d1d9;
+      --text-muted: #8b949e;
+      --border-color: #30363d;
+      --link-color: #58a6ff;
+      --badge-bg-success: rgba(46, 160, 67, 0.15);
+      --badge-text-success: #3fb950;
+      --badge-bg-info: rgba(56, 139, 253, 0.15);
+      --badge-text-info: #58a6ff;
+      --badge-bg-purple: rgba(163, 113, 247, 0.15);
+      --badge-text-purple: #d2a8ff;
+      --badge-bg-danger: rgba(248, 81, 73, 0.15);
+      --badge-text-danger: #ff7b72;
+      --badge-bg-warn: rgba(210, 153, 34, 0.15);
+      --badge-text-warn: #d29922;
+      --badge-bg-todo: rgba(110, 118, 129, 0.4);
+      --badge-text-todo: #c9d1d9;
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+      --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.6);
+      --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.8);
+    }
 
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg-body); color: var(--text-main); max-width: 1000px; margin: 40px auto 0 auto; padding: 0 20px; line-height: 1.6; transition: background 0.3s; }
-        a { color: var(--link-color); text-decoration: none; }
-        mark { background-color: #ffea00; color: #000; padding: 0 2px; border-radius: 2px; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg-body);
+      color: var(--text-main);
+      max-width: 1000px;
+      margin: 40px auto 0 auto;
+      padding: 0 20px;
+      line-height: 1.6;
+      transition: background 0.3s;
+    }
 
-        /* HEADER & NAVIGATION */
-        .header-container { display: flex; align-items: flex-start; justify-content: space-between; padding-bottom: 20px; border-bottom: 2px solid var(--border-color); margin-bottom: 20px; }
-        .nav-left, .nav-right { flex: 1; display: flex; gap: 10px; align-items: flex-start; }
-        .nav-right { justify-content: flex-end; position: relative; }
-        .header-title { flex: 2; text-align: center; }
-        .nav-btn { height: 40px; background: var(--bg-surface); border: 1px solid var(--border-color); padding: 0 16px; border-radius: 6px; font-weight: 600; color: var(--text-main); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; transition: all 0.2s ease; }
-        .nav-btn:hover:not([data-disabled="true"]) { background: var(--bg-surface-hover); border-color: var(--link-color); }
-        .nav-btn svg { fill: currentColor; }
-        #refreshStatus { position: absolute; top: 46px; right: 0; font-size: 0.75em; color: var(--text-muted); white-space: nowrap; text-align: right; margin-right: 4px;}
+    a {
+      color: var(--link-color);
+      text-decoration: none;
+    }
 
-        /* 🔍 SEARCH ENGINE */
-        .search-container { position: sticky; top: 0; z-index: 2000; background: var(--bg-body); padding: 10px 0 20px 0; margin-bottom: 10px; }
-        .search-wrapper { position: relative; width: 100%; box-sizing: border-box; }
-        #searchInput { width: 100%; height: 48px; padding: 0 20px; font-size: 16px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-surface); color: var(--text-main); outline: none; box-sizing: border-box; box-shadow: var(--shadow-sm); transition: box-shadow 0.2s ease, border-color 0.2s ease; }
-        #searchInput:focus { border-color: var(--link-color); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.15); }
-        .search-dropdown { position: absolute; top: calc(100% + 8px); left: 0; right: 0; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: var(--shadow-lg); z-index: 2100; display: none; max-height: 500px; overflow-y: auto; padding: 8px; }
-        .search-result-item { padding: 12px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; border: 1px solid transparent; transition: background 0.1s; }
-        .search-result-item.selected { background: var(--bg-surface-hover); border-color: var(--link-color); }
-        
-        .res-header { font-size: 0.95em; margin-bottom: 4px; display: flex; gap: 8px; align-items: center; width: 100%; }
-        .res-icon { width: 14px; height: 14px; flex-shrink: 0; fill: currentColor; }
-        .res-key { color: var(--link-color); font-family: monospace; font-weight: bold; flex-shrink: 0; }
-        .res-title { font-weight: 600; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-grow: 1; }
-        .res-snippet { display: block; font-size: 0.8em; color: var(--text-muted); opacity: 0.8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+    mark {
+      background-color: #ffea00;
+      color: #000;
+      padding: 0 2px;
+      border-radius: 2px;
+    }
 
-        /* 🚨 ACTIVE BLOCKERS MARQUEE */
-        .blocker-marquee { background: var(--badge-bg-danger); border: 1px solid var(--badge-text-danger); border-radius: 8px; padding: 16px; margin-bottom: 20px; box-shadow: var(--shadow-sm); }
-        .blocker-header { color: var(--badge-text-danger); font-weight: 800; font-size: 1.1em; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-        .blocker-list { display: flex; flex-direction: column; gap: 8px; }
-        .blocker-item { background: var(--bg-surface); padding: 8px 12px; border-radius: 6px; font-size: 0.9em; font-weight: 600; display: flex; justify-content: space-between; }
-        
-        /* 📊 RE-DESIGNED COMPACT ROLLUP METRICS */
-        .metrics-dashboard { display: flex; flex-direction: column; gap: 16px; margin-bottom: 40px; }
-        .metrics-card { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow-sm); overflow: hidden; transition: all 0.2s ease;}
-        .metrics-card:hover { border-color: var(--text-muted); box-shadow: var(--shadow-md); }
-        .metrics-card.yesterday { background: var(--bg-surface-muted); box-shadow: none; opacity: 0.95; }
-        .metrics-card.yesterday:hover { border-color: var(--border-color); box-shadow: none; opacity: 1; }
-        
-        .metrics-summary { padding: 20px; cursor: pointer; display: flex; flex-direction: column; gap: 16px; outline: none; }
-        .metrics-summary::-webkit-details-marker { display: none; }
-        
-        .metrics-header { font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px; }
-        .metrics-grid { display: flex; gap: 32px; flex-wrap: wrap; align-items: center; }
-        
-        .metric-item { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
-        .metric-val { font-size: 2rem; font-weight: 600; color: var(--text-main); line-height: 1; font-variant-numeric: tabular-nums; }
-        .metrics-card.yesterday .metric-val { font-size: 1.5rem; color: var(--text-muted); }
-        .metric-label { font-size: 0.8rem; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: 0.02em; }
-        .metric-label svg { width: 14px; height: 14px; fill: currentColor; }
-        
-        .workload-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; border-top: 1px solid var(--border-color); padding: 16px 20px; background: var(--bg-surface-hover); }
-        .developer-card { background: var(--bg-surface); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px;}
-        .developer-header { display: flex; justify-content: space-between; align-items: center; }
-        .dev-info { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text-main); font-size: 0.9rem;}
-        .dev-badges { display: flex; align-items: center; gap: 6px; }
-        
-        .dev-stats-row { display: flex; gap: 16px; align-items: center; }
-        .dev-stat { display: flex; align-items: center; gap: 4px; font-size: 0.85rem; color: var(--text-muted); font-weight: 500; }
-        .dev-stat svg { width: 14px; height: 14px; fill: currentColor; }
-        
-        .stale-icon { width: 14px; height: 14px; fill: #FFC107; }
-        .wip-badge { background: var(--badge-bg-danger); color: var(--badge-text-danger); font-size: 0.7rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em; }
+    /* HEADER & NAVIGATION */
+    .header-container {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding-bottom: 20px;
+      border-bottom: 2px solid var(--border-color);
+      margin-bottom: 20px;
+    }
 
-        /* ICONS & AVATARS */
-        summary { list-style: none; outline: none; cursor: pointer; position: relative; user-select: none; }
-        summary::-webkit-details-marker { display: none; }
-        summary::before, .collapse-icon, .pr-row-icon { display: none !important; }
-        
-        .ticket-title-wrapper { display: flex; align-items: center; gap: 8px; flex-grow: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-        .jira-icon { width: 16px; height: 16px; flex-shrink: 0; }
-        .ticket-id { font-family: monospace; opacity: 0.8; margin-right: 2px; flex-shrink: 0; }
-        .ticket-title-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .avatar { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-color); background: var(--bg-surface-muted); flex-shrink: 0;}
+    .nav-left,
+    .nav-right {
+      flex: 1;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
 
-        /* GESTALT BLOCKS & OPTIMIZATIONS */
-        .epic-block { contain: content; margin-bottom: 24px; border-radius: 8px; background: var(--bg-surface); border: 1px solid var(--border-color); box-shadow: var(--shadow-md); content-visibility: auto; contain-intrinsic-size: 500px; }
-        .epic-summary, .task-summary, .pr-summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-        .epic-summary { padding: 16px 20px; font-weight: 600; font-size: 1.05em; }
-        .task-summary { padding: 12px 16px; font-weight: 600; font-size: 0.95em; }
-        .pr-summary { padding: 10px 16px; font-weight: 500; font-size: 0.95em; }
+    .nav-right {
+      justify-content: flex-end;
+      position: relative;
+    }
 
-        .epic-block[open] .epic-summary { border-bottom: 1px solid var(--border-color); }
-        .epic-content { padding: 0 0 16px 0; background: var(--bg-body); }
+    .header-title {
+      flex: 2;
+      text-align: center;
+    }
 
-        /* Depressed Tasks */
-        .task-block { border-radius: 6px; background: var(--bg-surface); margin: 12px 16px; overflow: hidden; border: 1px solid var(--border-color); box-shadow: var(--shadow-sm); }
-        .task-block[open] .task-summary { border-bottom: 1px dashed var(--border-color); }
-        .task-content { padding: 0; background: var(--bg-surface); }
+    .nav-btn {
+      height: 40px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      padding: 0 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      color: var(--text-main);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      transition: all 0.2s ease;
+    }
 
-        .sub-collapse { border-top: 1px dashed var(--border-color); }
-        .sub-collapse:first-child { border-top: none; }
-        .sub-content { padding: 16px; font-size: 0.95em; background: var(--bg-surface-hover); }
-        
-        /* ALERTS & META DATA */
-        .meta-tags { display: flex; gap: 6px; align-items: center; font-size: 0.8em; color: var(--text-muted); font-weight: normal; margin-left: 8px;}
-        .stale-badge { background: var(--badge-bg-warn); color: var(--badge-text-warn); padding: 2px 6px; border-radius: 4px; font-weight: bold; }
-        .review-alert { background: var(--badge-bg-danger); color: var(--badge-text-danger); padding: 2px 6px; border-radius: 4px; font-weight: bold; }
-        .draft-pr { opacity: 0.6; }
-        
-        .pr-meta { display: flex; gap: 12px; align-items: center; font-size: 0.85em; font-weight: normal; flex-shrink: 0; }
-        .diff-add { color: #2da44e; font-weight: 600; }
-        .diff-del { color: #cf222e; font-weight: 600; }
+    .nav-btn:hover:not([data-disabled="true"]) {
+      background: var(--bg-surface-hover);
+      border-color: var(--link-color);
+    }
 
-        .update-badge { padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: bold; flex-shrink: 0; }
-        .count-tag { font-weight: bold; margin-left: 8px; }
-        .count-grey { color: var(--text-muted); }
-        .count-blue { color: var(--link-color); }
-        .count-green { color: var(--badge-text-success); }
+    .nav-btn svg {
+      fill: currentColor;
+    }
 
-        /* COMMENT CARDS */
-        .comment-card { margin-bottom: 12px; padding: 16px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface); box-shadow: var(--shadow-sm); }
-        .comment-header { margin-bottom: 10px; font-weight: bold; display: flex; align-items: center; gap: 8px; }
-        .comment-time { color: var(--text-muted); font-size: 0.85em; font-weight: normal; margin-left: auto; }
-        .tag-pill { color: var(--link-color); font-size: 0.8em; margin-left: 6px; background: var(--badge-bg-info); padding: 2px 8px; border-radius: 12px; }
+    #refreshStatus {
+      position: absolute;
+      top: 46px;
+      right: 0;
+      font-size: 0.75em;
+      color: var(--text-muted);
+      white-space: nowrap;
+      text-align: right;
+      margin-right: 4px;
+    }
 
-        .comment-group { margin-bottom: 12px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-surface); transition: transform 0.1s; }
-        .comment-group:hover { transform: translateY(-1px); border-color: var(--link-color); box-shadow: var(--shadow-md); }
-        .comment-group > summary { padding: 14px 18px; font-weight: 700; font-size: 0.95em; display: flex; justify-content: space-between; }
-        .comment-group[open] > summary { border-bottom: 1px solid var(--border-color); background: var(--bg-surface-muted); }
-        .comment-group-content { padding: 16px; background: var(--bg-surface-hover); }
+    /* 🔍 SEARCH ENGINE */
+    .search-container {
+      position: sticky;
+      top: 0;
+      z-index: 2000;
+      background: var(--bg-body);
+      padding: 10px 0 20px 0;
+      margin-bottom: 10px;
+    }
 
-        @keyframes target-flash { 0% { background: rgba(255,234,0,0.4); } 100% { background: transparent; } }
-        .jump-flash { animation: target-flash 2s ease-out; }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-        .spin-icon { animation: spin 1.2s linear infinite; }
-    </style>
+    .search-wrapper {
+      position: relative;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    #searchInput {
+      width: 100%;
+      height: 48px;
+      padding: 0 20px;
+      font-size: 16px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: var(--bg-surface);
+      color: var(--text-main);
+      outline: none;
+      box-sizing: border-box;
+      box-shadow: var(--shadow-sm);
+      transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    #searchInput:focus {
+      border-color: var(--link-color);
+      box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.15);
+    }
+
+    .search-dropdown {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      right: 0;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      box-shadow: var(--shadow-lg);
+      z-index: 2100;
+      display: none;
+      max-height: 500px;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .search-result-item {
+      padding: 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-bottom: 4px;
+      border: 1px solid transparent;
+      transition: background 0.1s;
+    }
+
+    .search-result-item.selected {
+      background: var(--bg-surface-hover);
+      border-color: var(--link-color);
+    }
+
+    .res-header {
+      font-size: 0.95em;
+      margin-bottom: 4px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      width: 100%;
+    }
+
+    .res-icon {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+      fill: currentColor;
+    }
+
+    .res-key {
+      color: var(--link-color);
+      font-family: monospace;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+
+    .res-title {
+      font-weight: 600;
+      color: var(--text-main);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex-grow: 1;
+    }
+
+    .res-snippet {
+      display: block;
+      font-size: 0.8em;
+      color: var(--text-muted);
+      opacity: 0.8;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-top: 2px;
+    }
+
+    /* 🚨 ACTIVE BLOCKERS MARQUEE */
+    .blocker-marquee {
+      background: var(--badge-bg-danger);
+      border: 1px solid var(--badge-text-danger);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .blocker-header {
+      color: var(--badge-text-danger);
+      font-weight: 800;
+      font-size: 1.1em;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .blocker-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .blocker-item {
+      background: var(--bg-surface);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.9em;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* 📊 RE-DESIGNED COMPACT ROLLUP METRICS */
+    .metrics-dashboard {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+
+    .metrics-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+
+    .metrics-card:hover {
+      border-color: var(--text-muted);
+      box-shadow: var(--shadow-md);
+    }
+
+    .metrics-card.yesterday {
+      background: var(--bg-surface-muted);
+      box-shadow: none;
+      opacity: 0.95;
+    }
+
+    .metrics-card.yesterday:hover {
+      border-color: var(--border-color);
+      box-shadow: none;
+      opacity: 1;
+    }
+
+    .metrics-summary {
+      padding: 20px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      outline: none;
+    }
+
+    .metrics-summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .metrics-header {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .metrics-grid {
+      display: flex;
+      gap: 32px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .metric-item {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+    }
+
+    .metric-val {
+      font-size: 2rem;
+      font-weight: 600;
+      color: var(--text-main);
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metrics-card.yesterday .metric-val {
+      font-size: 1.5rem;
+      color: var(--text-muted);
+    }
+
+    .metric-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .metric-label svg {
+      width: 14px;
+      height: 14px;
+      fill: currentColor;
+    }
+
+    .workload-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px;
+      border-top: 1px solid var(--border-color);
+      padding: 16px 20px;
+      background: var(--bg-surface-hover);
+    }
+
+    .developer-card {
+      background: var(--bg-surface);
+      padding: 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .developer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .dev-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      color: var(--text-main);
+      font-size: 0.9rem;
+    }
+
+    .dev-badges {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dev-stats-row {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .dev-stat {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .dev-stat svg {
+      width: 14px;
+      height: 14px;
+      fill: currentColor;
+    }
+
+    .stale-icon {
+      width: 14px;
+      height: 14px;
+      fill: #FFC107;
+    }
+
+    .wip-badge {
+      background: var(--badge-bg-danger);
+      color: var(--badge-text-danger);
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.05em;
+    }
+
+    /* ICONS & AVATARS */
+    summary {
+      list-style: none;
+      outline: none;
+      cursor: pointer;
+      position: relative;
+      user-select: none;
+    }
+
+    summary::-webkit-details-marker {
+      display: none;
+    }
+
+    summary::before,
+    .collapse-icon,
+    .pr-row-icon {
+      display: none !important;
+    }
+
+    .ticket-title-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-grow: 1;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .jira-icon {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    .ticket-id {
+      font-family: monospace;
+      opacity: 0.8;
+      margin-right: 2px;
+      flex-shrink: 0;
+    }
+
+    .ticket-title-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .avatar {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1px solid var(--border-color);
+      background: var(--bg-surface-muted);
+      flex-shrink: 0;
+    }
+
+    /* GESTALT BLOCKS & OPTIMIZATIONS */
+    .epic-block {
+      contain: content;
+      margin-bottom: 24px;
+      border-radius: 8px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-md);
+      content-visibility: auto;
+      contain-intrinsic-size: 500px;
+    }
+
+    .epic-summary,
+    .task-summary,
+    .pr-summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .epic-summary {
+      padding: 16px 20px;
+      font-weight: 600;
+      font-size: 1.05em;
+    }
+
+    .task-summary {
+      padding: 12px 16px;
+      font-weight: 600;
+      font-size: 0.95em;
+    }
+
+    .pr-summary {
+      padding: 10px 16px;
+      font-weight: 500;
+      font-size: 0.95em;
+    }
+
+    .epic-block[open] .epic-summary {
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .epic-content {
+      padding: 0 0 16px 0;
+      background: var(--bg-body);
+    }
+
+    /* Depressed Tasks */
+    .task-block {
+      border-radius: 6px;
+      background: var(--bg-surface);
+      margin: 12px 16px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .task-block[open] .task-summary {
+      border-bottom: 1px dashed var(--border-color);
+    }
+
+    .task-content {
+      padding: 0;
+      background: var(--bg-surface);
+    }
+
+    .sub-collapse {
+      border-top: 1px dashed var(--border-color);
+    }
+
+    .sub-collapse:first-child {
+      border-top: none;
+    }
+
+    .sub-content {
+      padding: 16px;
+      font-size: 0.95em;
+      background: var(--bg-surface-hover);
+    }
+
+    /* ALERTS & META DATA */
+    .meta-tags {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      font-size: 0.8em;
+      color: var(--text-muted);
+      font-weight: normal;
+      margin-left: 8px;
+    }
+
+    .stale-badge {
+      background: var(--badge-bg-warn);
+      color: var(--badge-text-warn);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+
+    .review-alert {
+      background: var(--badge-bg-danger);
+      color: var(--badge-text-danger);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+
+    .draft-pr {
+      opacity: 0.6;
+    }
+
+    .pr-meta {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      font-size: 0.85em;
+      font-weight: normal;
+      flex-shrink: 0;
+    }
+
+    .diff-add {
+      color: #2da44e;
+      font-weight: 600;
+    }
+
+    .diff-del {
+      color: #cf222e;
+      font-weight: 600;
+    }
+
+    .update-badge {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 0.8em;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+
+    .count-tag {
+      font-weight: bold;
+      margin-left: 8px;
+    }
+
+    .count-grey {
+      color: var(--text-muted);
+    }
+
+    .count-blue {
+      color: var(--link-color);
+    }
+
+    .count-green {
+      color: var(--badge-text-success);
+    }
+
+    /* COMMENT CARDS */
+    .comment-card {
+      margin-bottom: 12px;
+      padding: 16px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: var(--bg-surface);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .comment-header {
+      margin-bottom: 10px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .comment-time {
+      color: var(--text-muted);
+      font-size: 0.85em;
+      font-weight: normal;
+      margin-left: auto;
+    }
+
+    .tag-pill {
+      color: var(--link-color);
+      font-size: 0.8em;
+      margin-left: 6px;
+      background: var(--badge-bg-info);
+      padding: 2px 8px;
+      border-radius: 12px;
+    }
+
+    .comment-group {
+      margin-bottom: 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: var(--bg-surface);
+      transition: transform 0.1s;
+    }
+
+    .comment-group:hover {
+      transform: translateY(-1px);
+      border-color: var(--link-color);
+      box-shadow: var(--shadow-md);
+    }
+
+    .comment-group>summary {
+      padding: 14px 18px;
+      font-weight: 700;
+      font-size: 0.95em;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .comment-group[open]>summary {
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-surface-muted);
+    }
+
+    .comment-group-content {
+      padding: 16px;
+      background: var(--bg-surface-hover);
+    }
+
+    @keyframes target-flash {
+      0% {
+        background: rgba(255, 234, 0, 0.4);
+      }
+
+      100% {
+        background: transparent;
+      }
+    }
+
+    .jump-flash {
+      animation: target-flash 2s ease-out;
+    }
+
+    @keyframes spin {
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .spin-icon {
+      animation: spin 1.2s linear infinite;
+    }
+  </style>
 </head>
+
 <body data-theme="light">
-    <svg style="display:none;">
-        <symbol id="icon-epic" viewBox="0 0 16 16" fill="none"><path d="M8.5 1L2 9h5l-1 6 7-8H8l1.5-6z" fill="#904EE2" stroke="#904EE2" stroke-width="1" stroke-linejoin="round"/></symbol>
-        <symbol id="icon-task" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="14" height="14" rx="3" fill="#4C9AFF"/><path d="M4.5 8L7 10.5L11.5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-        <symbol id="icon-git-pr" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm13.25 5.5a2.25 2.25 0 1 1-3-2.122V5.25A2.25 2.25 0 0 0 9.5 3h-1.25a.75.75 0 0 1 0-1.5h1.25A3.75 3.75 0 0 1 13.25 5.25v1.378a2.251 2.251 0 0 1 1.5 2.122ZM1.5 12a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm12-8.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0ZM3 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm10.5 8.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z"></path></symbol>
-        <symbol id="icon-git-merge" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 5 3.25Zm2.25 3.128a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854v2.396h4.146a.25.25 0 0 1 .25.25v2.25a.25.25 0 0 1-.25.25H10v2.396a.25.25 0 0 1-.427.177L7.177 6.177a.25.25 0 0 1 0-.354Z"></path></symbol>
-        <symbol id="icon-comment" viewBox="0 0 16 16" fill="currentColor"><path d="M1.75 1h12.5c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0 1 14.25 13H8.061l-2.574 2.573A1.458 1.458 0 0 1 3 14.543V13H1.75A1.75 1.75 0 0 1 0 11.25v-8.5C0 1.784.784 1 1.75 1ZM1.5 2.75v8.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.75.75 0 0 1 .53-.22h6.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25H1.75a.25.25 0 0 0-.25.25Z"></path></symbol>
-        <symbol id="icon-alert" viewBox="0 0 16 16" fill="currentColor"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.396C16.29 13.682 15.385 15 14.082 15H1.918c-1.303 0-2.208-1.318-1.543-2.557Zm1.763 1.2a.25.25 0 0 0-.44 0L1.698 13.643a.25.25 0 0 0 .22.357h12.164a.25.25 0 0 0 .22-.357Zm.655 8.003a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm-.825-5.5a.75.75 0 0 1 1.5 0v2.5a.75.75 0 0 1-1.5 0Z"></path></symbol>
-    </svg>
+  <svg style="display:none;">
+    <symbol id="icon-epic" viewBox="0 0 16 16" fill="none">
+      <path d="M8.5 1L2 9h5l-1 6 7-8H8l1.5-6z" fill="#904EE2" stroke="#904EE2" stroke-width="1"
+        stroke-linejoin="round" />
+    </symbol>
+    <symbol id="icon-task" viewBox="0 0 16 16" fill="none">
+      <rect x="1" y="1" width="14" height="14" rx="3" fill="#4C9AFF" />
+      <path d="M4.5 8L7 10.5L11.5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+    </symbol>
+    <symbol id="icon-git-pr" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm13.25 5.5a2.25 2.25 0 1 1-3-2.122V5.25A2.25 2.25 0 0 0 9.5 3h-1.25a.75.75 0 0 1 0-1.5h1.25A3.75 3.75 0 0 1 13.25 5.25v1.378a2.251 2.251 0 0 1 1.5 2.122ZM1.5 12a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm12-8.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0ZM3 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm10.5 8.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z">
+      </path>
+    </symbol>
+    <symbol id="icon-git-merge" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        d="M5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 5 3.25Zm2.25 3.128a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854v2.396h4.146a.25.25 0 0 1 .25.25v2.25a.25.25 0 0 1-.25.25H10v2.396a.25.25 0 0 1-.427.177L7.177 6.177a.25.25 0 0 1 0-.354Z">
+      </path>
+    </symbol>
+    <symbol id="icon-comment" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        d="M1.75 1h12.5c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0 1 14.25 13H8.061l-2.574 2.573A1.458 1.458 0 0 1 3 14.543V13H1.75A1.75 1.75 0 0 1 0 11.25v-8.5C0 1.784.784 1 1.75 1ZM1.5 2.75v8.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.75.75 0 0 1 .53-.22h6.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25H1.75a.25.25 0 0 0-.25.25Z">
+      </path>
+    </symbol>
+    <symbol id="icon-alert" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.396C16.29 13.682 15.385 15 14.082 15H1.918c-1.303 0-2.208-1.318-1.543-2.557Zm1.763 1.2a.25.25 0 0 0-.44 0L1.698 13.643a.25.25 0 0 0 .22.357h12.164a.25.25 0 0 0 .22-.357Zm.655 8.003a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm-.825-5.5a.75.75 0 0 1 1.5 0v2.5a.75.75 0 0 1-1.5 0Z">
+      </path>
+    </symbol>
+  </svg>
 
-    <div class="header-container">
-        <div class="nav-left">
-            <button id="themeToggle" onclick="toggleTheme()" class="nav-btn" style="padding: 0 12px; font-size: 1.1em;" title="Toggle Dark/Light Mode">🌙</button>
-            <button onclick="goToReport('{{ yesterday_str }}')" class="nav-btn">⬅️ Yesterday</button>
-        </div>
-        <div class="header-title" style="position: relative; cursor: pointer; user-select: none;" onclick="toggleCalendar(event)">
-            <h1 style="margin:0; font-size: 1.5em; padding-top: 5px;" title="Click to jump to another date">Daily Sync {{ today_str }} 📅</h1>
-            <div id="dateDropdown" style="display: none; position: absolute; top: calc(100% + 5px); left: 50%; transform: translateX(-50%); background: var(--bg-surface); border: 1px solid var(--border-color); box-shadow: var(--shadow-lg); z-index: 3000; border-radius: 8px; max-height: 300px; overflow-y: auto; padding: 5px; min-width: 180px; text-align: left; font-size: 0.95em;">
-            </div>
-        </div>
-        <div class="nav-right">
-            <div style="display: flex; gap: 10px;">
-                <button id="nextBtn" onclick="goToReport('{{ next_str }}')" class="nav-btn">Next ➡️</button>
-                <button id="refreshBtn" onclick="handleRefresh()" class="nav-btn" title="Refresh Page">
-                    <svg width="18" height="18" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
-                </button>
-            </div>
-            <div id="refreshStatus">
-                Last updated: <span id="lastUpdatedTime"></span> (<span id="timeAgo"></span>)
-            </div>
-        </div>
+  <div class="header-container">
+    <div class="nav-left">
+      <button id="themeToggle" onclick="toggleTheme()" class="nav-btn" style="padding: 0 12px; font-size: 1.1em;"
+        title="Toggle Dark/Light Mode">🌙</button>
+      <button onclick="goToReport('{{ yesterday_str }}')" class="nav-btn">⬅️ Yesterday</button>
     </div>
+    <div class="header-title" style="position: relative; cursor: pointer; user-select: none;"
+      onclick="toggleCalendar(event)">
+      <h1 style="margin:0; font-size: 1.5em; padding-top: 5px;" title="Click to jump to another date">Daily Sync {{
+        today_str }} 📅</h1>
+      <div id="dateDropdown"
+        style="display: none; position: absolute; top: calc(100% + 5px); left: 50%; transform: translateX(-50%); background: var(--bg-surface); border: 1px solid var(--border-color); box-shadow: var(--shadow-lg); z-index: 3000; border-radius: 8px; max-height: 300px; overflow-y: auto; padding: 5px; min-width: 180px; text-align: left; font-size: 0.95em;">
+      </div>
+    </div>
+    <div class="nav-right">
+      <div style="display: flex; gap: 10px;">
+        <button id="nextBtn" onclick="goToReport('{{ next_str }}')" class="nav-btn">Next ➡️</button>
+        <button id="refreshBtn" onclick="handleRefresh()" class="nav-btn" title="Refresh Page">
+          <svg width="18" height="18" viewBox="0 0 24 24">
+            <path
+              d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
+          </svg>
+        </button>
+      </div>
+      <div id="refreshStatus">
+        Last updated: <span id="lastUpdatedTime"></span> (<span id="timeAgo"></span>)
+      </div>
+    </div>
+  </div>
 
-    <div class="search-container">
-        <div class="search-wrapper">
-            <input type="text" id="searchInput" placeholder="🔍 Search (Enter to jump | Escape to close | Shift+Click deep toggle)..." autocomplete="off">
-            <div id="searchResults" class="search-dropdown"></div>
-        </div>
+  <div class="search-container">
+    <div class="search-wrapper">
+      <input type="text" id="searchInput"
+        placeholder="🔍 Search (Enter to jump | Escape to close | Shift+Click deep toggle)..." autocomplete="off">
+      <div id="searchResults" class="search-dropdown"></div>
     </div>
+  </div>
 
-    {% if active_blockers %}
-    <div class="blocker-marquee">
-        <div class="blocker-header">🚨 ACTIVE BLOCKERS & HIGH PRIORITY</div>
-        <div class="blocker-list">
-            {% for b in active_blockers %}
-            <div class="blocker-item">
-                <a href="https://{{ domain }}/browse/{{ b.key }}" target="_blank" style="color: var(--badge-text-danger);">[{{ b.key }}] {{ b.summary }}</a>
-                <div style="display: flex; align-items: center; gap: 4px; color: var(--text-muted); font-weight: normal;">
-                    {% if b.assignee_avatar %}<img src="{{ b.assignee_avatar }}" class="avatar" style="width: 16px; height: 16px;">{% else %}👤{% endif %} {{ b.assignee }}
-                </div>
-            </div>
-            {% endfor %}
+  {% if active_blockers %}
+  <div class="blocker-marquee">
+    <div class="blocker-header">🚨 ACTIVE BLOCKERS & HIGH PRIORITY</div>
+    <div class="blocker-list">
+      {% for b in active_blockers %}
+      <div class="blocker-item">
+        <a href="https://{{ domain }}/browse/{{ b.key }}" target="_blank" style="color: var(--badge-text-danger);">[{{
+          b.key }}] {{ b.summary }}</a>
+        <div style="display: flex; align-items: center; gap: 4px; color: var(--text-muted); font-weight: normal;">
+          {% if b.assignee_avatar %}<img src="{{ b.assignee_avatar }}" class="avatar"
+            style="width: 16px; height: 16px;">{% else %}👤{% endif %} {{ b.assignee }}
         </div>
+      </div>
+      {% endfor %}
     </div>
-    {% endif %}
-    
-    {% macro render_workload(metrics, is_today) %}
-    <div class="workload-grid">
-        {% for dev, stats in metrics.workload.items() %}
-        <div class="developer-card">
-            <div class="developer-header">
-                <div class="dev-info">
-                    {% if stats.avatar_url %}<img src="{{ stats.avatar_url }}" class="avatar" alt="{{ dev }}">{% else %}👤{% endif %}
-                    {{ dev }}
-                </div>
-                <div class="dev-badges">
-                    {% if is_today and stats.has_stale %}<svg class="stale-icon" title="Has Stale Items (No updates in 3+ days)"><use href="#icon-alert"></use></svg>{% endif %}
-                    {% if stats.active > 3 %}<span class="wip-badge" title="WIP Limit Exceeded">WIP: {{ stats.active }}</span>{% endif %}
-                </div>
-            </div>
-            <div class="dev-stats-row">
-                <div class="dev-stat" title="Active Tasks"><svg><use href="#icon-task"></use></svg> {{ stats.active }}</div>
-                <div class="dev-stat" title="Merged PRs"><svg><use href="#icon-git-merge"></use></svg> {{ stats.prs_merged }}</div>
-                <div class="dev-stat" title="New Comments"><svg><use href="#icon-comment"></use></svg> {{ stats.comments }}</div>
-            </div>
+  </div>
+  {% endif %}
+
+  {% macro render_workload(metrics, is_today) %}
+  <div class="workload-grid">
+    {% for dev, stats in metrics.workload.items() %}
+    <div class="developer-card">
+      <div class="developer-header">
+        <div class="dev-info">
+          {% if stats.avatar_url %}<img src="{{ stats.avatar_url }}" class="avatar" alt="{{ dev }}">{% else %}👤{% endif
+          %}
+          {{ dev }}
         </div>
-        {% endfor %}
+        <div class="dev-badges">
+          {% if is_today and stats.has_stale %}<svg class="stale-icon" title="Has Stale Items (No updates in 3+ days)">
+            <use href="#icon-alert"></use>
+          </svg>{% endif %}
+          {% if stats.active > 3 %}<span class="wip-badge" title="WIP Limit Exceeded">WIP: {{ stats.active }}</span>{%
+          endif %}
+        </div>
+      </div>
+      <div class="dev-stats-row">
+        <div class="dev-stat" title="Active Tasks"><svg>
+            <use href="#icon-task"></use>
+          </svg> {{ stats.active }}</div>
+        <div class="dev-stat" title="Merged PRs"><svg>
+            <use href="#icon-git-merge"></use>
+          </svg> {{ stats.prs_merged }}</div>
+        <div class="dev-stat" title="New Comments"><svg>
+            <use href="#icon-comment"></use>
+          </svg> {{ stats.comments }}</div>
+      </div>
     </div>
-    {% endmacro %}
+    {% endfor %}
+  </div>
+  {% endmacro %}
 
-    <div class="metrics-dashboard">
-        <details class="metrics-card" open>
-            <summary class="metrics-summary">
-                <div class="metrics-header">🔥 TODAY'S PROGRESS</div>
-                <div class="metrics-grid">
-                    <div class="metric-item" title="Tasks Updated">
-                        <span class="metric-val">{{ today_metrics.tasks_updated }}</span>
-                        <span class="metric-label"><svg><use href="#icon-task"></use></svg> Tasks</span>
-                    </div>
-                    <div class="metric-item" title="PRs Merged">
-                        <span class="metric-val">{{ today_metrics.prs_merged }}</span>
-                        <span class="metric-label"><svg><use href="#icon-git-merge"></use></svg> Merged</span>
-                    </div>
-                    <div class="metric-item" title="PRs Opened">
-                        <span class="metric-val">{{ today_metrics.prs_open }}</span>
-                        <span class="metric-label"><svg><use href="#icon-git-pr"></use></svg> Open</span>
-                    </div>
-                    <div class="metric-item" title="New Comments">
-                        <span class="metric-val">{{ today_metrics.comments_added }}</span>
-                        <span class="metric-label"><svg><use href="#icon-comment"></use></svg> Comments</span>
-                    </div>
-                    <div class="metric-item" title="Stale Items">
-                        <span class="metric-val" style="color:var(--badge-text-warn)">{{ today_metrics.stale_items }}</span>
-                        <span class="metric-label"><svg style="fill:var(--badge-text-warn)"><use href="#icon-alert"></use></svg> Stale</span>
-                    </div>
-                </div>
-            </summary>
-            {{ render_workload(today_metrics, True) }}
-        </details>
-        
-        <details class="metrics-card yesterday">
-            <summary class="metrics-summary">
-                <div class="metrics-header">⏪ YESTERDAY'S PULSE</div>
-                <div class="metrics-grid">
-                    <div class="metric-item" title="Tasks Updated">
-                        <span class="metric-val">{{ yesterday_metrics.tasks_updated }}</span>
-                        <span class="metric-label"><svg><use href="#icon-task"></use></svg> Tasks</span>
-                    </div>
-                    <div class="metric-item" title="PRs Merged">
-                        <span class="metric-val">{{ yesterday_metrics.prs_merged }}</span>
-                        <span class="metric-label"><svg><use href="#icon-git-merge"></use></svg> Merged</span>
-                    </div>
-                    <div class="metric-item" title="PRs Opened">
-                        <span class="metric-val">{{ yesterday_metrics.prs_open }}</span>
-                        <span class="metric-label"><svg><use href="#icon-git-pr"></use></svg> Open</span>
-                    </div>
-                    <div class="metric-item" title="New Comments">
-                        <span class="metric-val">{{ yesterday_metrics.comments_added }}</span>
-                        <span class="metric-label"><svg><use href="#icon-comment"></use></svg> Comments</span>
-                    </div>
-                    <div class="metric-item" title="Stale Items">
-                        <span class="metric-val" style="color:var(--text-muted)">{{ yesterday_metrics.stale_items }}</span>
-                        <span class="metric-label"><svg style="fill:var(--text-muted)"><use href="#icon-alert"></use></svg> Stale</span>
-                    </div>
-                </div>
-            </summary>
-            {{ render_workload(yesterday_metrics, False) }}
-        </details>
-    </div>
+  <div class="metrics-dashboard">
+    <details class="metrics-card" open>
+      <summary class="metrics-summary">
+        <div class="metrics-header">🔥 TODAY'S PROGRESS</div>
+        <div class="metrics-grid">
+          <div class="metric-item" title="Tasks Updated">
+            <span class="metric-val">{{ today_metrics.tasks_updated }}</span>
+            <span class="metric-label"><svg>
+                <use href="#icon-task"></use>
+              </svg> Tasks</span>
+          </div>
+          <div class="metric-item" title="PRs Merged">
+            <span class="metric-val">{{ today_metrics.prs_merged }}</span>
+            <span class="metric-label"><svg>
+                <use href="#icon-git-merge"></use>
+              </svg> Merged</span>
+          </div>
+          <div class="metric-item" title="PRs Opened">
+            <span class="metric-val">{{ today_metrics.prs_open }}</span>
+            <span class="metric-label"><svg>
+                <use href="#icon-git-pr"></use>
+              </svg> Open</span>
+          </div>
+          <div class="metric-item" title="New Comments">
+            <span class="metric-val">{{ today_metrics.comments_added }}</span>
+            <span class="metric-label"><svg>
+                <use href="#icon-comment"></use>
+              </svg> Comments</span>
+          </div>
+          <div class="metric-item" title="Stale Items">
+            <span class="metric-val" style="color:var(--badge-text-warn)">{{ today_metrics.stale_items }}</span>
+            <span class="metric-label"><svg style="fill:var(--badge-text-warn)">
+                <use href="#icon-alert"></use>
+              </svg> Stale</span>
+          </div>
+        </div>
+      </summary>
+      {{ render_workload(today_metrics, True) }}
+    </details>
 
-    <script>
-        async function toggleCalendar(e) {
-            e.stopPropagation();
-            const dropdown = document.getElementById('dateDropdown');
-            
-            if (dropdown.style.display === 'block') {
-                dropdown.style.display = 'none';
-                return;
-            }
-            
-            dropdown.style.display = 'block';
-            dropdown.innerHTML = '<div style="padding: 8px; text-align: center; color: var(--text-muted);">Loading dates...</div>';
-            
-            try {
-                const res = await fetch('/api/available_dates');
-                const dates = await res.json();
-                if(dates.length === 0) {
-                    dropdown.innerHTML = '<div style="padding: 8px; text-align: center; color: var(--text-muted);">No reports found</div>';
-                    return;
-                }
-                dropdown.innerHTML = dates.map(d => `
+    <details class="metrics-card yesterday">
+      <summary class="metrics-summary">
+        <div class="metrics-header">⏪ YESTERDAY'S PULSE</div>
+        <div class="metrics-grid">
+          <div class="metric-item" title="Tasks Updated">
+            <span class="metric-val">{{ yesterday_metrics.tasks_updated }}</span>
+            <span class="metric-label"><svg>
+                <use href="#icon-task"></use>
+              </svg> Tasks</span>
+          </div>
+          <div class="metric-item" title="PRs Merged">
+            <span class="metric-val">{{ yesterday_metrics.prs_merged }}</span>
+            <span class="metric-label"><svg>
+                <use href="#icon-git-merge"></use>
+              </svg> Merged</span>
+          </div>
+          <div class="metric-item" title="PRs Opened">
+            <span class="metric-val">{{ yesterday_metrics.prs_open }}</span>
+            <span class="metric-label"><svg>
+                <use href="#icon-git-pr"></use>
+              </svg> Open</span>
+          </div>
+          <div class="metric-item" title="New Comments">
+            <span class="metric-val">{{ yesterday_metrics.comments_added }}</span>
+            <span class="metric-label"><svg>
+                <use href="#icon-comment"></use>
+              </svg> Comments</span>
+          </div>
+          <div class="metric-item" title="Stale Items">
+            <span class="metric-val" style="color:var(--text-muted)">{{ yesterday_metrics.stale_items }}</span>
+            <span class="metric-label"><svg style="fill:var(--text-muted)">
+                <use href="#icon-alert"></use>
+              </svg> Stale</span>
+          </div>
+        </div>
+      </summary>
+      {{ render_workload(yesterday_metrics, False) }}
+    </details>
+  </div>
+
+  <script>
+    async function toggleCalendar(e) {
+      e.stopPropagation();
+      const dropdown = document.getElementById('dateDropdown');
+
+      if (dropdown.style.display === 'block') {
+        dropdown.style.display = 'none';
+        return;
+      }
+
+      dropdown.style.display = 'block';
+      dropdown.innerHTML = '<div style="padding: 8px; text-align: center; color: var(--text-muted);">Loading dates...</div>';
+
+      try {
+        const res = await fetch('/api/available_dates');
+        const dates = await res.json();
+        if (dates.length === 0) {
+          dropdown.innerHTML = '<div style="padding: 8px; text-align: center; color: var(--text-muted);">No reports found</div>';
+          return;
+        }
+        dropdown.innerHTML = dates.map(d => `
                     <div style="padding: 8px 12px; cursor: pointer; border-radius: 4px; margin-bottom: 2px; color: var(--text-main); font-weight: ${d === '{{ today_str }}' ? 'bold' : 'normal'}" 
                          onclick="goToReport('${d}')" 
                          onmouseover="this.style.background='var(--bg-surface-hover)'" 
@@ -344,251 +1007,251 @@
                         ${d === '{{ today_str }}' ? '✅ ' + d : '📄 ' + d}
                     </div>
                 `).join('');
-            } catch (err) {
-                dropdown.innerHTML = '<div style="padding: 8px; text-align: center; color: var(--badge-text-danger);">Failed to load</div>';
-            }
-        }
+      } catch (err) {
+        dropdown.innerHTML = '<div style="padding: 8px; text-align: center; color: var(--badge-text-danger);">Failed to load</div>';
+      }
+    }
 
-        document.addEventListener('click', (e) => {
-            const dropdown = document.getElementById('dateDropdown');
-            if (dropdown && dropdown.style.display === 'block' && !e.target.closest('.header-title')) {
-                dropdown.style.display = 'none';
-            }
+    document.addEventListener('click', (e) => {
+      const dropdown = document.getElementById('dateDropdown');
+      if (dropdown && dropdown.style.display === 'block' && !e.target.closest('.header-title')) {
+        dropdown.style.display = 'none';
+      }
+    });
+
+    const state = {index: [], curIdx: -1, lastQ: ""};
+    const generationTime = new Date("{{ generation_time_iso }}");
+    let debounceTimer;
+
+    function updateTimeAgo() {
+      const now = new Date();
+      const diffMs = now - generationTime;
+      const diffMins = Math.floor(diffMs / 60000);
+
+      const timeAgoEl = document.getElementById('timeAgo');
+      const refreshBtn = document.getElementById('refreshBtn');
+
+      if (!timeAgoEl || !refreshBtn) return;
+
+      if (diffMins < 1) {
+        timeAgoEl.textContent = "just now";
+        refreshBtn.style.opacity = "0.5";
+        refreshBtn.style.cursor = "not-allowed";
+        refreshBtn.dataset.disabled = "true";
+      } else {
+        timeAgoEl.textContent = diffMins + " min ago";
+        refreshBtn.style.opacity = "1";
+        refreshBtn.style.cursor = "pointer";
+        refreshBtn.dataset.disabled = "false";
+      }
+    }
+
+    async function handleRefresh() {
+      const btn = document.getElementById('refreshBtn');
+      const statusText = document.getElementById('refreshStatus');
+
+      if (btn.dataset.disabled === "true") return;
+
+      btn.dataset.disabled = "true";
+      btn.style.opacity = "0.5";
+      btn.style.cursor = "not-allowed";
+
+      const originalSvg = btn.innerHTML;
+      btn.innerHTML = `<svg class="spin-icon" width="18" height="18" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>`;
+
+      statusText.innerHTML = "Refreshing... (Takes ~10 seconds)";
+      statusText.style.color = "var(--text-muted)";
+
+      try {
+        const response = await fetch('/api/refresh', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({date: "{{ today_str }}"})
         });
 
-        const state = { index: [], curIdx: -1, lastQ: "" };
-        const generationTime = new Date("{{ generation_time_iso }}");
-        let debounceTimer; 
-
-        function updateTimeAgo() {
-            const now = new Date();
-            const diffMs = now - generationTime;
-            const diffMins = Math.floor(diffMs / 60000);
-            
-            const timeAgoEl = document.getElementById('timeAgo');
-            const refreshBtn = document.getElementById('refreshBtn');
-
-            if (!timeAgoEl || !refreshBtn) return;
-
-            if (diffMins < 1) {
-                timeAgoEl.textContent = "just now";
-                refreshBtn.style.opacity = "0.5";
-                refreshBtn.style.cursor = "not-allowed";
-                refreshBtn.dataset.disabled = "true";
-            } else {
-                timeAgoEl.textContent = diffMins + " min ago";
-                refreshBtn.style.opacity = "1";
-                refreshBtn.style.cursor = "pointer";
-                refreshBtn.dataset.disabled = "false";
-            }
+        if (response.ok) {
+          window.location.reload();
+        } else {
+          const errData = await response.json();
+          throw new Error(errData.message || "Server Error");
         }
+      } catch (error) {
+        btn.innerHTML = originalSvg;
+        statusText.innerHTML = `<span style='color: var(--badge-text-danger); font-weight: bold;'>Error: ${error.message}</span>`;
+      }
+    }
 
-        async function handleRefresh() {
-            const btn = document.getElementById('refreshBtn');
-            const statusText = document.getElementById('refreshStatus');
-            
-            if (btn.dataset.disabled === "true") return;
+    function toggleTheme() {
+      const html = document.documentElement;
+      const newTheme = html.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      html.setAttribute("data-theme", newTheme);
+      localStorage.setItem("theme", newTheme);
+      document.getElementById("themeToggle").innerText = newTheme === "dark" ? "☀️" : "🌙";
+    }
 
-            btn.dataset.disabled = "true";
-            btn.style.opacity = "0.5";
-            btn.style.cursor = "not-allowed";
-            
-            const originalSvg = btn.innerHTML;
-            btn.innerHTML = `<svg class="spin-icon" width="18" height="18" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>`;
-            
-            statusText.innerHTML = "Refreshing... (Takes ~10 seconds)";
-            statusText.style.color = "var(--text-muted)";
+    document.addEventListener("DOMContentLoaded", () => {
+      const savedTheme = localStorage.getItem("theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme", savedTheme);
+      document.getElementById("themeToggle").innerText = savedTheme === "dark" ? "☀️" : "🌙";
 
-            try {
-                const response = await fetch('/api/refresh', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ date: "{{ today_str }}" })
-                });
+      const day = generationTime.getDate();
+      const month = generationTime.toLocaleString('en-GB', {month: 'short'});
+      const hours = String(generationTime.getHours()).padStart(2, '0');
+      const mins = String(generationTime.getMinutes()).padStart(2, '0');
+      document.getElementById('lastUpdatedTime').textContent = `${day} ${month} ${hours}:${mins}`;
 
-                if (response.ok) {
-                    window.location.reload();
+      updateTimeAgo();
+      setInterval(updateTimeAgo, 60000);
+
+      const reportDate = "{{ today_str }}";
+      const vnTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Ho_Chi_Minh"}));
+      const curVNDate = `${vnTime.getFullYear()}-${String(vnTime.getMonth() + 1).padStart(2, '0')}-${String(vnTime.getDate()).padStart(2, '0')}`;
+
+      if (reportDate >= curVNDate) document.getElementById("nextBtn").style.display = "none";
+      if (reportDate !== curVNDate) {
+        document.getElementById("refreshBtn").style.display = "none";
+        document.getElementById("refreshStatus").style.display = "none";
+      }
+
+      window.epicMap = [];
+
+      document.querySelectorAll('.epic-block').forEach((epic, index) => {
+        const summary = epic.querySelector('.epic-summary');
+        const tasks = Array.from(epic.querySelectorAll('.task-block')).map(task => ({
+          el: task,
+          text: task.textContent.toLowerCase()
+        }));
+
+        window.epicMap.push({
+          el: epic,
+          summary: summary,
+          text: summary ? summary.textContent.toLowerCase() : '',
+          tasks: tasks
+        });
+      });
+
+      document.querySelectorAll('.searchable-item').forEach((el, i) => {
+        if (el.classList.contains("metrics-summary")) return;
+        const id = `si-${i}`; el.id = id;
+        let iconHtml = '<svg class="res-icon"><use href="#icon-task"></use></svg>';
+        let dType = (el.getAttribute('data-type') || 'issue').toLowerCase();
+        if (dType === 'epic' || dType === 'epic-desc') iconHtml = '<svg class="res-icon"><use href="#icon-epic"></use></svg>';
+        if (dType === 'pr') iconHtml = '<svg class="res-icon" style="color:var(--pr-open)"><use href="#icon-git-pr"></use></svg>';
+
+        state.index.push({
+          id: id, el: el,
+          key: (el.getAttribute('data-key') || '').toUpperCase(),
+          type: dType,
+          iconHtml: iconHtml,
+          author: (el.getAttribute('data-author') || '').toLowerCase(),
+          title: (el.getAttribute('data-title') || el.textContent.substring(0, 60)).trim(),
+          text: el.textContent.toLowerCase().replace(/\s+/g, ' ')
+        });
+      });
+
+      const input = document.getElementById('searchInput');
+      const dropdown = document.getElementById('searchResults');
+
+      input.addEventListener('input', () => {
+        const q = input.value.trim().toLowerCase();
+        if (q === state.lastQ) return;
+        state.lastQ = q; state.curIdx = -1;
+
+        renderDropdown(q);
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {filterDOM(q);}, 150);
+      });
+
+      input.addEventListener('keydown', (e) => {
+        const items = dropdown.querySelectorAll('.search-result-item');
+        if (e.key === 'Escape') {e.preventDefault(); dropdown.style.display = 'none'; state.curIdx = -1; input.blur(); return;}
+        if (!items.length) return;
+        if (e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) {e.preventDefault(); state.curIdx = (state.curIdx + 1) % items.length; updateUI(items);}
+        else if (e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) {e.preventDefault(); state.curIdx = state.curIdx <= 0 ? items.length - 1 : state.curIdx - 1; updateUI(items);}
+        else if (e.key === 'Enter') {e.preventDefault(); const target = state.curIdx === -1 ? items[0] : items[state.curIdx]; if (target) {target.click(); input.blur();} }
+      });
+
+      input.addEventListener('focus', () => {if (input.value.length > 1) dropdown.style.display = 'block';});
+      input.addEventListener('blur', () => {setTimeout(() => dropdown.style.display = 'none', 250);});
+
+      document.addEventListener('mousedown', (e) => {
+        if (!e.shiftKey && !e.altKey) return;
+        let s = e.target.closest('summary');
+        if (!s || s.classList.contains('metrics-summary')) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        let d = s.parentElement;
+
+        if (d.classList.contains('epic-block')) {
+          const tasks = Array.from(d.querySelectorAll('.task-block'));
+          const isExpanded = tasks.length > 0 && tasks[0].hasAttribute('open');
+
+          if (isExpanded) {
+            d.removeAttribute('open');
+            d.querySelectorAll('details').forEach(det => det.removeAttribute('open'));
+          } else {
+            d.setAttribute('open', '');
+            let epicDesc = d.querySelector('.epic-desc');
+            if (epicDesc) epicDesc.setAttribute('open', '');
+
+            tasks.forEach(t => {
+              t.setAttribute('open', '');
+              t.querySelectorAll('details').forEach(det => {
+                if (det.classList.contains('pr-section') || det.classList.contains('comments-section') || det.classList.contains('today-comments')) {
+                  det.setAttribute('open', '');
                 } else {
-                    const errData = await response.json();
-                    throw new Error(errData.message || "Server Error");
+                  det.removeAttribute('open');
                 }
-            } catch (error) {
-                btn.innerHTML = originalSvg;
-                statusText.innerHTML = `<span style='color: var(--badge-text-danger); font-weight: bold;'>Error: ${error.message}</span>`;
-            }
+              });
+            });
+          }
         }
+        else if (d.classList.contains('task-block')) {
+          d.setAttribute('open', '');
+          const allCom = d.querySelector('.all-comments');
+          const isStateA = allCom && allCom.hasAttribute('open');
 
-        function toggleTheme() {
-            const html = document.documentElement;
-            const newTheme = html.getAttribute("data-theme") === "dark" ? "light" : "dark";
-            html.setAttribute("data-theme", newTheme);
-            localStorage.setItem("theme", newTheme);
-            document.getElementById("themeToggle").innerText = newTheme === "dark" ? "☀️" : "🌙";
+          if (isStateA) {
+            d.querySelectorAll('details').forEach(det => {
+              if (det.classList.contains('pr-section') || det.classList.contains('comments-section') || det.classList.contains('today-comments')) {
+                det.setAttribute('open', '');
+              } else {
+                det.removeAttribute('open');
+              }
+            });
+          } else {
+            d.querySelectorAll('details').forEach(det => {
+              if (det.classList.contains('today-comments')) {
+                det.removeAttribute('open');
+              } else {
+                det.setAttribute('open', '');
+              }
+            });
+          }
         }
+      }, true);
 
-        document.addEventListener("DOMContentLoaded", () => {
-            const savedTheme = localStorage.getItem("theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-            document.documentElement.setAttribute("data-theme", savedTheme);
-            document.getElementById("themeToggle").innerText = savedTheme === "dark" ? "☀️" : "🌙";
+      document.addEventListener('click', (e) => {
+        if ((e.shiftKey || e.altKey) && e.target.closest('summary:not(.metrics-summary)')) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }, true);
+    });
 
-            const day = generationTime.getDate();
-            const month = generationTime.toLocaleString('en-GB', { month: 'short' });
-            const hours = String(generationTime.getHours()).padStart(2, '0');
-            const mins = String(generationTime.getMinutes()).padStart(2, '0');
-            document.getElementById('lastUpdatedTime').textContent = `${day} ${month} ${hours}:${mins}`;
-            
-            updateTimeAgo();
-            setInterval(updateTimeAgo, 60000);
+    function updateUI(items) {items.forEach((it, i) => {it.classList.toggle('selected', i === state.curIdx); if (i === state.curIdx) it.scrollIntoView({block: 'nearest'});});}
 
-            const reportDate = "{{ today_str }}"; 
-            const vnTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Ho_Chi_Minh"}));
-            const curVNDate = `${vnTime.getFullYear()}-${String(vnTime.getMonth() + 1).padStart(2, '0')}-${String(vnTime.getDate()).padStart(2, '0')}`;
-            
-            if (reportDate >= curVNDate) document.getElementById("nextBtn").style.display = "none";
-            if (reportDate !== curVNDate) {
-                document.getElementById("refreshBtn").style.display = "none";
-                document.getElementById("refreshStatus").style.display = "none";
-            }
+    function renderDropdown(q) {
+      const dropdown = document.getElementById('searchResults');
+      if (q.length < 2) {dropdown.style.display = 'none'; return;}
+      const matches = state.index.filter(m => m.text.includes(q) || m.key.includes(q)).slice(0, 20);
+      if (!matches.length) {dropdown.innerHTML = '<div style="padding:10px">No results</div>'; dropdown.style.display = 'block'; return;}
 
-            window.epicMap = [];
-
-            document.querySelectorAll('.epic-block').forEach((epic, index) => {
-                const summary = epic.querySelector('.epic-summary');
-                const tasks = Array.from(epic.querySelectorAll('.task-block')).map(task => ({
-                    el: task,
-                    text: task.textContent.toLowerCase()
-                }));
-                
-                window.epicMap.push({
-                    el: epic,
-                    summary: summary,
-                    text: summary ? summary.textContent.toLowerCase() : '',
-                    tasks: tasks
-                });
-            });
-
-            document.querySelectorAll('.searchable-item').forEach((el, i) => {
-                if (el.classList.contains("metrics-summary")) return; 
-                const id = `si-${i}`; el.id = id;
-                let iconHtml = '<svg class="res-icon"><use href="#icon-task"></use></svg>'; 
-                let dType = (el.getAttribute('data-type') || 'issue').toLowerCase();
-                if (dType === 'epic' || dType === 'epic-desc') iconHtml = '<svg class="res-icon"><use href="#icon-epic"></use></svg>';
-                if (dType === 'pr') iconHtml = '<svg class="res-icon" style="color:var(--pr-open)"><use href="#icon-git-pr"></use></svg>';
-                
-                state.index.push({
-                    id: id, el: el,
-                    key: (el.getAttribute('data-key') || '').toUpperCase(),
-                    type: dType,
-                    iconHtml: iconHtml,
-                    author: (el.getAttribute('data-author') || '').toLowerCase(),
-                    title: (el.getAttribute('data-title') || el.textContent.substring(0, 60)).trim(),
-                    text: el.textContent.toLowerCase().replace(/\s+/g, ' ')
-                });
-            });
-
-            const input = document.getElementById('searchInput');
-            const dropdown = document.getElementById('searchResults');
-
-            input.addEventListener('input', () => {
-                const q = input.value.trim().toLowerCase();
-                if (q === state.lastQ) return;
-                state.lastQ = q; state.curIdx = -1;
-                
-                renderDropdown(q); 
-                clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(() => { filterDOM(q); }, 150);
-            });
-
-            input.addEventListener('keydown', (e) => {
-                const items = dropdown.querySelectorAll('.search-result-item');
-                if (e.key === 'Escape') { e.preventDefault(); dropdown.style.display = 'none'; state.curIdx = -1; input.blur(); return; }
-                if (!items.length) return;
-                if (e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) { e.preventDefault(); state.curIdx = (state.curIdx + 1) % items.length; updateUI(items); }
-                else if (e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) { e.preventDefault(); state.curIdx = state.curIdx <= 0 ? items.length - 1 : state.curIdx - 1; updateUI(items); }
-                else if (e.key === 'Enter') { e.preventDefault(); const target = state.curIdx === -1 ? items[0] : items[state.curIdx]; if (target) { target.click(); input.blur(); } }
-            });
-
-            input.addEventListener('focus', () => { if (input.value.length > 1) dropdown.style.display = 'block'; });
-            input.addEventListener('blur', () => { setTimeout(() => dropdown.style.display = 'none', 250); });
-
-            document.addEventListener('mousedown', (e) => {
-                if (!e.shiftKey && !e.altKey) return;
-                let s = e.target.closest('summary');
-                if (!s || s.classList.contains('metrics-summary')) return;
-
-                e.preventDefault();
-                e.stopPropagation();
-
-                let d = s.parentElement;
-
-                if (d.classList.contains('epic-block')) {
-                    const tasks = Array.from(d.querySelectorAll('.task-block'));
-                    const isExpanded = tasks.length > 0 && tasks[0].hasAttribute('open');
-
-                    if (isExpanded) {
-                        d.removeAttribute('open');
-                        d.querySelectorAll('details').forEach(det => det.removeAttribute('open'));
-                    } else {
-                        d.setAttribute('open', '');
-                        let epicDesc = d.querySelector('.epic-desc');
-                        if (epicDesc) epicDesc.setAttribute('open', '');
-
-                        tasks.forEach(t => {
-                            t.setAttribute('open', '');
-                            t.querySelectorAll('details').forEach(det => {
-                                if (det.classList.contains('pr-section') || det.classList.contains('comments-section') || det.classList.contains('today-comments')) {
-                                    det.setAttribute('open', '');
-                                } else {
-                                    det.removeAttribute('open');
-                                }
-                            });
-                        });
-                    }
-                } 
-                else if (d.classList.contains('task-block')) {
-                    d.setAttribute('open', '');
-                    const allCom = d.querySelector('.all-comments');
-                    const isStateA = allCom && allCom.hasAttribute('open');
-
-                    if (isStateA) {
-                        d.querySelectorAll('details').forEach(det => {
-                            if (det.classList.contains('pr-section') || det.classList.contains('comments-section') || det.classList.contains('today-comments')) {
-                                det.setAttribute('open', '');
-                            } else {
-                                det.removeAttribute('open');
-                            }
-                        });
-                    } else {
-                        d.querySelectorAll('details').forEach(det => {
-                            if (det.classList.contains('today-comments')) {
-                                det.removeAttribute('open');
-                            } else {
-                                det.setAttribute('open', '');
-                            }
-                        });
-                    }
-                }
-            }, true);
-            
-            document.addEventListener('click', (e) => {
-                if ((e.shiftKey || e.altKey) && e.target.closest('summary:not(.metrics-summary)')) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                }
-            }, true);
-        });
-
-        function updateUI(items) { items.forEach((it, i) => { it.classList.toggle('selected', i === state.curIdx); if (i === state.curIdx) it.scrollIntoView({ block: 'nearest' }); }); }
-
-        function renderDropdown(q) {
-            const dropdown = document.getElementById('searchResults');
-            if (q.length < 2) { dropdown.style.display = 'none'; return; }
-            const matches = state.index.filter(m => m.text.includes(q) || m.key.includes(q)).slice(0, 20);
-            if (!matches.length) { dropdown.innerHTML = '<div style="padding:10px">No results</div>'; dropdown.style.display = 'block'; return; }
-            
-            dropdown.innerHTML = matches.map((m, i) => {
-                const cleanSnippet = m.text.substring(Math.max(0, m.text.indexOf(q) - 20), m.text.indexOf(q) + 40);
-                return `
+      dropdown.innerHTML = matches.map((m, i) => {
+        const cleanSnippet = m.text.substring(Math.max(0, m.text.indexOf(q) - 20), m.text.indexOf(q) + 40);
+        return `
                 <div class="search-result-item ${i === state.curIdx ? 'selected' : ''}" onclick="jumpTo('${m.id}')">
                     <div class="res-header">
                         ${m.iconHtml}
@@ -598,288 +1261,320 @@
                     </div>
                     <span class="res-snippet">...${cleanSnippet}...</span>
                 </div>`;
-            }).join('');
-            dropdown.style.display = 'block';
-        }
+      }).join('');
+      dropdown.style.display = 'block';
+    }
 
-        function clearHighlights() {
-            document.querySelectorAll('mark.search-hl').forEach(m => {
-                const parent = m.parentNode;
-                if(parent) {
-                    parent.replaceChild(document.createTextNode(m.textContent), m);
-                    parent.normalize(); 
-                }
-            });
+    function clearHighlights() {
+      document.querySelectorAll('mark.search-hl').forEach(m => {
+        const parent = m.parentNode;
+        if (parent) {
+          parent.replaceChild(document.createTextNode(m.textContent), m);
+          parent.normalize();
         }
+      });
+    }
 
-        function highlightNode(node, keyword) {
-            const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, null, false);
-            const nodes = [];
-            while(walker.nextNode()) nodes.push(walker.currentNode);
-            
-            const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const localRegex = new RegExp(`(${escapedKeyword})`, "i");
-            
-            nodes.forEach(n => {
-                if (n.parentNode && !['SCRIPT', 'STYLE', 'MARK', 'SUMMARY'].includes(n.parentNode.nodeName)) {
-                    let match;
-                    while ((match = localRegex.exec(n.nodeValue)) !== null) {
-                        const mark = document.createElement("mark");
-                        mark.className = "search-hl";
-                        
-                        const wordNode = n.splitText(match.index);
-                        const remainderNode = wordNode.splitText(match[0].length);
-                        
-                        mark.textContent = wordNode.textContent;
-                        wordNode.replaceWith(mark);
-                        
-                        n = remainderNode; 
-                    }
-                }
-            });
+    function highlightNode(node, keyword) {
+      const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, null, false);
+      const nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+
+      const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const localRegex = new RegExp(`(${escapedKeyword})`, "i");
+
+      nodes.forEach(n => {
+        if (n.parentNode && !['SCRIPT', 'STYLE', 'MARK', 'SUMMARY'].includes(n.parentNode.nodeName)) {
+          let match;
+          while ((match = localRegex.exec(n.nodeValue)) !== null) {
+            const mark = document.createElement("mark");
+            mark.className = "search-hl";
+
+            const wordNode = n.splitText(match.index);
+            const remainderNode = wordNode.splitText(match[0].length);
+
+            mark.textContent = wordNode.textContent;
+            wordNode.replaceWith(mark);
+
+            n = remainderNode;
+          }
         }
+      });
+    }
 
-        function filterDOM(q) {
-            clearHighlights();
-            
-            if (!q) { 
-                window.epicMap.forEach(epicData => {
-                    epicData.el.removeAttribute('hidden');
-                    epicData.tasks.forEach(t => {
-                        t.el.removeAttribute('hidden');
-                        t.el.removeAttribute('open'); 
-                    });
-                });
-                return; 
+    function filterDOM(q) {
+      clearHighlights();
+
+      if (!q) {
+        window.epicMap.forEach(epicData => {
+          epicData.el.removeAttribute('hidden');
+          epicData.tasks.forEach(t => {
+            t.el.removeAttribute('hidden');
+            t.el.removeAttribute('open');
+          });
+        });
+        return;
+      }
+
+      window.epicMap.forEach(epicData => {
+        const matchEpic = epicData.text.includes(q);
+        let vTasks = 0;
+
+        epicData.tasks.forEach(taskData => {
+          if (taskData.text.includes(q) || matchEpic) {
+            taskData.el.removeAttribute('hidden');
+            vTasks++;
+            if (taskData.text.includes(q)) {
+              taskData.el.setAttribute('open', '');
+              highlightNode(taskData.el, q);
+            } else {
+              taskData.el.removeAttribute('open');
             }
-            
-            window.epicMap.forEach(epicData => {
-                const matchEpic = epicData.text.includes(q);
-                let vTasks = 0;
-                
-                epicData.tasks.forEach(taskData => {
-                    if (taskData.text.includes(q) || matchEpic) {
-                        taskData.el.removeAttribute('hidden'); 
-                        vTasks++;
-                        if (taskData.text.includes(q)) { 
-                            taskData.el.setAttribute('open', ''); 
-                            highlightNode(taskData.el, q); 
-                        } else {
-                            taskData.el.removeAttribute('open');
-                        }
-                    } else {
-                        taskData.el.setAttribute('hidden', '');
-                    }
-                });
-                
-                if (matchEpic || vTasks > 0) { 
-                    epicData.el.removeAttribute('hidden'); 
-                    epicData.el.setAttribute('open', ''); 
-                    if (matchEpic) highlightNode(epicData.summary, q); 
-                } else {
-                    epicData.el.setAttribute('hidden', '');
-                }
-            });
+          } else {
+            taskData.el.setAttribute('hidden', '');
+          }
+        });
+
+        if (matchEpic || vTasks > 0) {
+          epicData.el.removeAttribute('hidden');
+          epicData.el.setAttribute('open', '');
+          if (matchEpic) highlightNode(epicData.summary, q);
+        } else {
+          epicData.el.setAttribute('hidden', '');
         }
+      });
+    }
 
-        function jumpTo(id) {
-            const target = document.getElementById(id); if (!target) return;
-            document.getElementById('searchResults').style.display = 'none';
-            let p = target.parentElement;
-            while (p) { if (p.tagName === 'DETAILS') p.setAttribute('open', ''); p = p.parentElement; }
-            if (target.tagName === 'DETAILS') target.setAttribute('open', '');
-            const inner = target.querySelector('.comment-collapse'); if (inner) inner.setAttribute('open', '');
-            setTimeout(() => { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); target.classList.add('jump-flash'); setTimeout(() => target.classList.remove('jump-flash'), 2000); }, 50);
-        }
+    function jumpTo(id) {
+      const target = document.getElementById(id); if (!target) return;
+      document.getElementById('searchResults').style.display = 'none';
+      let p = target.parentElement;
+      while (p) {if (p.tagName === 'DETAILS') p.setAttribute('open', ''); p = p.parentElement;}
+      if (target.tagName === 'DETAILS') target.setAttribute('open', '');
+      const inner = target.querySelector('.comment-collapse'); if (inner) inner.setAttribute('open', '');
+      setTimeout(() => {target.scrollIntoView({behavior: 'smooth', block: 'center'}); target.classList.add('jump-flash'); setTimeout(() => target.classList.remove('jump-flash'), 2000);}, 50);
+    }
 
-        function goToReport(dateStr) { window.location.href = `/${dateStr}`; }
-    </script>
+    function goToReport(dateStr) {window.location.href = `/${dateStr}`;}
+  </script>
 
-    {% macro render_comment(comment, color_hex, task_key) %}
-    <div class="searchable-item comment-card" 
-         data-key="{{ task_key }}" 
-         data-type="comment"
-         data-title="{{ comment.summary or 'Comment' }}" 
-         data-author="@{{ comment.author | replace(' ', '') }}" 
-         style="border-left-color: {{ color_hex }};">
-        <div class="comment-header">
-            {% if comment.avatar_url %}
-                <img src="{{ comment.avatar_url }}" class="avatar" alt="Avatar">
-            {% else %}
-                <span>👤</span>
-            {% endif %}
-            <span>{{ comment.author }}</span>
-            <span class="comment-time">{{ comment.time_str }}</span>
-        </div>
-        {% if comment.summary %}
-            <details class='comment-collapse'>
-                <summary style='font-weight:600; padding:10px; background:var(--bg-surface-muted); border-radius:4px;'>
-                    {{ comment.summary }}
-                    {% for t in comment.tags %}<span class='tag-pill'>{{ t }}</span>{% endfor %}
-                </summary>
-                <div style='padding-top:10px'>{{ comment.body | safe }}</div>
-            </details>
-        {% else %}
-            <div>{{ comment.body | safe }}</div>
-        {% endif %}
+  {% macro render_comment(comment, color_hex, task_key) %}
+  <div class="searchable-item comment-card" data-key="{{ task_key }}" data-type="comment"
+    data-title="{{ comment.summary or 'Comment' }}" data-author="@{{ comment.author | replace(' ', '') }}"
+    style="border-left-color: {{ color_hex }};">
+    <div class="comment-header">
+      {% if comment.avatar_url %}
+      <img src="{{ comment.avatar_url }}" class="avatar" alt="Avatar">
+      {% else %}
+      <span>👤</span>
+      {% endif %}
+      <span>{{ comment.author }}</span>
+      <span class="comment-time">{{ comment.time_str }}</span>
     </div>
-    {% endmacro %}
-
-    {% for section in sections %}
-    <h2 style="margin-top:40px">{{ section.title }}</h2>
-    
-    {% if not section.epics %}
-        <p style='color: var(--text-muted);'><em>No active issues found.</em></p>
+    {% if comment.summary %}
+    <details class='comment-collapse'>
+      <summary style='font-weight:600; padding:10px; background:var(--bg-surface-muted); border-radius:4px;'>
+        {{ comment.summary }}
+        {% for t in comment.tags %}<span class='tag-pill'>{{ t }}</span>{% endfor %}
+      </summary>
+      <div style='padding-top:10px'>{{ comment.body | safe }}</div>
+    </details>
     {% else %}
-        {% for epic in section.epics %}
-        <details class="epic-block" {{ 'open' if not section.is_yesterday else '' }} style="border-top: 4px solid var(--badge-text-{{ epic.status_key }});">
-            <summary class="epic-summary searchable-item" data-type="epic" data-key="{{ epic.key }}" data-title="{{ epic.summary }}" style="background:var(--badge-bg-{{ epic.status_key }})">
-                <div class="ticket-title-wrapper">
-                    <svg class="jira-icon"><use href="#icon-epic"></use></svg>
-                    {% if epic.key != "OTHER" %}<a href="https://{{ domain }}/browse/{{ epic.key }}" class="ticket-id" target="_blank">[{{ epic.key }}]</a>{% endif %}
-                    <span class="ticket-title-text">{{ epic.summary }}</span>
-                </div>
-                <div class="meta-tags">
-                    {% if epic.is_stale %}<span class="stale-badge" title="No updates in 3+ days">⚠️ STALE</span>{% endif %}
-                    <span class="update-badge" style="color:var(--badge-text-{{ epic.status_key }})">{{ epic.epic_updates }} Updates</span>
-                </div>
-            </summary>
-            
-            <div class="epic-content">
-                {% if epic.key != "OTHER" %}
-                <details class="sub-collapse epic-desc">
-                    <summary style="padding:10px 16px; font-weight:600">Epic Description</summary>
-                    <div class="sub-content searchable-item" data-type="epic-desc" data-key="{{ epic.key }}" data-title="Epic Description">{{ epic.desc_html | safe }}</div>
+    <div>{{ comment.body | safe }}</div>
+    {% endif %}
+  </div>
+  {% endmacro %}
+
+  {% for section in sections %}
+  <h2 style="margin-top:40px">{{ section.title }}</h2>
+
+  {% if not section.epics %}
+  <p style='color: var(--text-muted);'><em>No active issues found.</em></p>
+  {% else %}
+  {% for epic in section.epics %}
+  <details class="epic-block" {{ 'open' if not section.is_yesterday else '' }}
+    style="border-top: 4px solid var(--badge-text-{{ epic.status_key }});">
+    <summary class="epic-summary searchable-item" data-type="epic" data-key="{{ epic.key }}"
+      data-title="{{ epic.summary }}" style="background:var(--badge-bg-{{ epic.status_key }})">
+      <div class="ticket-title-wrapper">
+        <svg class="jira-icon">
+          <use href="#icon-epic"></use>
+        </svg>
+        {% if epic.key != "OTHER" %}<a href="https://{{ domain }}/browse/{{ epic.key }}" class="ticket-id"
+          target="_blank">[{{ epic.key }}]</a>{% endif %}
+        <span class="ticket-title-text">{{ epic.summary }}</span>
+      </div>
+      <div class="meta-tags">
+        {% if epic.is_stale %}<span class="stale-badge" title="No updates in 3+ days">⚠️ STALE</span>{% endif %}
+        <span class="update-badge" style="color:var(--badge-text-{{ epic.status_key }})">{{ epic.epic_updates }}
+          Updates</span>
+      </div>
+    </summary>
+
+    <div class="epic-content">
+      {% if epic.key != "OTHER" %}
+      <details class="sub-collapse epic-desc">
+        <summary style="padding:10px 16px; font-weight:600">Epic Description</summary>
+        <div class="sub-content searchable-item" data-type="epic-desc" data-key="{{ epic.key }}"
+          data-title="Epic Description">{{ epic.desc_html | safe }}</div>
+      </details>
+      {% endif %}
+
+      {% for task in epic.tasks %}
+      {% set t_bg = 'success' if task.status_key == 'success' else 'info' if task.status_key in ['info', 'purple'] else
+      'warn' if task.status_key in ['warn', 'danger'] else 'todo' %}
+      <div class="task-block">
+        <details>
+          <summary class="task-summary searchable-item" data-type="issue" data-key="{{ task.key }}"
+            data-title="{{ task.summary }}" style="background: var(--badge-bg-{{ t_bg }});">
+            <div class="ticket-title-wrapper">
+              <svg class="jira-icon">
+                <use href="#icon-task"></use>
+              </svg>
+              <a href="https://{{ domain }}/browse/{{ task.key }}" class="ticket-id" target="_blank">[{{ task.key
+                }}]</a>
+              <span class="ticket-title-text">{{ task.summary }}</span>
+            </div>
+            <div class="meta-tags">
+              <span title="In Progress for {{ task.cycle_days }} days">⏳ {{ task.cycle_days }}d</span>
+              {% if task.is_stale %}<span class="stale-badge" title="No updates in 3+ days">⚠️ STALE</span>{% endif %}
+              <div style="display: flex; align-items: center; gap: 4px; font-weight: 600; color: var(--text-main);">
+                {% if task.assignee_avatar %}<img src="{{ task.assignee_avatar }}" class="avatar"
+                  style="width: 16px; height: 16px;">{% else %}👤{% endif %}
+                {{ task.assignee }}
+              </div>
+              <span class="update-badge {{ 'purple' if section.is_yesterday }}">{{ task.updates }} Updates</span>
+            </div>
+          </summary>
+          <div class="task-content">
+
+            <details class="sub-collapse issue-desc">
+              <summary style="padding:10px 16px; font-weight:600">Issue Description</summary>
+              <div class="sub-content searchable-item" data-type="issue-desc" data-key="{{ task.key }}"
+                data-title="Issue Description">{{ task.desc_html | safe }}</div>
+            </details>
+
+            {% if task.prs %}
+            <details class="sub-collapse pr-section">
+              <summary style="padding:10px 16px; font-weight:600">Pull Requests ({{ task.prs|length }})</summary>
+              <div class="sub-content">
+                {% for pr in task.prs %}
+                <details class="pr-collapse searchable-item {% if pr.is_draft %}draft-pr{% endif %}" data-type="pr"
+                  data-key="{{ task.key }}" data-title="{{ pr.clean_title }}" data-author="@{{ pr.author }}">
+                  <summary class="pr-summary">
+                    <div class="ticket-title-wrapper">
+                      <svg class="jira-icon" style="color: {{ pr.text_color }}">
+                        <use href="#{{ pr.icon }}"></use>
+                      </svg>
+                      <a href="{{ pr.url }}" class="ticket-id" target="_blank">[{{ task.key }}]</a>
+                      <span class="ticket-title-text">{{ pr.clean_title }}</span>
+                      {% if pr.complexity_badge %}<span style="font-size: 0.8em; margin-left: 8px;">{{
+                        pr.complexity_badge }}</span>{% endif %}
+                    </div>
+                    <div class="pr-meta">
+                      <span title="{{ pr.time_str }}">⏳ {{ pr.cycle_days }}d</span>
+                      {% if pr.pr_stale %}<span class="stale-badge" title="No updates in 3+ days">⚠️ STALE</span>{%
+                      endif %}
+                      {% if pr.pr_review_alert %}<span class="review-alert" title="Open > 48 hours without review">🚨
+                        REVIEW</span>{% endif %}
+                      {% if pr.avatar_url %}<img src="{{ pr.avatar_url }}" class="avatar" alt="{{ pr.author }}">{% endif
+                      %}
+                      <span class="diff-add">+{{ pr.additions }}</span>
+                      <span class="diff-del">-{{ pr.deletions }}</span>
+                    </div>
+                  </summary>
+                  <div style="padding:10px 16px; border-top:1px dashed var(--border-color)">
+                    <div>{{ pr.body | safe }}</div>
+                    {% if pr.reviewer_badges %}
+                    <div
+                      style="font-size: 0.85em; color: var(--text-muted); padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--border-color);">
+                      👀 Reviewers: {{ pr.reviewer_badges | join(', ') }}
+                    </div>
+                    {% endif %}
+                  </div>
                 </details>
-                {% endif %}
-                
-                {% for task in epic.tasks %}
-                {% set t_bg = 'success' if task.status_key == 'success' else 'info' if task.status_key in ['info', 'purple'] else 'warn' if task.status_key in ['warn', 'danger'] else 'todo' %}
-                <div class="task-block">
-                    <details>
-                        <summary class="task-summary searchable-item" data-type="issue" data-key="{{ task.key }}" data-title="{{ task.summary }}" style="background: var(--badge-bg-{{ t_bg }});">
-                            <div class="ticket-title-wrapper">
-                                <svg class="jira-icon"><use href="#icon-task"></use></svg>
-                                <a href="https://{{ domain }}/browse/{{ task.key }}" class="ticket-id" target="_blank">[{{ task.key }}]</a> 
-                                <span class="ticket-title-text">{{ task.summary }}</span>
-                            </div>
-                            <div class="meta-tags">
-                                <span title="In Progress for {{ task.cycle_days }} days">⏳ {{ task.cycle_days }}d</span>
-                                {% if task.is_stale %}<span class="stale-badge" title="No updates in 3+ days">⚠️ STALE</span>{% endif %}
-                                <div style="display: flex; align-items: center; gap: 4px; font-weight: 600; color: var(--text-main);">
-                                    {% if task.assignee_avatar %}<img src="{{ task.assignee_avatar }}" class="avatar" style="width: 16px; height: 16px;">{% else %}👤{% endif %}
-                                    {{ task.assignee }}
-                                </div>
-                                <span class="update-badge {{ 'purple' if section.is_yesterday }}">{{ task.updates }} Updates</span>
-                            </div>
-                        </summary>
-                        <div class="task-content">
-                            
-                            <details class="sub-collapse issue-desc">
-                                <summary style="padding:10px 16px; font-weight:600">Issue Description</summary>
-                                <div class="sub-content searchable-item" data-type="issue-desc" data-key="{{ task.key }}" data-title="Issue Description">{{ task.desc_html | safe }}</div>
-                            </details>
-                            
-                            {% if task.prs %}
-                            <details class="sub-collapse pr-section">
-                                <summary style="padding:10px 16px; font-weight:600">Pull Requests ({{ task.prs|length }})</summary>
-                                <div class="sub-content">
-                                    {% for pr in task.prs %}
-                                    <details class="pr-collapse searchable-item {% if pr.is_draft %}draft-pr{% endif %}" data-type="pr" data-key="{{ task.key }}" data-title="{{ pr.clean_title }}" data-author="@{{ pr.author }}">
-                                        <summary class="pr-summary">
-                                            <div class="ticket-title-wrapper">
-                                                <svg class="jira-icon" style="color: {{ pr.text_color }}"><use href="#{{ pr.icon }}"></use></svg>
-                                                <a href="{{ pr.url }}" class="ticket-id" target="_blank">[{{ task.key }}]</a> 
-                                                <span class="ticket-title-text">{{ pr.clean_title }}</span>
-                                                {% if pr.complexity_badge %}<span style="font-size: 0.8em; margin-left: 8px;">{{ pr.complexity_badge }}</span>{% endif %}
-                                            </div>
-                                            <div class="pr-meta">
-                                                <span title="{{ pr.time_str }}">⏳ {{ pr.cycle_days }}d</span>
-                                                {% if pr.pr_stale %}<span class="stale-badge" title="No updates in 3+ days">⚠️ STALE</span>{% endif %}
-                                                {% if pr.pr_review_alert %}<span class="review-alert" title="Open > 48 hours without review">🚨 REVIEW</span>{% endif %}
-                                                {% if pr.avatar_url %}<img src="{{ pr.avatar_url }}" class="avatar" alt="{{ pr.author }}">{% endif %}
-                                                <span class="diff-add">+{{ pr.additions }}</span>
-                                                <span class="diff-del">-{{ pr.deletions }}</span>
-                                            </div>
-                                        </summary>
-                                        <div style="padding:10px 16px; border-top:1px dashed var(--border-color)">
-                                            <div>{{ pr.body | safe }}</div>
-                                            {% if pr.requested_reviewers %}
-                                            <div style="font-size: 0.85em; color: var(--text-muted); padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--border-color);">
-                                                👀 Reviewers: {{ pr.requested_reviewers | join(', ') }}
-                                            </div>
-                                            {% endif %}
-                                        </div>
-                                    </details>
-                                    {% endfor %}
-                                </div>
-                            </details>
-                            {% endif %}
-
-                            {% set total_c = task.target_comments|length + task.hist_comments|length %}
-                            <details class="sub-collapse comments-section">
-                                <summary style="padding:10px 16px; font-weight:600">
-                                    Comments 
-                                    <span class="count-tag {{ 'count-blue' if task.status_key == 'info' else 'count-green' if task.status_key == 'success' else 'count-grey' if total_c == 0 else '' }}">({{ total_c }} total)</span>
-                                    <span class="count-tag {{ 'count-green' if task.target_comments|length > 0 else 'count-grey' }}">({{ task.target_comments|length }} new)</span>
-                                </summary>
-                                <div class="sub-content" style="padding: 20px 16px;">
-                                    
-                                    <details class="comment-group all-comments">
-                                        <summary>All Comments <span style="font-weight: normal; opacity: 0.6">({{ total_c }})</span></summary>
-                                        <div class="comment-group-content">
-                                            {% for c in task.hist_comments %}{{ render_comment(c, "var(--text-muted)", task.key) }}{% endfor %}
-                                            {% for c in task.target_comments %}{{ render_comment(c, "var(--text-muted)", task.key) }}{% endfor %}
-                                        </div>
-                                    </details>
-                                    
-                                    <details class="comment-group today-comments" open>
-                                        <summary>Comments on {{ section.date_str }} <span style="font-weight: normal; opacity: 0.6">({{ task.target_comments|length }} New)</span></summary>
-                                        <div class="comment-group-content">
-                                            {% if task.target_comments %}
-                                                {% for c in task.target_comments %}{{ render_comment(c, section.border_color, task.key) }}{% endfor %}
-                                            {% else %}
-                                                <p style="color:var(--text-muted); margin:0; font-style: italic;">No new comments recorded today.</p>
-                                            {% endif %}
-                                        </div>
-                                    </details>
-
-                                </div>
-                            </details>
-
-                        </div>
-                    </details>
-                </div>
                 {% endfor %}
-            </div>
-        </details>
-        {% endfor %}
-    {% endif %}
-    {% endfor %}
+              </div>
+            </details>
+            {% endif %}
 
-    <h2 style="margin-top:50px">⏸️ Upcoming & On Hold Epics</h2>
-    {% if pending_epics %}
-        {% for epic in pending_epics %}
-        {% set pen_status = "warn" if epic.status_key == "warn" else "todo" %}
-        <details class="epic-block" style="border-top: 4px solid var(--badge-text-{{ pen_status }}); margin-bottom: 10px;">
-            <summary class="epic-summary searchable-item" data-type="epic" data-key="{{ epic.key }}" style="background: var(--badge-bg-{{ pen_status }});">
-                <div class="ticket-title-wrapper">
-                    <svg class="jira-icon"><use href="#icon-epic"></use></svg>
-                    <a href="https://{{ domain }}/browse/{{ epic.key }}" target="_blank" class="ticket-id">[{{ epic.key }}]</a> 
-                    <span class="ticket-title-text">{{ epic.summary }}</span>
-                </div>
-                <span class="update-badge" style="color:var(--badge-text-{{ pen_status }})">{{ epic.status_badge | safe | striptags }}</span>
-            </summary>
-            <div class="epic-content">
-                <details class="sub-collapse epic-desc">
-                    <summary style="padding:10px 16px; font-weight:600">📄 Epic Description</summary>
-                    <div class="sub-content searchable-item" data-type="epic-desc" data-key="{{ epic.key }}">{{ epic.desc_html | safe }}</div>
+            {% set total_c = task.target_comments|length + task.hist_comments|length %}
+            <details class="sub-collapse comments-section">
+              <summary style="padding:10px 16px; font-weight:600">
+                Comments
+                <span
+                  class="count-tag {{ 'count-blue' if task.status_key == 'info' else 'count-green' if task.status_key == 'success' else 'count-grey' if total_c == 0 else '' }}">({{
+                  total_c }} total)</span>
+                <span class="count-tag {{ 'count-green' if task.target_comments|length > 0 else 'count-grey' }}">({{
+                  task.target_comments|length }} new)</span>
+              </summary>
+              <div class="sub-content" style="padding: 20px 16px;">
+
+                <details class="comment-group all-comments">
+                  <summary>All Comments <span style="font-weight: normal; opacity: 0.6">({{ total_c }})</span></summary>
+                  <div class="comment-group-content">
+                    {% for c in task.hist_comments %}{{ render_comment(c, "var(--text-muted)", task.key) }}{% endfor %}
+                    {% for c in task.target_comments %}{{ render_comment(c, "var(--text-muted)", task.key) }}{% endfor
+                    %}
+                  </div>
                 </details>
-            </div>
+
+                <details class="comment-group today-comments" open>
+                  <summary>Comments on {{ section.date_str }} <span style="font-weight: normal; opacity: 0.6">({{
+                      task.target_comments|length }} New)</span></summary>
+                  <div class="comment-group-content">
+                    {% if task.target_comments %}
+                    {% for c in task.target_comments %}{{ render_comment(c, section.border_color, task.key) }}{% endfor
+                    %}
+                    {% else %}
+                    <p style="color:var(--text-muted); margin:0; font-style: italic;">No new comments recorded today.
+                    </p>
+                    {% endif %}
+                  </div>
+                </details>
+
+              </div>
+            </details>
+
+          </div>
         </details>
-        {% endfor %}
-    {% else %}
-        <p style='color: var(--text-muted);'><em>None.</em></p>
-    {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </details>
+  {% endfor %}
+  {% endif %}
+  {% endfor %}
+
+  <h2 style="margin-top:50px">⏸️ Upcoming & On Hold Epics</h2>
+  {% if pending_epics %}
+  {% for epic in pending_epics %}
+  {% set pen_status = "warn" if epic.status_key == "warn" else "todo" %}
+  <details class="epic-block" style="border-top: 4px solid var(--badge-text-{{ pen_status }}); margin-bottom: 10px;">
+    <summary class="epic-summary searchable-item" data-type="epic" data-key="{{ epic.key }}"
+      style="background: var(--badge-bg-{{ pen_status }});">
+      <div class="ticket-title-wrapper">
+        <svg class="jira-icon">
+          <use href="#icon-epic"></use>
+        </svg>
+        <a href="https://{{ domain }}/browse/{{ epic.key }}" target="_blank" class="ticket-id">[{{ epic.key }}]</a>
+        <span class="ticket-title-text">{{ epic.summary }}</span>
+      </div>
+      <span class="update-badge" style="color:var(--badge-text-{{ pen_status }})">{{ epic.status_badge | safe |
+        striptags }}</span>
+    </summary>
+    <div class="epic-content">
+      <details class="sub-collapse epic-desc">
+        <summary style="padding:10px 16px; font-weight:600">📄 Epic Description</summary>
+        <div class="sub-content searchable-item" data-type="epic-desc" data-key="{{ epic.key }}">{{ epic.desc_html |
+          safe }}</div>
+      </details>
+    </div>
+  </details>
+  {% endfor %}
+  {% else %}
+  <p style='color: var(--text-muted);'><em>None.</em></p>
+  {% endif %}
 </body>
+
 </html>
