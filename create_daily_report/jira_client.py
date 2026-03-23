@@ -27,8 +27,7 @@ def fetch_issues(jql):
     search_url = f"{jira_base_url}/search/jql"
     params = {
         "jql": jql,
-        # 🌟 NEW: Added assignee, priority, created, and updated fields for advanced metrics
-        "fields": "summary,issuetype,attachment,parent,description,status,assignee,priority,created,updated",
+        "fields": "summary,issuetype,attachment,parent,description,status,assignee,priority,created,updated,resolutiondate",
         "expand": "renderedFields",
         "maxResults": 100,
     }

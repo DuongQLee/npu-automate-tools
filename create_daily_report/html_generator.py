@@ -27,19 +27,80 @@ def get_status_badge(status_name):
     return f"<span class='status-badge' style='background: {bg}; color: {text};'>{status_name.upper()}</span>"
 
 
-def calculate_days_ago(date_str, is_github=False):
-    if not date_str:
+def calculate_days_ago(date_str, reference_date_str, is_github=False):
+    if not date_str or not reference_date_str:
         return 0
     try:
+        # Calculate relative to 23:59:59 of the target report date
+        ref_dt = datetime.strptime(
+            reference_date_str + " 23:59:59", "%Y-%m-%d %H:%M:%S"
+        ).replace(tzinfo=config.VN_TZ)
         if is_github:
             dt = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ").replace(
                 tzinfo=timezone.utc
             )
         else:
             dt = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S.%f%z")
-        return (datetime.now(timezone.utc) - dt).days
+        return max(0, (ref_dt - dt).days)
     except Exception:
         return 0
+
+
+def calculate_metrics(epics):
+    metrics = {
+        "tasks_updated": 0,
+        "comments_added": 0,
+        "prs_merged": 0,
+        "prs_open": 0,
+        "stale_items": 0,
+        "workload": {},
+    }
+    for e in epics:
+        if e.get("is_stale"):
+            metrics["stale_items"] += 1
+
+        for t in e.get("tasks", []):
+            if t["updates"] > 0:
+                metrics["tasks_updated"] += 1
+            metrics["comments_added"] += t["updates"]
+
+            if t.get("is_stale"):
+                metrics["stale_items"] += 1
+
+            assignee = t.get("assignee", "Unassigned")
+            assignee_avatar = t.get("assignee_avatar", "")
+
+            if assignee not in metrics["workload"]:
+                metrics["workload"][assignee] = {
+                    "active": 0,
+                    "prs_open": 0,
+                    "prs_merged": 0,
+                    "comments": 0,
+                    "has_stale": False,
+                    "avatar_url": assignee_avatar,
+                }
+
+            if t["status_key"] in ["info", "purple"]:
+                metrics["workload"][assignee]["active"] += 1
+
+            metrics["workload"][assignee]["comments"] += t["updates"]
+
+            if t.get("is_stale"):
+                metrics["workload"][assignee]["has_stale"] = True
+
+            for pr in t.get("prs", []):
+                if pr.get("pr_stale"):
+                    metrics["stale_items"] += 1
+                    metrics["workload"][assignee]["has_stale"] = True
+
+                if pr["state_str"] == "Merged":
+                    metrics["prs_merged"] += 1
+                    metrics["workload"][assignee]["prs_merged"] += 1
+                elif pr["state_str"] == "Open":
+                    metrics["prs_open"] += 1
+                    metrics["workload"][assignee]["prs_open"] += 1
+
+    return metrics
 
 
 def parse_comment(html_text):
@@ -115,6 +176,18 @@ def map_issue_data(issue, target_date_str):
 
     status_name = fields.get("status", {}).get("name", "")
     status_raw = status_name.lower()
+    resolution_date = fields.get("resolutiondate")
+
+    # Retroactive Status Override
+    if resolution_date:
+        res_date_str = (
+            datetime.strptime(resolution_date, "%Y-%m-%dT%H:%M:%S.%f%z")
+            .astimezone(config.VN_TZ)
+            .strftime("%Y-%m-%d")
+        )
+        if res_date_str > target_date_str:
+            status_raw = "in progress"
+            status_name = "In Progress"
 
     if status_raw in ["done", "closed"]:
         status_key = "success"
@@ -139,7 +212,7 @@ def map_issue_data(issue, target_date_str):
     created_at = fields.get("created")
     updated_at = fields.get("updated")
 
-    cycle_days = max(1, calculate_days_ago(created_at))
+    cycle_days = max(1, calculate_days_ago(created_at, target_date_str))
     is_blocker = status_key == "danger" or priority in ["Highest", "High"]
 
     target_comments, hist_comments = [], []
@@ -175,7 +248,6 @@ def map_issue_data(issue, target_date_str):
         pr_created_at = pr.get("created_at")
         is_draft = pr.get("draft", False)
 
-        # Helper to convert GitHub UTC ISO string to local VN date string
         def get_vn_date_str(iso_utc_str):
             if not iso_utc_str:
                 return None
@@ -186,11 +258,9 @@ def map_issue_data(issue, target_date_str):
 
         created_date = get_vn_date_str(pr_created_at)
 
-        # 1. If PR didn't exist on this target date yet, don't show it at all
         if created_date and created_date > target_date_str:
             continue
 
-        # 2. Retroactively fix the state if it was merged/closed AFTER the target date
         state = raw_state
         merged_at = raw_merged_at
         closed_at = raw_closed_at
@@ -207,9 +277,9 @@ def map_issue_data(issue, target_date_str):
                 state = "open"
                 closed_at = None
 
-        # The rest of your PR logic remains exactly the same, but now uses the time-aware 'state'
         pr_stale = (
-            calculate_days_ago(pr_updated_at, is_github=True) >= 3 and state == "open"
+            calculate_days_ago(pr_updated_at, target_date_str, is_github=True) >= 3
+            and state == "open"
         )
         if state == "open" and not pr_stale:
             pr_is_active = True
@@ -233,7 +303,9 @@ def map_issue_data(issue, target_date_str):
                 closed_at or pr_updated_at, "%Y-%m-%dT%H:%M:%SZ"
             ).strftime("%b %d, %H:%M")
             time_str = f"Closed {ts}"
-            cycle = max(1, calculate_days_ago(pr_created_at, is_github=True))
+            cycle = max(
+                1, calculate_days_ago(pr_updated_at, target_date_str, is_github=True)
+            )
         else:
             state_str, text_color, icon = (
                 "Draft" if is_draft else "Open",
@@ -244,13 +316,16 @@ def map_issue_data(issue, target_date_str):
                 "%b %d, %H:%M"
             )
             time_str = f"Updated {ts}"
-            cycle = max(1, calculate_days_ago(pr_created_at, is_github=True))
+            cycle = max(
+                1, calculate_days_ago(pr_updated_at, target_date_str, is_github=True)
+            )
 
         pr_review_alert = (
             state == "open"
             and not is_draft
-            and calculate_days_ago(pr_created_at, is_github=True) >= 2
+            and calculate_days_ago(pr_created_at, target_date_str, is_github=True) >= 2
         )
+
         reviewers_state = {}
         for r in pr.get("requested_reviewers", []):
             reviewers_state[r["login"]] = "waiting"
@@ -258,7 +333,6 @@ def map_issue_data(issue, target_date_str):
         for rev in pr.get("reviews", []):
             user = rev.get("user", {}).get("login")
             rev_state = rev.get("state", "").upper()
-            # A newer review overrides the waiting state
             if user and rev_state in ["APPROVED", "CHANGES_REQUESTED"]:
                 reviewers_state[user] = rev_state
 
@@ -270,6 +344,7 @@ def map_issue_data(issue, target_date_str):
                 reviewer_badges.append(f"❌ {user}")
             else:
                 reviewer_badges.append(f"🟡 {user}")
+
         additions = pr.get("additions", 0)
         deletions = pr.get("deletions", 0)
         total_lines = additions + deletions
@@ -306,9 +381,8 @@ def map_issue_data(issue, target_date_str):
             }
         )
 
-    # Issue staleness relies on Jira updates OR active PRs
     is_stale = (
-        calculate_days_ago(updated_at) >= 3
+        calculate_days_ago(updated_at, target_date_str) >= 3
         and not pr_is_active
         and len(target_comments) == 0
         and status_key in ["info", "todo", "purple"]
@@ -368,63 +442,6 @@ def map_section_data(epics, tasks, target_date_str):
             epic_data["is_stale"] = False
 
     return [e for k, e in emap.items() if not (k == "OTHER" and not e["tasks"])]
-
-
-def calculate_metrics(epics):
-    metrics = {
-        "tasks_updated": 0,
-        "comments_added": 0,
-        "prs_merged": 0,
-        "prs_open": 0,
-        "stale_items": 0,
-        "workload": {},
-    }
-    for e in epics:
-        if e.get("is_stale"):
-            metrics["stale_items"] += 1
-
-        for t in e.get("tasks", []):
-            if t["updates"] > 0:
-                metrics["tasks_updated"] += 1
-            metrics["comments_added"] += t["updates"]
-
-            if t.get("is_stale"):
-                metrics["stale_items"] += 1
-
-            assignee = t.get("assignee", "Unassigned")
-            assignee_avatar = t.get("assignee_avatar", "")
-
-            if assignee not in metrics["workload"]:
-                metrics["workload"][assignee] = {
-                    "active": 0,
-                    "prs_open": 0,
-                    "prs_merged": 0,
-                    "comments": 0,
-                    "has_stale": False,
-                    "avatar_url": assignee_avatar,
-                }
-
-            if t["status_key"] in ["info", "purple"]:
-                metrics["workload"][assignee]["active"] += 1
-
-            metrics["workload"][assignee]["comments"] += t["updates"]
-
-            if t.get("is_stale"):
-                metrics["workload"][assignee]["has_stale"] = True
-
-            for pr in t.get("prs", []):
-                if pr.get("pr_stale"):
-                    metrics["stale_items"] += 1
-                    metrics["workload"][assignee]["has_stale"] = True
-
-                if pr["state_str"] == "Merged":
-                    metrics["prs_merged"] += 1
-                    metrics["workload"][assignee]["prs_merged"] += 1
-                elif pr["state_str"] == "Open":
-                    metrics["prs_open"] += 1
-                    metrics["workload"][assignee]["prs_open"] += 1
-
-    return metrics
 
 
 def extract_blockers(data_sections):

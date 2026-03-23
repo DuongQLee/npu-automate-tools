@@ -47,26 +47,29 @@ def run_daily_snapshot(target_user_date):
         + "-" * 60
     )
 
-    actual_system_today = datetime.now(config.VN_TZ).strftime("%Y-%m-%d")
-    done_jql_today = f'(status changed to "Done" on "{today_str}" OR status changed to "Closed" on "{today_str}")'
+    def build_history_jql(date_str, statuses):
+        # A ticket belongs in the snapshot if it WAS IN the active statuses ON the date,
+        # or if it was explicitly resolved ON the date.
+        return f'{config.CORE_JQL} AND (status WAS IN ({statuses}) ON "{date_str}" OR status changed TO ("Done", "Closed") ON "{date_str}")'
 
-    # 1. Fetch Jira Data
+    # 1. Fetch Jira Data using strict historical queries for BOTH today and yesterday
     active_epics = jira_client.fetch_issues(
-        f"{config.CORE_JQL} AND issuetype = Epic AND (status IN ({config.ACTIVE_STATUSES}) OR {done_jql_today})"
+        f"{build_history_jql(today_str, config.ACTIVE_STATUSES)} AND issuetype = Epic"
     )
     active_tasks = jira_client.fetch_issues(
-        f"{config.CORE_JQL} AND issuetype != Epic AND (status IN ({config.ACTIVE_STATUSES}) OR {done_jql_today})"
-    )
-    yesterday_epics = jira_client.fetch_issues(
-        f'{config.CORE_JQL} AND issuetype = Epic AND status WAS IN ({config.ACTIVE_STATUSES}) ON "{yesterday_str}"'
-    )
-    yesterday_tasks = jira_client.fetch_issues(
-        f'{config.CORE_JQL} AND issuetype != Epic AND status WAS IN ({config.ACTIVE_STATUSES}) ON "{yesterday_str}"'
-    )
-    pending_epics = jira_client.fetch_issues(
-        f"{config.CORE_JQL} AND issuetype = Epic AND status IN ({config.PENDING_STATUSES})"
+        f"{build_history_jql(today_str, config.ACTIVE_STATUSES)} AND issuetype != Epic"
     )
 
+    yesterday_epics = jira_client.fetch_issues(
+        f"{build_history_jql(yesterday_str, config.ACTIVE_STATUSES)} AND issuetype = Epic"
+    )
+    yesterday_tasks = jira_client.fetch_issues(
+        f"{build_history_jql(yesterday_str, config.ACTIVE_STATUSES)} AND issuetype != Epic"
+    )
+
+    pending_epics = jira_client.fetch_issues(
+        f'{config.CORE_JQL} AND issuetype = Epic AND status WAS IN ({config.PENDING_STATUSES}) ON "{today_str}"'
+    )
     # 2. Map GitHub PRs
     all_issues = (
         active_epics + active_tasks + yesterday_epics + yesterday_tasks + pending_epics
