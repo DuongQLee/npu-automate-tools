@@ -28,6 +28,10 @@ def get_status_badge(status_name):
 
 
 def calculate_days_ago(date_str, reference_date_str, is_github=False):
+    """
+    Returns the exact number of days ago an event occurred.
+    If the event happened AFTER the reference date, this returns a NEGATIVE number.
+    """
     if not date_str or not reference_date_str:
         return 0
     try:
@@ -41,7 +45,7 @@ def calculate_days_ago(date_str, reference_date_str, is_github=False):
             )
         else:
             dt = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S.%f%z")
-        return max(0, (ref_dt - dt).days)
+        return (ref_dt - dt).days
     except Exception:
         return 0
 
@@ -210,18 +214,22 @@ def map_issue_data(issue, target_date_str):
     priority = fields.get("priority", {}).get("name", "")
 
     created_at = fields.get("created")
-    updated_at = fields.get("updated")
 
+    # Calculate general age. Clamp to 1 minimum for display purposes.
     cycle_days = max(1, calculate_days_ago(created_at, target_date_str))
     is_blocker = status_key == "danger" or priority in ["Highest", "High"]
 
     target_comments, hist_comments = [], []
+    has_recent_comment = False
+
     for c in jira_client.fetch_comments(key):
         dt_vn = datetime.strptime(c["created"], "%Y-%m-%dT%H:%M:%S.%f%z").astimezone(
             config.VN_TZ
         )
         c_sum, c_tags, c_body = parse_comment(c.get("renderedBody", ""))
         avatar_url = c.get("author", {}).get("avatarUrls", {}).get("48x48", "")
+
+        c_date_str = dt_vn.strftime("%Y-%m-%d")
 
         comment_obj = {
             "author": c["author"]["displayName"],
@@ -230,12 +238,18 @@ def map_issue_data(issue, target_date_str):
             "summary": c_sum,
             "tags": c_tags,
             "body": c_body,
+            "raw_date": c["created"],
         }
 
-        if dt_vn.strftime("%Y-%m-%d") == target_date_str:
+        # Filter comments relative to the target date
+        if c_date_str == target_date_str:
             target_comments.append(comment_obj)
-        elif dt_vn.strftime("%Y-%m-%d") < target_date_str:
+            has_recent_comment = True
+        elif c_date_str < target_date_str:
             hist_comments.append(comment_obj)
+            # If a historical comment was made within the last 3 days of the target date, ticket is not stale
+            if calculate_days_ago(c["created"], target_date_str) < 3:
+                has_recent_comment = True
 
     prs = []
     pr_is_active = False
@@ -258,6 +272,7 @@ def map_issue_data(issue, target_date_str):
 
         created_date = get_vn_date_str(pr_created_at)
 
+        # Ignore PRs entirely created after the target date
         if created_date and created_date > target_date_str:
             continue
 
@@ -265,6 +280,7 @@ def map_issue_data(issue, target_date_str):
         merged_at = raw_merged_at
         closed_at = raw_closed_at
 
+        # Time Travel Logic for closed/merged PRs
         if raw_state == "closed":
             merged_date = get_vn_date_str(raw_merged_at)
             closed_date = get_vn_date_str(raw_closed_at)
@@ -277,12 +293,25 @@ def map_issue_data(issue, target_date_str):
                 state = "open"
                 closed_at = None
 
-        pr_stale = (
-            calculate_days_ago(pr_updated_at, target_date_str, is_github=True) >= 3
-            and state == "open"
+        # --- TRUE PR STALENESS LOGIC ---
+        pr_age = calculate_days_ago(pr_created_at, target_date_str, is_github=True)
+        pr_last_update_ago = calculate_days_ago(
+            pr_updated_at, target_date_str, is_github=True
         )
-        if state == "open" and not pr_stale:
-            pr_is_active = True
+
+        if state == "open":
+            if pr_age < 3:
+                pr_stale = False  # Freshly created
+                pr_is_active = True
+            elif pr_last_update_ago < 3:
+                # Either recently updated (0,1,2 days ago) OR updated in the future (negative days).
+                # Since GitHub doesn't provide history easily, we give future updates the benefit of the doubt.
+                pr_stale = False
+                pr_is_active = True
+            else:
+                pr_stale = True
+        else:
+            pr_stale = False
 
         if state == "closed" and merged_at:
             state_str, text_color, icon = "Merged", "var(--pr-merged)", "icon-git-merge"
@@ -320,11 +349,7 @@ def map_issue_data(issue, target_date_str):
                 1, calculate_days_ago(pr_updated_at, target_date_str, is_github=True)
             )
 
-        pr_review_alert = (
-            state == "open"
-            and not is_draft
-            and calculate_days_ago(pr_created_at, target_date_str, is_github=True) >= 2
-        )
+        pr_review_alert = state == "open" and not is_draft and pr_age >= 2
 
         reviewers_state = {}
         for r in pr.get("requested_reviewers", []):
@@ -381,12 +406,20 @@ def map_issue_data(issue, target_date_str):
             }
         )
 
-    is_stale = (
-        calculate_days_ago(updated_at, target_date_str) >= 3
-        and not pr_is_active
-        and len(target_comments) == 0
-        and status_key in ["info", "todo", "purple"]
-    )
+    # --- TRUE TASK STALENESS LOGIC ---
+    task_age = calculate_days_ago(created_at, target_date_str)
+
+    if status_key in ["info", "todo", "purple"]:
+        # If it was created within the last 3 days, it's inherently fresh.
+        if task_age < 3:
+            is_stale = False
+        # Otherwise, check if a comment was made recently, or if a PR is active.
+        elif not pr_is_active and not has_recent_comment:
+            is_stale = True
+        else:
+            is_stale = False
+    else:
+        is_stale = False
 
     return {
         "key": key,
