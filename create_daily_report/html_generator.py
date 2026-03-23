@@ -214,6 +214,7 @@ def map_issue_data(issue, target_date_str):
     priority = fields.get("priority", {}).get("name", "")
 
     created_at = fields.get("created")
+    updated_at = fields.get("updated")
 
     # Calculate general age. Clamp to 1 minimum for display purposes.
     cycle_days = max(1, calculate_days_ago(created_at, target_date_str))
@@ -294,18 +295,25 @@ def map_issue_data(issue, target_date_str):
                 closed_at = None
 
         # --- TRUE PR STALENESS LOGIC ---
-        pr_age = calculate_days_ago(pr_created_at, target_date_str, is_github=True)
-        pr_last_update_ago = calculate_days_ago(
-            pr_updated_at, target_date_str, is_github=True
+        # Find all valid historical updates (<= target_date)
+        valid_update_dates = [pr_created_at]
+
+        if pr_updated_at and get_vn_date_str(pr_updated_at) <= target_date_str:
+            valid_update_dates.append(pr_updated_at)
+
+        for rev in pr.get("reviews", []):
+            rev_date = rev.get("submitted_at")
+            if rev_date and get_vn_date_str(rev_date) <= target_date_str:
+                valid_update_dates.append(rev_date)
+
+        # Since ISO 8601 strings sort chronologically, max() finds the newest date.
+        best_historical_update = max(valid_update_dates)
+        pr_last_valid_update_ago = calculate_days_ago(
+            best_historical_update, target_date_str, is_github=True
         )
 
         if state == "open":
-            if pr_age < 3:
-                pr_stale = False  # Freshly created
-                pr_is_active = True
-            elif pr_last_update_ago < 3:
-                # Either recently updated (0,1,2 days ago) OR updated in the future (negative days).
-                # Since GitHub doesn't provide history easily, we give future updates the benefit of the doubt.
+            if pr_last_valid_update_ago < 3:
                 pr_stale = False
                 pr_is_active = True
             else:
@@ -329,11 +337,11 @@ def map_issue_data(issue, target_date_str):
         elif state == "closed":
             state_str, text_color, icon = "Closed", "var(--pr-closed)", "icon-git-pr"
             ts = datetime.strptime(
-                closed_at or pr_updated_at, "%Y-%m-%dT%H:%M:%SZ"
+                closed_at or best_historical_update, "%Y-%m-%dT%H:%M:%SZ"
             ).strftime("%b %d, %H:%M")
             time_str = f"Closed {ts}"
             cycle = max(
-                1, calculate_days_ago(pr_updated_at, target_date_str, is_github=True)
+                1, calculate_days_ago(pr_created_at, target_date_str, is_github=True)
             )
         else:
             state_str, text_color, icon = (
@@ -341,15 +349,19 @@ def map_issue_data(issue, target_date_str):
                 "var(--text-muted)" if is_draft else "var(--pr-open)",
                 "icon-git-pr",
             )
-            ts = datetime.strptime(pr_updated_at, "%Y-%m-%dT%H:%M:%SZ").strftime(
-                "%b %d, %H:%M"
-            )
+            ts = datetime.strptime(
+                best_historical_update, "%Y-%m-%dT%H:%M:%SZ"
+            ).strftime("%b %d, %H:%M")
             time_str = f"Updated {ts}"
             cycle = max(
-                1, calculate_days_ago(pr_updated_at, target_date_str, is_github=True)
+                1, calculate_days_ago(pr_created_at, target_date_str, is_github=True)
             )
 
-        pr_review_alert = state == "open" and not is_draft and pr_age >= 2
+        pr_review_alert = (
+            state == "open"
+            and not is_draft
+            and calculate_days_ago(pr_created_at, target_date_str, is_github=True) >= 2
+        )
 
         reviewers_state = {}
         for r in pr.get("requested_reviewers", []):
@@ -413,7 +425,7 @@ def map_issue_data(issue, target_date_str):
         # If it was created within the last 3 days, it's inherently fresh.
         if task_age < 3:
             is_stale = False
-        # Otherwise, check if a comment was made recently, or if a PR is active.
+            # Otherwise, check if a comment was made recently, or if a PR is active.
         elif not pr_is_active and not has_recent_comment:
             is_stale = True
         else:
