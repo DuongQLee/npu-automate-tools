@@ -19,10 +19,24 @@ def resolve_dates(user_date):
     else:
         raise ValueError("Invalid DATE format.")
 
+    def get_prev_workday(dt):
+        if dt.weekday() == 0:  # Monday -> Friday
+            return dt - timedelta(days=3)
+        elif dt.weekday() == 6:  # Sunday -> Friday
+            return dt - timedelta(days=2)
+        return dt - timedelta(days=1)
+
+    def get_next_workday(dt):
+        if dt.weekday() == 4:  # Friday -> Monday
+            return dt + timedelta(days=3)
+        elif dt.weekday() == 5:  # Saturday -> Monday
+            return dt + timedelta(days=2)
+        return dt + timedelta(days=1)
+
     return (
         target.strftime("%Y-%m-%d"),
-        (target - timedelta(days=1)).strftime("%Y-%m-%d"),
-        (target + timedelta(days=1)).strftime("%Y-%m-%d"),
+        get_prev_workday(target).strftime("%Y-%m-%d"),
+        get_next_workday(target).strftime("%Y-%m-%d"),
     )
 
 

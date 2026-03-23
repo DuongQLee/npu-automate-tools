@@ -109,7 +109,7 @@
         .dev-stat { display: flex; align-items: center; gap: 4px; font-size: 0.85rem; color: var(--text-muted); font-weight: 500; }
         .dev-stat svg { width: 14px; height: 14px; fill: currentColor; }
         
-        .stale-icon { width: 14px; height: 14px; fill: var(--badge-text-warn); }
+        .stale-icon { width: 14px; height: 14px; fill: #FFC107; }
         .wip-badge { background: var(--badge-bg-danger); color: var(--badge-text-danger); font-size: 0.7rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em; }
 
         /* ICONS & AVATARS */
@@ -191,8 +191,10 @@
             <button id="themeToggle" onclick="toggleTheme()" class="nav-btn" style="padding: 0 12px; font-size: 1.1em;" title="Toggle Dark/Light Mode">🌙</button>
             <button onclick="goToReport('{{ yesterday_str }}')" class="nav-btn">⬅️ Yesterday</button>
         </div>
-        <div class="header-title">
-            <h1 style="margin:0; font-size: 1.5em; padding-top: 5px;">Daily Sync {{ today_str }}</h1>
+        <div class="header-title" style="position: relative; cursor: pointer; user-select: none;" onclick="toggleCalendar(event)">
+            <h1 style="margin:0; font-size: 1.5em; padding-top: 5px;" title="Click to jump to another date">Daily Sync {{ today_str }} 📅</h1>
+            <div id="dateDropdown" style="display: none; position: absolute; top: calc(100% + 5px); left: 50%; transform: translateX(-50%); background: var(--bg-surface); border: 1px solid var(--border-color); box-shadow: var(--shadow-lg); z-index: 3000; border-radius: 8px; max-height: 300px; overflow-y: auto; padding: 5px; min-width: 180px; text-align: left; font-size: 0.95em;">
+            </div>
         </div>
         <div class="nav-right">
             <div style="display: flex; gap: 10px;">
@@ -315,6 +317,45 @@
     </div>
 
     <script>
+        async function toggleCalendar(e) {
+            e.stopPropagation();
+            const dropdown = document.getElementById('dateDropdown');
+            
+            if (dropdown.style.display === 'block') {
+                dropdown.style.display = 'none';
+                return;
+            }
+            
+            dropdown.style.display = 'block';
+            dropdown.innerHTML = '<div style="padding: 8px; text-align: center; color: var(--text-muted);">Loading dates...</div>';
+            
+            try {
+                const res = await fetch('/api/available_dates');
+                const dates = await res.json();
+                if(dates.length === 0) {
+                    dropdown.innerHTML = '<div style="padding: 8px; text-align: center; color: var(--text-muted);">No reports found</div>';
+                    return;
+                }
+                dropdown.innerHTML = dates.map(d => `
+                    <div style="padding: 8px 12px; cursor: pointer; border-radius: 4px; margin-bottom: 2px; color: var(--text-main); font-weight: ${d === '{{ today_str }}' ? 'bold' : 'normal'}" 
+                         onclick="goToReport('${d}')" 
+                         onmouseover="this.style.background='var(--bg-surface-hover)'" 
+                         onmouseout="this.style.background='transparent'">
+                        ${d === '{{ today_str }}' ? '✅ ' + d : '📄 ' + d}
+                    </div>
+                `).join('');
+            } catch (err) {
+                dropdown.innerHTML = '<div style="padding: 8px; text-align: center; color: var(--badge-text-danger);">Failed to load</div>';
+            }
+        }
+
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('dateDropdown');
+            if (dropdown && dropdown.style.display === 'block' && !e.target.closest('.header-title')) {
+                dropdown.style.display = 'none';
+            }
+        });
+
         const state = { index: [], curIdx: -1, lastQ: "" };
         const generationTime = new Date("{{ generation_time_iso }}");
         let debounceTimer; 

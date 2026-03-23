@@ -20,6 +20,24 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         path = self.path.strip("/")
 
+        # --- NEW: API Endpoint for Calendar UI ---
+        if path == "api/available_dates":
+            try:
+                files = [
+                    f.replace(".json", "")
+                    for f in os.listdir(DIRECTORY)
+                    if f.endswith(".json")
+                ]
+                files.sort(reverse=True)
+                self.send_response(200)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(files).encode("utf-8"))
+            except Exception as e:
+                self.send_response(500)
+                self.end_headers()
+            return
+
         # 1. Intercept /today or root requests
         if path == "" or path == "today":
             target_date = datetime.now(config.VN_TZ).strftime("%Y-%m-%d")
