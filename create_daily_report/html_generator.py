@@ -300,7 +300,7 @@ def map_issue_data(issue, target_date_str):
                 "is_draft": is_draft,
                 "pr_stale": pr_stale,
                 "pr_review_alert": pr_review_alert,
-                "requested_reviewers": requested_reviewers,
+                "reviewer_badges": reviewer_badges,
                 "complexity_badge": complexity_badge,
                 "body": markdown.markdown(raw_body, extensions=["extra", "nl2br"]),
             }
