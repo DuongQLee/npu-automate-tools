@@ -175,34 +175,59 @@
 
     /* GANTT CHART */
     .gantt-wrapper {
-      overflow-x: auto;
+      overflow: auto;
+      max-height: 800px;
       background: var(--bg-surface);
       border: 1px solid var(--border-color);
       border-radius: 8px;
-      padding: 16px;
+      padding: 0 16px 16px 16px;
       box-shadow: var(--shadow-sm);
     }
 
     .gantt-ticket-header {
       font-weight: bold;
-      padding: 8px;
+      padding: 12px 8px;
       border-bottom: 2px solid var(--border-color);
       color: var(--text-muted);
       text-transform: uppercase;
       font-size: 0.85em;
       position: sticky;
       left: 0;
+      top: 0;
       background: var(--bg-surface);
-      z-index: 2;
+      z-index: 10;
+      box-shadow: 2px 2px 0px var(--border-color);
+      margin-left: -16px;
+      padding-left: 16px;
     }
 
     .gantt-day-header {
       font-weight: bold;
       text-align: center;
-      padding: 8px 0;
+      padding: 12px 0;
       border-bottom: 2px solid var(--border-color);
       color: var(--text-muted);
       font-size: 0.85em;
+      position: sticky;
+      top: 0;
+      background: var(--bg-surface);
+      z-index: 5;
+      transition: all 0.2s;
+    }
+
+    .gantt-day-header.clickable {
+      cursor: pointer;
+      color: var(--link-color);
+    }
+
+    .gantt-day-header.clickable:hover {
+      background: var(--bg-surface-hover);
+    }
+
+    .gantt-day-header.active-date {
+      background: var(--badge-bg-info);
+      color: var(--badge-text-info);
+      border-bottom: 2px solid var(--link-color);
     }
 
     .gantt-ticket-cell {
@@ -214,9 +239,11 @@
       position: sticky;
       left: 0;
       background: var(--bg-surface);
-      z-index: 1;
+      z-index: 4;
       cursor: pointer;
       transition: background 0.1s;
+      margin-left: -16px;
+      padding-left: 16px;
     }
 
     .gantt-ticket-cell:hover {
@@ -226,6 +253,7 @@
     .gantt-ticket-cell.expanded {
       background: var(--badge-bg-info);
       border-left: 4px solid var(--badge-text-info);
+      padding-left: 12px;
     }
 
     .gantt-track {
@@ -459,7 +487,7 @@
   </svg>
 
   <div class="header">
-    <a href="/" style="font-weight: bold;">���️ Back to Daily Reports</a>
+    <a href="/" style="font-weight: bold;">�������️ Back to Daily Reports</a>
     <h1 style="margin: 0;">Monthly Review: {{ month_str }}</h1>
     <div></div>
   </div>
@@ -759,10 +787,24 @@
       });
 
       const cols = window.dateList.length;
-      const dayLabels = window.dateList.map(d => d.slice(-2));
 
       let html = `<div style="display: grid; grid-template-columns: 350px repeat(${cols}, minmax(35px, 1fr)); gap: 0 4px; align-items: center; min-width: max-content;">`;
-      html += `<div class="gantt-ticket-header">Ticket & Summary</div>${dayLabels.map(d => `<div class="gantt-day-header">${d}</div>`).join('')}`;
+      html += `<div class="gantt-ticket-header">Ticket & Summary</div>`;
+
+      // Render Date Headers
+      window.dateList.forEach(dateStr => {
+        const dayLabel = dateStr.slice(-2);
+        const isClickable = !!window.expandedTicket;
+        const isActiveDate = isClickable && window.selectedDate === dateStr;
+
+        let headerClass = "gantt-day-header";
+        if (isClickable) headerClass += " clickable";
+        if (isActiveDate) headerClass += " active-date";
+
+        let clickAttr = isClickable ? `onclick="selectDay('${window.expandedTicket}', '${dateStr}', event)" title="View ${dateStr}"` : "";
+
+        html += `<div class="${headerClass}" ${clickAttr}>${dayLabel}</div>`;
+      });
 
       filtered.forEach(t => {
         const duration = t.endIndex - t.startIndex + 1;
@@ -830,13 +872,12 @@
         setTimeout(() => {
           const el = document.getElementById('panel-' + window.expandedTicket);
           if (el) {
-            const y = el.getBoundingClientRect().top + window.scrollY - 100;
+            const y = el.getBoundingClientRect().top + window.scrollY - 150; // Adjusted for sticky header offset
             window.scrollTo({top: y, behavior: 'smooth'});
           }
         }, 50);
       }
     }
-
     document.addEventListener('DOMContentLoaded', initDashboard);
   </script>
 </body>
