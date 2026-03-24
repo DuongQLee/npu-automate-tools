@@ -20,7 +20,6 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         path = self.path.strip("/")
 
-        # --- NEW: API Endpoint for Calendar UI ---
         if path == "api/available_dates":
             try:
                 files = [
@@ -36,6 +35,88 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 self.send_response(500)
                 self.end_headers()
+            return
+
+        if path.startswith("month/"):
+            month_prefix = path.split("/")[-1]
+            template_path = os.path.join(config.script_dir, "monthly_template.html")
+            if os.path.exists(template_path):
+                with open(template_path, "r", encoding="utf-8") as f:
+                    html_content = f.read().replace("{{ month_str }}", month_prefix)
+                self.send_response(200)
+                self.send_header("Content-type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html_content.encode("utf-8"))
+            else:
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(
+                    b"<h1>Error</h1><p>monthly_template.html not found.</p>"
+                )
+            return
+
+        if path.startswith("api/month/"):
+            month_prefix = path.split("/")[-1]
+            # Get all json files for the month, sort chronologically
+            files = [
+                f
+                for f in os.listdir(DIRECTORY)
+                if f.startswith(month_prefix) and f.endswith(".json")
+            ]
+            files.sort()
+
+            month_data = []
+            for f in files:
+                with open(os.path.join(DIRECTORY, f), "r", encoding="utf-8") as jf:
+                    try:
+                        data = json.load(jf)
+                    except:
+                        continue
+
+                    day_date = data.get("today_str")
+                    active, done = [], []
+
+                    # Grab 'Today's Activity' section (is_yesterday == False)
+                    today_section = next(
+                        (
+                            s
+                            for s in data.get("sections", [])
+                            if not s.get("is_yesterday")
+                        ),
+                        None,
+                    )
+                    if today_section:
+                        for epic in today_section.get("epics", []):
+                            if epic["key"] != "OTHER":
+                                item = {
+                                    "key": epic["key"],
+                                    "summary": epic["summary"],
+                                    "type": "Epic",
+                                }
+                                if epic.get("status_key") == "success":
+                                    done.append(item)
+                                else:
+                                    active.append(item)
+
+                            for task in epic.get("tasks", []):
+                                item = {
+                                    "key": task["key"],
+                                    "summary": task["summary"],
+                                    "type": "Task",
+                                }
+                                if task.get("status_key") == "success":
+                                    done.append(item)
+                                else:
+                                    active.append(item)
+
+                    month_data.append(
+                        {"date": day_date, "active": active, "done": done}
+                    )
+
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(month_data).encode("utf-8"))
             return
 
         # 1. Intercept /today or root requests
