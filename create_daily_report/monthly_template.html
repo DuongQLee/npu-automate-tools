@@ -233,6 +233,7 @@
       gap: 2px;
       border-bottom: 1px dashed var(--border-color);
       padding: 6px 0;
+      align-items: center;
     }
 
     .gantt-bar {
@@ -243,6 +244,8 @@
       box-shadow: var(--shadow-sm);
       transition: filter 0.2s;
       cursor: pointer;
+      min-height: 28px;
+      /* FIXED: Explicit height prevents flex children from collapsing to 0 */
     }
 
     .gantt-bar:hover {
@@ -261,6 +264,7 @@
       pointer-events: none;
       display: flex;
       align-items: center;
+      z-index: 10;
     }
 
     .day-segment {
@@ -270,7 +274,7 @@
       border-right: 1px solid rgba(0, 0, 0, 0.05);
     }
 
-    /* DETAIL PANEL & ACCORDION (Copied from daily report) */
+    /* DETAIL PANEL ACCORDION (Mirrored from Daily Report) */
     summary {
       list-style: none;
       outline: none;
@@ -286,10 +290,20 @@
     .task-block {
       border-radius: 6px;
       background: var(--bg-surface);
-      margin: 12px 0 24px 0;
+      margin: 8px 0 24px 0;
       overflow: hidden;
       border: 1px solid var(--border-color);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .task-summary {
+      padding: 12px 16px;
+      font-weight: 600;
+      font-size: 0.95em;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
     }
 
     .task-content {
@@ -340,6 +354,14 @@
       white-space: nowrap;
     }
 
+    .pr-summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      font-size: 0.95em;
+    }
+
     .pr-meta {
       display: flex;
       gap: 12px;
@@ -347,6 +369,26 @@
       font-size: 0.85em;
       font-weight: normal;
       flex-shrink: 0;
+    }
+
+    .diff-add {
+      color: #2da44e;
+      font-weight: 600;
+    }
+
+    .diff-del {
+      color: #cf222e;
+      font-weight: 600;
+    }
+
+    .meta-tags {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      font-size: 0.8em;
+      color: var(--text-muted);
+      font-weight: normal;
+      margin-left: 8px;
     }
 
     .comment-card {
@@ -382,6 +424,15 @@
       background: var(--bg-surface-muted);
       flex-shrink: 0;
     }
+
+    .tag-pill {
+      color: var(--link-color);
+      font-size: 0.8em;
+      margin-left: 6px;
+      background: var(--badge-bg-info);
+      padding: 2px 8px;
+      border-radius: 12px;
+    }
   </style>
 </head>
 
@@ -405,15 +456,10 @@
         d="M5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 5 3.25Zm2.25 3.128a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854v2.396h4.146a.25.25 0 0 1 .25.25v2.25a.25.25 0 0 1-.25.25H10v2.396a.25.25 0 0 1-.427.177L7.177 6.177a.25.25 0 0 1 0-.354Z">
       </path>
     </symbol>
-    <symbol id="icon-comment" viewBox="0 0 16 16" fill="currentColor">
-      <path
-        d="M1.75 1h12.5c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0 1 14.25 13H8.061l-2.574 2.573A1.458 1.458 0 0 1 3 14.543V13H1.75A1.75 1.75 0 0 1 0 11.25v-8.5C0 1.784.784 1 1.75 1ZM1.5 2.75v8.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.75.75 0 0 1 .53-.22h6.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25H1.75a.25.25 0 0 0-.25.25Z">
-      </path>
-    </symbol>
   </svg>
 
   <div class="header">
-    <a href="/" style="font-weight: bold;">⬅️ Back to Daily Reports</a>
+    <a href="/" style="font-weight: bold;">���️ Back to Daily Reports</a>
     <h1 style="margin: 0;">Monthly Review: {{ month_str }}</h1>
     <div></div>
   </div>
@@ -558,7 +604,7 @@
         window.expandedTicket = null;
       } else {
         window.expandedTicket = key;
-        // Default to the very first available date this ticket has data for in the month
+        // Default to the first available date this ticket has data for in the month
         const availableDates = Object.keys(window.ticketMap[key].days).sort();
         window.selectedDate = availableDates.length > 0 ? availableDates[0] : window.dateList[window.ticketMap[key].startIndex];
       }
@@ -576,14 +622,16 @@
       const dayData = ticket.days[window.selectedDate];
 
       if (!dayData) {
-        return `<div class="task-block" style="margin: 10px 0;"><div class="task-content" style="padding: 20px; text-align: center; color: var(--text-muted);">No activity recorded for this ticket on ${window.selectedDate}.</div></div>`;
+        return `<div class="task-block" style="margin: 4px 0 24px 0;"><div class="task-content" style="padding: 20px; text-align: center; color: var(--text-muted);">No activity recorded for this ticket on ${window.selectedDate}.</div></div>`;
       }
+
+      const t_bg = dayData.status_key === 'success' ? 'success' : (dayData.status_key === 'info' || dayData.status_key === 'purple' ? 'info' : (dayData.status_key === 'danger' ? 'danger' : 'todo'));
 
       // --- 1. Pull Requests HTML ---
       let prHtml = "";
       if (dayData.prs && dayData.prs.length > 0) {
         prHtml = `<details class="sub-collapse pr-section" open>
-            <summary style="padding:10px 16px; font-weight:600">Pull Requests (${dayData.prs.length})</summary>
+            <summary style="padding:10px 16px; font-weight:600; pointer-events: auto;">Pull Requests (${dayData.prs.length})</summary>
             <div class="sub-content" style="padding-top: 8px;">`;
 
         dayData.prs.forEach(pr => {
@@ -592,13 +640,13 @@
 
           prHtml += `
             <details class="pr-collapse searchable-item ${pr.is_draft ? 'draft-pr' : ''}" style="margin-bottom: 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface);">
-                <summary class="pr-summary" style="display: flex; justify-content: space-between; padding: 10px 16px; font-size: 0.95em;">
-                    <div class="ticket-title-wrapper" style="display: flex; align-items: center; gap: 8px;">
-                        <svg class="jira-icon" style="color: ${pr.text_color}; width: 16px; height: 16px; flex-shrink:0;"><use href="#${pr.icon}"></use></svg>
+                <summary class="pr-summary" style="pointer-events: auto;">
+                    <div class="ticket-title-wrapper">
+                        <svg class="jira-icon" style="color: ${pr.text_color};"><use href="#${pr.icon}"></use></svg>
                         <a href="${pr.url}" class="ticket-id" target="_blank">[${ticket.key}]</a>
                         <span class="ticket-title-text" style="font-weight: 600;">${pr.clean_title}</span>
                     </div>
-                    <div class="pr-meta" style="display: flex; gap: 12px; font-size: 0.85em; color: var(--text-muted);">
+                    <div class="pr-meta">
                         <span style="color: #2da44e; font-weight: 600;">+${pr.additions}</span>
                         <span style="color: #cf222e; font-weight: 600;">-${pr.deletions}</span>
                         <span style="font-weight: bold; color: ${pr.text_color};">${pr.state_str}</span>
@@ -617,23 +665,23 @@
       let commentHtml = "";
       if (dayData.target_comments && dayData.target_comments.length > 0) {
         commentHtml = `<details class="sub-collapse comments-section" open>
-            <summary style="padding:10px 16px; font-weight:600">Comments (${dayData.target_comments.length})</summary>
+            <summary style="padding:10px 16px; font-weight:600; pointer-events: auto;">Comments (${dayData.target_comments.length})</summary>
             <div class="sub-content" style="padding: 16px;">`;
 
         dayData.target_comments.forEach(c => {
-          let tagsHtml = (c.tags || []).map(t => `<span class='tag-pill' style="color: var(--link-color); font-size: 0.8em; margin-left: 6px; background: var(--badge-bg-info); padding: 2px 8px; border-radius: 12px;">${t}</span>`).join('');
+          let tagsHtml = (c.tags || []).map(t => `<span class='tag-pill'>${t}</span>`).join('');
           let summaryHtml = c.summary ? `
                 <details class='comment-collapse' style="margin-top: 8px;">
-                    <summary style='font-weight:600; padding:10px; background:var(--bg-surface-muted); border-radius:4px;'>${c.summary} ${tagsHtml}</summary>
+                    <summary style='font-weight:600; padding:10px; background:var(--bg-surface-muted); border-radius:4px; pointer-events: auto;'>${c.summary} ${tagsHtml}</summary>
                     <div style='padding-top:10px'>${c.body}</div>
                 </details>` : `<div style="margin-top: 8px;">${c.body}</div>`;
 
           commentHtml += `
-                <div class="comment-card" style="margin-bottom: 12px; padding: 16px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface); box-shadow: var(--shadow-sm);">
-                    <div class="comment-header" style="display: flex; align-items: center; gap: 8px; font-weight: bold; margin-bottom: 10px;">
-                        ${c.avatar_url ? `<img src="${c.avatar_url}" class="avatar" style="width:20px; height:20px; border-radius:50%; object-fit:cover;">` : '👤'}
+                <div class="comment-card">
+                    <div class="comment-header">
+                        ${c.avatar_url ? `<img src="${c.avatar_url}" class="avatar">` : '👤'}
                         <span>${c.author}</span>
-                        <span class="comment-time" style="color: var(--text-muted); font-size: 0.85em; font-weight: normal; margin-left: auto;">${c.time_str}</span>
+                        <span class="comment-time">${c.time_str}</span>
                     </div>
                     ${summaryHtml}
                 </div>`;
@@ -643,25 +691,31 @@
 
       // --- 3. Wrapper Assembly ---
       return `
-        <div class="task-block" id="panel-${ticket.key}" style="border-radius: 6px; background: var(--bg-surface); margin: 8px 0 24px 0; border: 1px solid var(--border-color); box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px dashed var(--border-color); background: var(--bg-surface-muted);">
-                <h3 style="margin: 0; font-size: 1.1em; display: flex; align-items: center; gap: 8px;">
-                    <a href="https://{{ domain }}/browse/${ticket.key}" target="_blank" style="color: var(--link-color); font-family: monospace;">[${ticket.key}]</a> 
-                    <span style="font-size: 0.85em; color: var(--text-muted); font-weight: normal;">Activity on <strong>${window.selectedDate}</strong></span> 
-                </h3>
-                <button onclick="toggleTicket('${ticket.key}')" style="cursor: pointer; background: transparent; border: none; font-size: 1.2em; color: var(--text-muted);" title="Close Panel">✖</button>
-            </div>
-            <div class="task-content" style="padding: 0;">
-                <details class="sub-collapse issue-desc" open>
-                    <summary style="padding:10px 16px; font-weight:600">Issue Description</summary>
-                    <div class="sub-content" style="padding: 16px; font-size: 0.95em; background: var(--bg-surface-hover);">
-                        ${dayData.desc_html || '<em style="color: var(--text-muted);">No description</em>'}
+        <div class="task-block" id="panel-${ticket.key}" style="border: 2px solid var(--link-color); margin-top: 8px; margin-bottom: 24px;">
+            <details open>
+                <summary class="task-summary" style="background: var(--badge-bg-${t_bg}); pointer-events: none;">
+                    <div class="ticket-title-wrapper">
+                        <svg class="jira-icon"><use href="#icon-task"></use></svg>
+                        <a href="https://{{ domain }}/browse/${ticket.key}" class="ticket-id" target="_blank" style="pointer-events: auto;">[${ticket.key}]</a> 
+                        <span class="ticket-title-text">${ticket.summary}</span>
                     </div>
-                </details>
-                ${prHtml}
-                ${commentHtml}
-                ${(!prHtml && !commentHtml) ? '<div style="padding: 20px; text-align: center; color: var(--text-muted); border-top: 1px dashed var(--border-color);">No PRs or Comments recorded on this specific date.</div>' : ''}
-            </div>
+                    <div class="meta-tags">
+                        <span style="font-weight: bold; color: var(--text-main); font-size: 1.1em;">Daily Snapshot: ${window.selectedDate}</span>
+                        <button onclick="toggleTicket('${ticket.key}')" style="cursor: pointer; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 12px; margin-left: 12px; pointer-events: auto; font-weight: bold; color: var(--text-muted);">Close</button>
+                    </div>
+                </summary>
+                <div class="task-content">
+                    <details class="sub-collapse issue-desc" open>
+                        <summary style="padding:10px 16px; font-weight:600; pointer-events: auto;">Issue Description</summary>
+                        <div class="sub-content">
+                            ${dayData.desc_html || '<em style="color: var(--text-muted);">No description</em>'}
+                        </div>
+                    </details>
+                    ${prHtml}
+                    ${commentHtml}
+                    ${(!prHtml && !commentHtml) ? '<div style="padding: 20px; text-align: center; color: var(--text-muted); border-top: 1px dashed var(--border-color);">No PRs or Comments recorded on this specific date.</div>' : ''}
+                </div>
+            </details>
         </div>
       `;
     }
@@ -737,13 +791,20 @@
           const isSelected = window.expandedTicket === t.key && window.selectedDate === currentDayStr;
 
           let segBg = "transparent";
-          if (isSelected) segBg = "rgba(0,0,0,0.15)";
-          else if (!isActiveDay) segBg = "rgba(255,255,255,0.4)";
+          let borderStyle = "border-right: 1px solid rgba(0,0,0,0.05);";
 
-          segmentsHtml += `<div class="day-segment" style="background: ${segBg};" 
+          if (isSelected) {
+            segBg = "rgba(0,0,0,0.2)";
+            borderStyle = "border: 2px solid var(--text-main); border-radius: 4px;";
+          }
+          else if (!isActiveDay) {
+            segBg = "rgba(255,255,255,0.4)";
+          }
+
+          segmentsHtml += `<div class="day-segment" style="background: ${segBg}; ${borderStyle} position: relative; z-index: 5;" 
                 onmouseover="this.style.background='rgba(0,0,0,0.3)'" 
                 onmouseout="this.style.background='${segBg}'" 
-                onclick="selectDay('${t.key}', '${currentDayStr}', event)"></div>`;
+                onclick="selectDay('${t.key}', '${currentDayStr}', event)" title="${currentDayStr}"></div>`;
         }
 
         html += `
