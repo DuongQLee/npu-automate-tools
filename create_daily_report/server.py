@@ -4,7 +4,7 @@ import os
 import re
 import socketserver
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 
 import config
 import html_generator
@@ -68,18 +68,26 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
             files.sort()
 
             month_data = []
+
+            # DORA / SPACE Metrics Accumulators
             total_prs_merged = 0
-            total_cycle_days = 0
-            closed_ticket_count = 0
+            total_pr_size = 0
+            unique_authors = set()
+
+            total_pickup_hours = 0
+            pickup_count = 0
+            total_review_hours = 0
+            review_count = 0
+            total_pr_cycle_days = 0
+            merged_pr_count = 0
+
             seen_done_tickets = set()
-            seen_closed_prs = set()  # Track closed PRs to prevent double counting
+            seen_closed_prs = set()
 
             trend_dates = []
             trend_prs_merged = []
             trend_prs_opened = []
-            trend_tickets_closed = []
-            trend_ticket_cycle_time = []  # NEW: Avg ticket lifespan per day
-            trend_pr_cycle_time = []  # NEW: Avg PR lifespan per day
+            trend_pr_cycle_time = []
 
             for f in files:
                 with open(os.path.join(DIRECTORY, f), "r", encoding="utf-8") as jf:
@@ -93,13 +101,9 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
 
                     day_prs_merged = today_metrics.get("prs_merged", 0)
                     day_prs_opened = today_metrics.get("prs_open", 0)
-                    total_prs_merged += day_prs_merged
 
                     active, done = [], []
-                    day_tickets_closed = 0
-                    day_cycle_sum = 0
-
-                    day_prs_closed = 0
+                    day_prs_closed_tracked = 0
                     day_pr_cycle_sum = 0
 
                     today_section = next(
@@ -110,6 +114,7 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
                         ),
                         None,
                     )
+
                     if today_section:
                         for epic in today_section.get("epics", []):
                             if epic["key"] != "OTHER":
@@ -120,12 +125,6 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
                                 }
                                 if epic.get("status_key") == "success":
                                     done.append(item)
-                                    if epic["key"] not in seen_done_tickets:
-                                        seen_done_tickets.add(epic["key"])
-                                        day_tickets_closed += 1
-                                        total_cycle_days += epic.get("cycle_days", 1)
-                                        closed_ticket_count += 1
-                                        day_cycle_sum += epic.get("cycle_days", 1)
                                 else:
                                     active.append(item)
 
@@ -137,64 +136,117 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
                                 }
                                 if task.get("status_key") == "success":
                                     done.append(item)
-                                    if task["key"] not in seen_done_tickets:
-                                        seen_done_tickets.add(task["key"])
-                                        day_tickets_closed += 1
-                                        total_cycle_days += task.get("cycle_days", 1)
-                                        closed_ticket_count += 1
-                                        day_cycle_sum += task.get("cycle_days", 1)
                                 else:
                                     active.append(item)
 
-                                # Process PRs nested inside this task
+                                # Process PRs for Advanced Metrics
                                 for pr in task.get("prs", []):
-                                    if pr.get("state_str") in ["Merged", "Closed"]:
+                                    if pr.get("state_str") == "Merged":
                                         pr_url = pr.get("url")
                                         if pr_url and pr_url not in seen_closed_prs:
                                             seen_closed_prs.add(pr_url)
-                                            day_prs_closed += 1
-                                            day_pr_cycle_sum += pr.get("cycle_days", 1)
+                                            total_prs_merged += 1
+                                            day_prs_closed_tracked += 1
+
+                                            total_pr_size += pr.get(
+                                                "additions", 0
+                                            ) + pr.get("deletions", 0)
+                                            author = pr.get("author")
+                                            if author and author != "Unknown":
+                                                unique_authors.add(author)
+
+                                            c_raw = pr.get("raw_created_at")
+                                            m_raw = pr.get("raw_merged_at")
+                                            r_raw = pr.get("raw_first_review_at")
+
+                                            def to_dt(s):
+                                                if not s:
+                                                    return None
+                                                return datetime.strptime(
+                                                    s, "%Y-%m-%dT%H:%M:%SZ"
+                                                ).replace(tzinfo=timezone.utc)
+
+                                            c_dt, m_dt, r_dt = (
+                                                to_dt(c_raw),
+                                                to_dt(m_raw),
+                                                to_dt(r_raw),
+                                            )
+
+                                            # Cycle Time (Creation to Merge)
+                                            if c_dt and m_dt:
+                                                cycle_d = (
+                                                    m_dt - c_dt
+                                                ).total_seconds() / 86400.0
+                                                total_pr_cycle_days += cycle_d
+                                                day_pr_cycle_sum += cycle_d
+                                                merged_pr_count += 1
+
+                                            # Pickup Time (Creation to First Review)
+                                            if c_dt and r_dt:
+                                                pickup_h = (
+                                                    r_dt - c_dt
+                                                ).total_seconds() / 3600.0
+                                                if pickup_h >= 0:
+                                                    total_pickup_hours += pickup_h
+                                                    pickup_count += 1
+
+                                            # Review Time (First Review to Merge)
+                                            if r_dt and m_dt:
+                                                review_h = (
+                                                    m_dt - r_dt
+                                                ).total_seconds() / 3600.0
+                                                if review_h >= 0:
+                                                    total_review_hours += review_h
+                                                    review_count += 1
 
                     month_data.append(
                         {"date": day_date, "active": active, "done": done}
                     )
-                    trend_dates.append(
-                        day_date[-2:]
-                    )  # Extract just DD for cleaner charts
+                    trend_dates.append(day_date[-2:])
                     trend_prs_merged.append(day_prs_merged)
                     trend_prs_opened.append(day_prs_opened)
-                    trend_tickets_closed.append(day_tickets_closed)
 
-                    # Append Daily Averages. Pass None if 0 so the chart draws a continuous bridge line.
-                    trend_ticket_cycle_time.append(
-                        round(day_cycle_sum / day_tickets_closed, 1)
-                        if day_tickets_closed > 0
-                        else None
-                    )
+                    # Bridge graph gaps with None if 0 PRs were closed
                     trend_pr_cycle_time.append(
-                        round(day_pr_cycle_sum / day_prs_closed, 1)
-                        if day_prs_closed > 0
+                        round(day_pr_cycle_sum / day_prs_closed_tracked, 1)
+                        if day_prs_closed_tracked > 0
                         else None
                     )
 
-            avg_cycle_time = (
-                round(total_cycle_days / closed_ticket_count, 1)
-                if closed_ticket_count > 0
-                else 0
-            )
+            # --- CALCULATE ELITE MONTHLY AVERAGES ---
+            active_devs = len(unique_authors) if len(unique_authors) > 0 else 1
+            working_weeks = max(1.0, len(files) / 5.0)  # Assume 5 working days per week
 
             response_data = {
                 "rollup": {
-                    "total_prs_merged": total_prs_merged,
-                    "avg_cycle_time": avg_cycle_time,
-                    "total_tickets_closed": closed_ticket_count,
+                    "merge_frequency": round(
+                        total_prs_merged / active_devs / working_weeks, 1
+                    ),
+                    "pr_size": (
+                        round(total_pr_size / total_prs_merged)
+                        if total_prs_merged > 0
+                        else 0
+                    ),
+                    "cycle_time": (
+                        round(total_pr_cycle_days / merged_pr_count, 1)
+                        if merged_pr_count > 0
+                        else 0
+                    ),
+                    "pickup_time": (
+                        round(total_pickup_hours / pickup_count, 1)
+                        if pickup_count > 0
+                        else 0
+                    ),
+                    "review_time": (
+                        round(total_review_hours / review_count, 1)
+                        if review_count > 0
+                        else 0
+                    ),
                 },
                 "trends": {
                     "dates": trend_dates,
                     "prs_merged": trend_prs_merged,
                     "prs_opened": trend_prs_opened,
-                    "tickets_closed": trend_tickets_closed,
-                    "ticket_cycle_time": trend_ticket_cycle_time,
                     "pr_cycle_time": trend_pr_cycle_time,
                 },
                 "days": month_data,

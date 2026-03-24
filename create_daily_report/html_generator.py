@@ -295,23 +295,24 @@ def map_issue_data(issue, target_date_str):
                 closed_at = None
 
         # --- TRUE PR STALENESS LOGIC ---
-        # Find all valid historical updates (<= target_date)
         valid_update_dates = [pr_created_at]
 
         if pr_updated_at and get_vn_date_str(pr_updated_at) <= target_date_str:
             valid_update_dates.append(pr_updated_at)
 
+        # Track the very first review for "Pickup Time" metric
+        first_review_at = None
         for rev in pr.get("reviews", []):
             rev_date = rev.get("submitted_at")
             if rev_date and get_vn_date_str(rev_date) <= target_date_str:
                 valid_update_dates.append(rev_date)
+                if not first_review_at or rev_date < first_review_at:
+                    first_review_at = rev_date
 
-        # Since ISO 8601 strings sort chronologically, max() finds the newest date.
         best_historical_update = max(valid_update_dates)
         pr_last_valid_update_ago = calculate_days_ago(
             best_historical_update, target_date_str, is_github=True
         )
-
         if state == "open":
             if pr_last_valid_update_ago < 3:
                 pr_stale = False
@@ -415,6 +416,11 @@ def map_issue_data(issue, target_date_str):
                 "reviewer_badges": reviewer_badges,
                 "complexity_badge": complexity_badge,
                 "body": markdown.markdown(raw_body, extensions=["extra", "nl2br"]),
+                "raw_created_at": pr_created_at,
+                "raw_merged_at": (
+                    raw_merged_at if state == "closed" and raw_merged_at else None
+                ),
+                "raw_first_review_at": first_review_at,
             }
         )
 

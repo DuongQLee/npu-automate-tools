@@ -66,8 +66,8 @@
 
     .stat-cards {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
     }
 
     .stat-card {
@@ -80,7 +80,7 @@
     }
 
     .stat-title {
-      font-size: 0.85em;
+      font-size: 0.75em;
       font-weight: bold;
       text-transform: uppercase;
       color: var(--text-muted);
@@ -88,15 +88,22 @@
     }
 
     .stat-val {
-      font-size: 2.5em;
+      font-size: 2.2em;
       font-weight: bold;
       color: var(--link-color);
       line-height: 1;
     }
 
+    .stat-sub {
+      font-size: 0.7em;
+      color: var(--text-muted);
+      margin-top: 4px;
+      display: block;
+    }
+
     .charts-row {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
       gap: 20px;
     }
 
@@ -192,16 +199,29 @@
   <div class="dashboard-grid">
     <div class="stat-cards">
       <div class="stat-card">
-        <div class="stat-title">Total PRs Merged</div>
-        <div class="stat-val" id="val-prs-merged">--</div>
+        <div class="stat-title">Merge Frequency</div>
+        <div class="stat-val" id="val-merge-freq">--</div>
+        <span class="stat-sub">PRs / Dev / Week</span>
       </div>
       <div class="stat-card">
-        <div class="stat-title">Avg Ticket Cycle (Days)</div>
+        <div class="stat-title">Avg PR Size</div>
+        <div class="stat-val" id="val-pr-size">--</div>
+        <span class="stat-sub">Lines Changed</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-title">Cycle Time</div>
         <div class="stat-val" id="val-cycle-time">--</div>
+        <span class="stat-sub">Days</span>
       </div>
       <div class="stat-card">
-        <div class="stat-title">Total Tickets Closed</div>
-        <div class="stat-val" id="val-tickets-closed">--</div>
+        <div class="stat-title">PR Pickup Time</div>
+        <div class="stat-val" id="val-pickup-time">--</div>
+        <span class="stat-sub">Hours</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-title">PR Review Time</div>
+        <div class="stat-val" id="val-review-time">--</div>
+        <span class="stat-sub">Hours</span>
       </div>
     </div>
 
@@ -211,9 +231,6 @@
       </div>
       <div class="chart-container">
         <canvas id="cycleChart"></canvas>
-      </div>
-      <div class="chart-container">
-        <canvas id="ticketChart"></canvas>
       </div>
     </div>
   </div>
@@ -230,9 +247,11 @@
         const data = await res.json();
 
         // 1. Populate Stat Cards
-        document.getElementById('val-prs-merged').innerText = data.rollup.total_prs_merged;
-        document.getElementById('val-cycle-time').innerText = data.rollup.avg_cycle_time;
-        document.getElementById('val-tickets-closed').innerText = data.rollup.total_tickets_closed;
+        document.getElementById('val-merge-freq').innerText = data.rollup.merge_frequency;
+        document.getElementById('val-pr-size').innerText = data.rollup.pr_size;
+        document.getElementById('val-cycle-time').innerText = data.rollup.cycle_time;
+        document.getElementById('val-pickup-time').innerText = data.rollup.pickup_time;
+        document.getElementById('val-review-time').innerText = data.rollup.review_time;
 
         // 2. Render Charts
         Chart.defaults.color = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
@@ -255,20 +274,10 @@
           data: {
             labels: data.trends.dates,
             datasets: [
-              {label: 'Avg Ticket Cycle (Days)', data: data.trends.ticket_cycle_time, borderColor: '#bf2600', backgroundColor: '#bf2600', fill: false, tension: 0.3, spanGaps: true},
-              {label: 'Avg PR Cycle (Days)', data: data.trends.pr_cycle_time, borderColor: '#0969da', backgroundColor: '#0969da', borderDash: [5, 5], fill: false, tension: 0.3, spanGaps: true}
+              {label: 'Avg PR Cycle (Days)', data: data.trends.pr_cycle_time, borderColor: '#0969da', backgroundColor: 'rgba(9, 105, 218, 0.1)', fill: true, tension: 0.3, spanGaps: true}
             ]
           },
-          options: {responsive: true, maintainAspectRatio: false, plugins: {title: {display: true, text: 'Process Resolution Time Trend'}}, scales: {x: {grid: {color: gridColor}}, y: {grid: {color: gridColor}, beginAtZero: true}}}
-        });
-
-        new Chart(document.getElementById('ticketChart'), {
-          type: 'bar',
-          data: {
-            labels: data.trends.dates,
-            datasets: [{label: 'Tickets Closed', data: data.trends.tickets_closed, backgroundColor: '#0969da', borderRadius: 4}]
-          },
-          options: {responsive: true, maintainAspectRatio: false, plugins: {title: {display: true, text: 'Ticket Completion Trend'}}, scales: {x: {grid: {display: false}}, y: {grid: {color: gridColor}, beginAtZero: true, ticks: {stepSize: 1}}}}
+          options: {responsive: true, maintainAspectRatio: false, plugins: {title: {display: true, text: 'PR Cycle Time Trend (Days)'}}, scales: {x: {grid: {color: gridColor}}, y: {grid: {color: gridColor}, beginAtZero: true}}}
         });
 
         // 3. Render Timeline
