@@ -57,7 +57,6 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
 
         if path.startswith("api/month/"):
             month_prefix = path.split("/")[-1]
-            # Get all json files for the month, sort chronologically
             files = [
                 f
                 for f in os.listdir(DIRECTORY)
@@ -66,6 +65,16 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
             files.sort()
 
             month_data = []
+            total_prs_merged = 0
+            total_cycle_days = 0
+            closed_ticket_count = 0
+            seen_done_tickets = set()
+
+            trend_dates = []
+            trend_prs_merged = []
+            trend_prs_opened = []
+            trend_tickets_closed = []
+
             for f in files:
                 with open(os.path.join(DIRECTORY, f), "r", encoding="utf-8") as jf:
                     try:
@@ -74,9 +83,15 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
                         continue
 
                     day_date = data.get("today_str")
-                    active, done = [], []
+                    today_metrics = data.get("today_metrics", {})
 
-                    # Grab 'Today's Activity' section (is_yesterday == False)
+                    day_prs_merged = today_metrics.get("prs_merged", 0)
+                    day_prs_opened = today_metrics.get("prs_open", 0)
+                    total_prs_merged += day_prs_merged
+
+                    active, done = [], []
+                    day_tickets_closed = 0
+
                     today_section = next(
                         (
                             s
@@ -95,6 +110,11 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
                                 }
                                 if epic.get("status_key") == "success":
                                     done.append(item)
+                                    if epic["key"] not in seen_done_tickets:
+                                        seen_done_tickets.add(epic["key"])
+                                        day_tickets_closed += 1
+                                        total_cycle_days += epic.get("cycle_days", 1)
+                                        closed_ticket_count += 1
                                 else:
                                     active.append(item)
 
@@ -106,17 +126,49 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
                                 }
                                 if task.get("status_key") == "success":
                                     done.append(item)
+                                    if task["key"] not in seen_done_tickets:
+                                        seen_done_tickets.add(task["key"])
+                                        day_tickets_closed += 1
+                                        total_cycle_days += task.get("cycle_days", 1)
+                                        closed_ticket_count += 1
                                 else:
                                     active.append(item)
 
                     month_data.append(
                         {"date": day_date, "active": active, "done": done}
                     )
+                    trend_dates.append(
+                        day_date[-2:]
+                    )  # Just keep the 'DD' for the chart x-axis
+                    trend_prs_merged.append(day_prs_merged)
+                    trend_prs_opened.append(day_prs_opened)
+                    trend_tickets_closed.append(day_tickets_closed)
+
+            avg_cycle_time = (
+                round(total_cycle_days / closed_ticket_count, 1)
+                if closed_ticket_count > 0
+                else 0
+            )
+
+            response_data = {
+                "rollup": {
+                    "total_prs_merged": total_prs_merged,
+                    "avg_cycle_time": avg_cycle_time,
+                    "total_tickets_closed": closed_ticket_count,
+                },
+                "trends": {
+                    "dates": trend_dates,
+                    "prs_merged": trend_prs_merged,
+                    "prs_opened": trend_prs_opened,
+                    "tickets_closed": trend_tickets_closed,
+                },
+                "days": month_data,
+            }
 
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()
-            self.wfile.write(json.dumps(month_data).encode("utf-8"))
+            self.wfile.write(json.dumps(response_data).encode("utf-8"))
             return
 
         # 1. Intercept /today or root requests
