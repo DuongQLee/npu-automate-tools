@@ -20,6 +20,7 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         path = self.path.strip("/")
 
+        # --- API: AVAILABLE DATES ---
         if path == "api/available_dates":
             try:
                 files = [
@@ -32,11 +33,12 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
                 self.wfile.write(json.dumps(files).encode("utf-8"))
-            except Exception as e:
+            except Exception:
                 self.send_response(500)
                 self.end_headers()
             return
 
+        # --- VIEW: MONTHLY TIMELINE HTML ---
         if path.startswith("month/"):
             month_prefix = path.split("/")[-1]
             template_path = os.path.join(config.script_dir, "monthly_template.html")
@@ -55,9 +57,7 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
                 )
             return
 
-        # Replace your existing `if path.startswith("api/month/"):` block with this updated logic:
-
-        # --- NEW: API Endpoint for Monthly Data ---
+        # --- API: MONTHLY TIMELINE DATA ---
         if path.startswith("api/month/"):
             month_prefix = path.split("/")[-1]
             files = [
@@ -69,17 +69,18 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
 
             month_data = []
 
-            # DORA / SPACE Metrics Accumulators
+            # Master Aggregators
             total_prs_merged = 0
             total_pr_size = 0
             unique_authors = set()
-
             total_pickup_hours = 0
             pickup_count = 0
             total_review_hours = 0
             review_count = 0
             total_pr_cycle_days = 0
             merged_pr_count = 0
+            total_cycle_days = 0
+            closed_ticket_count = 0
 
             seen_done_tickets = set()
             seen_closed_prs = set()
@@ -93,7 +94,7 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
                 with open(os.path.join(DIRECTORY, f), "r", encoding="utf-8") as jf:
                     try:
                         data = json.load(jf)
-                    except:
+                    except Exception:
                         continue
 
                     day_date = data.get("today_str")
@@ -105,6 +106,8 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
                     active, done = [], []
                     day_prs_closed_tracked = 0
                     day_pr_cycle_sum = 0
+                    day_tickets_closed = 0
+                    day_cycle_sum = 0
 
                     today_section = next(
                         (
@@ -122,9 +125,19 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
                                     "key": epic["key"],
                                     "summary": epic["summary"],
                                     "type": "Epic",
+                                    "status_key": epic.get("status_key"),
+                                    "desc_html": epic.get("desc_html", ""),
+                                    "target_comments": epic.get("target_comments", []),
+                                    "prs": epic.get("prs", []),
                                 }
                                 if epic.get("status_key") == "success":
                                     done.append(item)
+                                    if epic["key"] not in seen_done_tickets:
+                                        seen_done_tickets.add(epic["key"])
+                                        day_tickets_closed += 1
+                                        total_cycle_days += epic.get("cycle_days", 1)
+                                        closed_ticket_count += 1
+                                        day_cycle_sum += epic.get("cycle_days", 1)
                                 else:
                                     active.append(item)
 
@@ -133,13 +146,22 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
                                     "key": task["key"],
                                     "summary": task["summary"],
                                     "type": "Task",
+                                    "status_key": task.get("status_key"),
+                                    "desc_html": task.get("desc_html", ""),
+                                    "target_comments": task.get("target_comments", []),
+                                    "prs": task.get("prs", []),
                                 }
                                 if task.get("status_key") == "success":
                                     done.append(item)
+                                    if task["key"] not in seen_done_tickets:
+                                        seen_done_tickets.add(task["key"])
+                                        day_tickets_closed += 1
+                                        total_cycle_days += task.get("cycle_days", 1)
+                                        closed_ticket_count += 1
+                                        day_cycle_sum += task.get("cycle_days", 1)
                                 else:
                                     active.append(item)
 
-                                # Process PRs for Advanced Metrics
                                 for pr in task.get("prs", []):
                                     if pr.get("state_str") == "Merged":
                                         pr_url = pr.get("url")
@@ -147,10 +169,10 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
                                             seen_closed_prs.add(pr_url)
                                             total_prs_merged += 1
                                             day_prs_closed_tracked += 1
-
                                             total_pr_size += pr.get(
                                                 "additions", 0
                                             ) + pr.get("deletions", 0)
+
                                             author = pr.get("author")
                                             if author and author != "Unknown":
                                                 unique_authors.add(author)
@@ -172,7 +194,6 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
                                                 to_dt(r_raw),
                                             )
 
-                                            # Cycle Time (Creation to Merge)
                                             if c_dt and m_dt:
                                                 cycle_d = (
                                                     m_dt - c_dt
@@ -181,7 +202,6 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
                                                 day_pr_cycle_sum += cycle_d
                                                 merged_pr_count += 1
 
-                                            # Pickup Time (Creation to First Review)
                                             if c_dt and r_dt:
                                                 pickup_h = (
                                                     r_dt - c_dt
@@ -190,7 +210,6 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
                                                     total_pickup_hours += pickup_h
                                                     pickup_count += 1
 
-                                            # Review Time (First Review to Merge)
                                             if r_dt and m_dt:
                                                 review_h = (
                                                     m_dt - r_dt
@@ -202,20 +221,19 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
                     month_data.append(
                         {"date": day_date, "active": active, "done": done}
                     )
-                    trend_dates.append(day_date[-2:])
+                    if day_date:
+                        trend_dates.append(day_date[-2:])
                     trend_prs_merged.append(day_prs_merged)
                     trend_prs_opened.append(day_prs_opened)
-
-                    # Bridge graph gaps with None if 0 PRs were closed
                     trend_pr_cycle_time.append(
                         round(day_pr_cycle_sum / day_prs_closed_tracked, 1)
                         if day_prs_closed_tracked > 0
                         else None
                     )
 
-            # --- CALCULATE ELITE MONTHLY AVERAGES ---
+            # --- CALCULATIONS: ELITE MONTHLY AVERAGES ---
             active_devs = len(unique_authors) if len(unique_authors) > 0 else 1
-            working_weeks = max(1.0, len(files) / 5.0)  # Assume 5 working days per week
+            working_weeks = max(1.0, len(files) / 5.0)
 
             response_data = {
                 "rollup": {
@@ -258,29 +276,24 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(response_data).encode("utf-8"))
             return
 
-        # 1. Intercept /today or root requests
+        # --- VIEW: DAILY HTML PAGE ---
         if path == "" or path == "today":
             target_date = datetime.now(config.VN_TZ).strftime("%Y-%m-%d")
         else:
-            # 2. Extract date for clean URLs (e.g., localhost:8000/2026-03-20)
             match = re.search(r"(\d{4}-\d{2}-\d{2})", path)
             if match:
                 target_date = match.group(1)
             else:
-                # Let standard handler serve it (for static assets)
                 return super().do_GET()
 
-        # Look for the simplified JSON filename
         json_filename = f"{target_date}.json"
         json_path = os.path.join(DIRECTORY, json_filename)
 
         if os.path.exists(json_path):
-            # 3. Read the stored API data and generate HTML dynamically
             with open(json_path, "r", encoding="utf-8") as f:
                 context = json.load(f)
 
             html_output = html_generator.render_html(context)
-
             self.send_response(200)
             self.send_header("Content-type", "text/html; charset=utf-8")
             self.end_headers()
@@ -293,6 +306,7 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(error_html.encode("utf-8"))
 
     def do_POST(self):
+        # --- API: LIVE REFRESH ---
         if self.path == "/api/refresh":
             content_length = int(self.headers["Content-Length"])
             post_data = self.rfile.read(content_length)

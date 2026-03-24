@@ -9,6 +9,8 @@
     :root {
       --bg-body: #f4f5f7;
       --bg-surface: #ffffff;
+      --bg-surface-hover: #fafbfc;
+      --bg-surface-muted: #f6f8fa;
       --text-main: #172b4d;
       --text-muted: #5e6c84;
       --border-color: #dfe1e6;
@@ -17,6 +19,13 @@
       --badge-text-success: #066637;
       --badge-bg-info: #deebff;
       --badge-text-info: #0052cc;
+      --badge-bg-warn: #fffae6;
+      --badge-text-warn: #ff8b00;
+      --badge-bg-danger: #ffebe6;
+      --badge-text-danger: #bf2600;
+      --pr-open: #2da44e;
+      --pr-merged: #8250df;
+      --pr-closed: #cf222e;
       --shadow-sm: 0 1px 2px rgba(9, 30, 66, 0.05);
     }
 
@@ -24,6 +33,8 @@
       :root {
         --bg-body: #0d1117;
         --bg-surface: #161b22;
+        --bg-surface-hover: #21262d;
+        --bg-surface-muted: #010409;
         --text-main: #c9d1d9;
         --text-muted: #8b949e;
         --border-color: #30363d;
@@ -32,6 +43,10 @@
         --badge-text-success: #3fb950;
         --badge-bg-info: rgba(56, 139, 253, 0.15);
         --badge-text-info: #58a6ff;
+        --badge-bg-warn: rgba(210, 153, 34, 0.15);
+        --badge-text-warn: #d29922;
+        --badge-bg-danger: rgba(248, 81, 73, 0.15);
+        --badge-text-danger: #ff7b72;
         --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
       }
     }
@@ -78,7 +93,7 @@
       border-radius: 8px;
       padding: 20px;
       text-align: center;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+      box-shadow: var(--shadow-sm);
     }
 
     .stat-title {
@@ -114,19 +129,58 @@
       border: 1px solid var(--border-color);
       border-radius: 8px;
       padding: 16px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+      box-shadow: var(--shadow-sm);
       position: relative;
       height: 300px;
     }
 
-    /* GANTT CHART STYLES */
+    /* GANTT CONTROLS */
+    .controls-bar {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 12px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .filter-group {
+      display: flex;
+      gap: 16px;
+      font-size: 0.9em;
+      font-weight: bold;
+      color: var(--text-main);
+    }
+
+    .filter-group label {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .sort-group select {
+      padding: 6px 12px;
+      border-radius: 4px;
+      border: 1px solid var(--border-color);
+      background: var(--bg-body);
+      color: var(--text-main);
+      outline: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    /* GANTT CHART */
     .gantt-wrapper {
       overflow-x: auto;
       background: var(--bg-surface);
       border: 1px solid var(--border-color);
       border-radius: 8px;
       padding: 16px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+      box-shadow: var(--shadow-sm);
     }
 
     .gantt-ticket-header {
@@ -161,6 +215,17 @@
       left: 0;
       background: var(--bg-surface);
       z-index: 1;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+
+    .gantt-ticket-cell:hover {
+      background: var(--bg-surface-hover);
+    }
+
+    .gantt-ticket-cell.expanded {
+      background: var(--badge-bg-info);
+      border-left: 4px solid var(--badge-text-info);
     }
 
     .gantt-track {
@@ -171,26 +236,181 @@
     }
 
     .gantt-bar {
+      position: relative;
       border-radius: 4px;
-      padding: 4px 8px;
-      font-size: 0.75em;
-      color: var(--text-main);
-      font-weight: bold;
+      display: flex;
       overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
       box-shadow: var(--shadow-sm);
-      cursor: pointer;
       transition: filter 0.2s;
+      cursor: pointer;
     }
 
     .gantt-bar:hover {
       filter: brightness(0.9);
     }
+
+    .gantt-bar-label {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      padding: 4px 8px;
+      font-size: 0.75em;
+      color: var(--text-main);
+      font-weight: bold;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+    }
+
+    .day-segment {
+      flex: 1;
+      height: 100%;
+      transition: background 0.1s;
+      border-right: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    /* DETAIL PANEL & ACCORDION (Copied from daily report) */
+    summary {
+      list-style: none;
+      outline: none;
+      cursor: pointer;
+      position: relative;
+      user-select: none;
+    }
+
+    summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .task-block {
+      border-radius: 6px;
+      background: var(--bg-surface);
+      margin: 12px 0 24px 0;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .task-content {
+      padding: 0;
+      background: var(--bg-surface);
+    }
+
+    .sub-collapse {
+      border-top: 1px dashed var(--border-color);
+    }
+
+    .sub-collapse:first-child {
+      border-top: none;
+    }
+
+    .sub-content {
+      padding: 16px;
+      font-size: 0.95em;
+      background: var(--bg-surface-hover);
+    }
+
+    .ticket-title-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-grow: 1;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .jira-icon {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    .ticket-id {
+      font-family: monospace;
+      opacity: 0.8;
+      margin-right: 2px;
+      flex-shrink: 0;
+    }
+
+    .ticket-title-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pr-meta {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      font-size: 0.85em;
+      font-weight: normal;
+      flex-shrink: 0;
+    }
+
+    .comment-card {
+      margin-bottom: 12px;
+      padding: 16px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: var(--bg-surface);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .comment-header {
+      margin-bottom: 10px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .comment-time {
+      color: var(--text-muted);
+      font-size: 0.85em;
+      font-weight: normal;
+      margin-left: auto;
+    }
+
+    .avatar {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1px solid var(--border-color);
+      background: var(--bg-surface-muted);
+      flex-shrink: 0;
+    }
   </style>
 </head>
 
 <body>
+  <svg style="display:none;">
+    <symbol id="icon-epic" viewBox="0 0 16 16" fill="none">
+      <path d="M8.5 1L2 9h5l-1 6 7-8H8l1.5-6z" fill="#904EE2" stroke="#904EE2" stroke-width="1"
+        stroke-linejoin="round" />
+    </symbol>
+    <symbol id="icon-task" viewBox="0 0 16 16" fill="none">
+      <rect x="1" y="1" width="14" height="14" rx="3" fill="#4C9AFF" />
+      <path d="M4.5 8L7 10.5L11.5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+    </symbol>
+    <symbol id="icon-git-pr" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm13.25 5.5a2.25 2.25 0 1 1-3-2.122V5.25A2.25 2.25 0 0 0 9.5 3h-1.25a.75.75 0 0 1 0-1.5h1.25A3.75 3.75 0 0 1 13.25 5.25v1.378a2.251 2.251 0 0 1 1.5 2.122ZM1.5 12a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0ZM12-8.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0ZM3 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm10.5 8.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z">
+      </path>
+    </symbol>
+    <symbol id="icon-git-merge" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        d="M5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 5 3.25Zm2.25 3.128a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854v2.396h4.146a.25.25 0 0 1 .25.25v2.25a.25.25 0 0 1-.25.25H10v2.396a.25.25 0 0 1-.427.177L7.177 6.177a.25.25 0 0 1 0-.354Z">
+      </path>
+    </symbol>
+    <symbol id="icon-comment" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        d="M1.75 1h12.5c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0 1 14.25 13H8.061l-2.574 2.573A1.458 1.458 0 0 1 3 14.543V13H1.75A1.75 1.75 0 0 1 0 11.25v-8.5C0 1.784.784 1 1.75 1ZM1.5 2.75v8.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.75.75 0 0 1 .53-.22h6.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25H1.75a.25.25 0 0 0-.25.25Z">
+      </path>
+    </symbol>
+  </svg>
 
   <div class="header">
     <a href="/" style="font-weight: bold;">⬅️ Back to Daily Reports</a>
@@ -239,34 +459,54 @@
 
   <h2 style="border-bottom: 2px solid var(--border-color); padding-bottom: 10px; margin-top: 40px;">Workload Gantt Chart
   </h2>
+
+  <div class="controls-bar">
+    <div class="filter-group">
+      <label><input type="checkbox" id="f-done" checked onchange="renderGantt()"> ✅ Done/Closed</label>
+      <label><input type="checkbox" id="f-ip" checked onchange="renderGantt()"> ⏳ In Progress</label>
+      <label><input type="checkbox" id="f-todo" checked onchange="renderGantt()"> 📋 To Do / On Hold</label>
+    </div>
+    <div class="sort-group" style="margin-left: auto;">
+      <select id="s-sort" onchange="renderGantt()">
+        <option value="status-asc">Sort: Status (Active &rarr; Done)</option>
+        <option value="status-desc">Sort: Status (Done &rarr; Active)</option>
+        <option value="type">Sort: Type (Epic &rarr; Task)</option>
+      </select>
+    </div>
+  </div>
+
   <div id="timeline" class="gantt-wrapper">
     <div style="color: var(--text-muted);">Loading timeline data...</div>
   </div>
 
   <script>
-    async function loadTimeline() {
+    window.monthData = null;
+    window.ticketMap = {};
+    window.dateList = [];
+    window.expandedTicket = null;
+    window.selectedDate = null;
+
+    async function initDashboard() {
       try {
         const res = await fetch('/api/month/{{ month_str }}');
-        const data = await res.json();
+        window.monthData = await res.json();
 
-        // 1. Populate Stat Cards
-        document.getElementById('val-merge-freq').innerText = data.rollup.merge_frequency;
-        document.getElementById('val-pr-size').innerText = data.rollup.pr_size;
-        document.getElementById('val-cycle-time').innerText = data.rollup.cycle_time;
-        document.getElementById('val-pickup-time').innerText = data.rollup.pickup_time;
-        document.getElementById('val-review-time').innerText = data.rollup.review_time;
+        document.getElementById('val-merge-freq').innerText = window.monthData.rollup.merge_frequency;
+        document.getElementById('val-pr-size').innerText = window.monthData.rollup.pr_size;
+        document.getElementById('val-cycle-time').innerText = window.monthData.rollup.cycle_time;
+        document.getElementById('val-pickup-time').innerText = window.monthData.rollup.pickup_time;
+        document.getElementById('val-review-time').innerText = window.monthData.rollup.review_time;
 
-        // 2. Render Charts
         Chart.defaults.color = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
         const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim();
 
         new Chart(document.getElementById('prChart'), {
           type: 'line',
           data: {
-            labels: data.trends.dates,
+            labels: window.monthData.trends.dates,
             datasets: [
-              {label: 'PRs Merged', data: data.trends.prs_merged, borderColor: '#8250df', backgroundColor: 'rgba(130, 80, 223, 0.1)', fill: true, tension: 0.3},
-              {label: 'PRs Opened', data: data.trends.prs_opened, borderColor: '#2da44e', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.3}
+              {label: 'PRs Merged', data: window.monthData.trends.prs_merged, borderColor: '#8250df', backgroundColor: 'rgba(130, 80, 223, 0.1)', fill: true, tension: 0.3},
+              {label: 'PRs Opened', data: window.monthData.trends.prs_opened, borderColor: '#2da44e', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.3}
             ]
           },
           options: {responsive: true, maintainAspectRatio: false, plugins: {title: {display: true, text: 'Pull Request Volume Trend'}}, scales: {x: {grid: {color: gridColor}}, y: {grid: {color: gridColor}, beginAtZero: true, ticks: {stepSize: 1}}}}
@@ -275,88 +515,16 @@
         new Chart(document.getElementById('cycleChart'), {
           type: 'line',
           data: {
-            labels: data.trends.dates,
+            labels: window.monthData.trends.dates,
             datasets: [
-              {label: 'Avg PR Cycle (Days)', data: data.trends.pr_cycle_time, borderColor: '#0969da', backgroundColor: 'rgba(9, 105, 218, 0.1)', fill: true, tension: 0.3, spanGaps: true}
+              {label: 'Avg PR Cycle (Days)', data: window.monthData.trends.pr_cycle_time, borderColor: '#0969da', backgroundColor: 'rgba(9, 105, 218, 0.1)', fill: true, tension: 0.3, spanGaps: true}
             ]
           },
           options: {responsive: true, maintainAspectRatio: false, plugins: {title: {display: true, text: 'PR Cycle Time Trend (Days)'}}, scales: {x: {grid: {color: gridColor}}, y: {grid: {color: gridColor}, beginAtZero: true}}}
         });
 
-        // 3. Render Gantt Chart
-        const container = document.getElementById('timeline');
-        if (data.days.length === 0) {
-          container.innerHTML = '<div style="color: var(--text-muted);">No reports found for this month.</div>';
-          return;
-        }
-
-        // Compile exact lifespan of each ticket based on the daily snapshots
-        const tickets = {};
-        const dateList = data.days.map(d => d.date);
-        const dayLabels = dateList.map(d => d.slice(-2));
-
-        data.days.forEach((day, dayIndex) => {
-          const processTicket = (t, status) => {
-            if (!tickets[t.key]) {
-              tickets[t.key] = {
-                key: t.key,
-                summary: t.summary,
-                type: t.type,
-                startIndex: dayIndex,
-                endIndex: dayIndex,
-                status: status
-              };
-            } else {
-              tickets[t.key].endIndex = dayIndex;
-              // Once a ticket is marked done, lock its status to done
-              if (status === 'done') tickets[t.key].status = 'done';
-            }
-          };
-          day.active.forEach(t => processTicket(t, 'active'));
-          day.done.forEach(t => processTicket(t, 'done'));
-        });
-
-        // Sort: Epics first, then Tasks, then alphabetically by Key
-        const ticketArray = Object.values(tickets).sort((a, b) => {
-          if (a.type !== b.type) return a.type === 'Epic' ? -1 : 1;
-          return a.key.localeCompare(b.key);
-        });
-
-        const cols = dateList.length;
-
-        let html = `
-                    <div style="display: grid; grid-template-columns: 350px repeat(${cols}, minmax(35px, 1fr)); gap: 0 4px; align-items: center; min-width: max-content;">
-                        <div class="gantt-ticket-header">Ticket & Summary</div>
-                        ${dayLabels.map(d => `<div class="gantt-day-header">${d}</div>`).join('')}
-                `;
-
-        ticketArray.forEach(t => {
-          const duration = t.endIndex - t.startIndex + 1;
-          const startGridCol = t.startIndex + 1;
-
-          const bgColor = t.status === 'done' ? 'var(--badge-bg-success)' : 'var(--badge-bg-info)';
-          const borderColor = t.status === 'done' ? 'var(--badge-text-success)' : 'var(--badge-text-info)';
-          const statusText = t.status === 'done' ? 'Done' : 'Active';
-          const icon = t.type === 'Epic' ? '🟣' : '📘';
-
-          html += `
-                        <div class="gantt-ticket-cell" title="[${t.key}] ${t.summary}">
-                            <a href="/${dateList[t.endIndex]}" target="_blank" style="font-weight: bold; font-family: monospace; color: var(--link-color);">[${t.key}]</a> 
-                            <span style="font-size: 0.9em; opacity: 0.8; margin-left: 4px;">${icon} ${t.summary}</span>
-                        </div>
-                        
-                        <div class="gantt-track" style="grid-column: 2 / span ${cols}; grid-template-columns: repeat(${cols}, 1fr);">
-                            <div class="gantt-bar" style="grid-column: ${startGridCol} / span ${duration}; background: ${bgColor}; border-left: 4px solid ${borderColor};" 
-                                 title="Started: ${dateList[t.startIndex]}\nEnded/Last Seen: ${dateList[t.endIndex]}\nStatus: ${statusText}"
-                                 onclick="window.open('/${dateList[t.endIndex]}', '_blank')">
-                                ${statusText} (${duration}d)
-                            </div>
-                        </div>
-                    `;
-        });
-
-        html += `</div>`;
-        container.innerHTML = html;
+        processTicketData();
+        renderGantt();
 
       } catch (err) {
         document.getElementById('timeline').innerHTML = '<div style="color: red;">Failed to load timeline data.</div>';
@@ -364,7 +532,251 @@
       }
     }
 
-    document.addEventListener('DOMContentLoaded', loadTimeline);
+    function processTicketData() {
+      window.dateList = window.monthData.days.map(d => d.date);
+
+      window.monthData.days.forEach((day, dayIndex) => {
+        const process = (t) => {
+          if (!window.ticketMap[t.key]) {
+            window.ticketMap[t.key] = {
+              key: t.key, summary: t.summary, type: t.type,
+              startIndex: dayIndex, endIndex: dayIndex,
+              days: {}, overallStatus: t.status_key
+            };
+          }
+          window.ticketMap[t.key].endIndex = dayIndex;
+          window.ticketMap[t.key].days[day.date] = t;
+          window.ticketMap[t.key].overallStatus = t.status_key;
+        };
+        day.active.forEach(t => process(t));
+        day.done.forEach(t => process(t));
+      });
+    }
+
+    function toggleTicket(key) {
+      if (window.expandedTicket === key) {
+        window.expandedTicket = null;
+      } else {
+        window.expandedTicket = key;
+        // Default to the very first available date this ticket has data for in the month
+        const availableDates = Object.keys(window.ticketMap[key].days).sort();
+        window.selectedDate = availableDates.length > 0 ? availableDates[0] : window.dateList[window.ticketMap[key].startIndex];
+      }
+      renderGantt();
+    }
+
+    function selectDay(key, dateStr, e) {
+      e.stopPropagation();
+      window.expandedTicket = key;
+      window.selectedDate = dateStr;
+      renderGantt();
+    }
+
+    function renderDetailPanel(ticket) {
+      const dayData = ticket.days[window.selectedDate];
+
+      if (!dayData) {
+        return `<div class="task-block" style="margin: 10px 0;"><div class="task-content" style="padding: 20px; text-align: center; color: var(--text-muted);">No activity recorded for this ticket on ${window.selectedDate}.</div></div>`;
+      }
+
+      // --- 1. Pull Requests HTML ---
+      let prHtml = "";
+      if (dayData.prs && dayData.prs.length > 0) {
+        prHtml = `<details class="sub-collapse pr-section" open>
+            <summary style="padding:10px 16px; font-weight:600">Pull Requests (${dayData.prs.length})</summary>
+            <div class="sub-content" style="padding-top: 8px;">`;
+
+        dayData.prs.forEach(pr => {
+          let reviewerHtml = pr.reviewer_badges && pr.reviewer_badges.length > 0 ?
+            `<div style="font-size: 0.85em; color: var(--text-muted); padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--border-color);">👀 Reviewers: ${pr.reviewer_badges.join(', ')}</div>` : '';
+
+          prHtml += `
+            <details class="pr-collapse searchable-item ${pr.is_draft ? 'draft-pr' : ''}" style="margin-bottom: 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface);">
+                <summary class="pr-summary" style="display: flex; justify-content: space-between; padding: 10px 16px; font-size: 0.95em;">
+                    <div class="ticket-title-wrapper" style="display: flex; align-items: center; gap: 8px;">
+                        <svg class="jira-icon" style="color: ${pr.text_color}; width: 16px; height: 16px; flex-shrink:0;"><use href="#${pr.icon}"></use></svg>
+                        <a href="${pr.url}" class="ticket-id" target="_blank">[${ticket.key}]</a>
+                        <span class="ticket-title-text" style="font-weight: 600;">${pr.clean_title}</span>
+                    </div>
+                    <div class="pr-meta" style="display: flex; gap: 12px; font-size: 0.85em; color: var(--text-muted);">
+                        <span style="color: #2da44e; font-weight: 600;">+${pr.additions}</span>
+                        <span style="color: #cf222e; font-weight: 600;">-${pr.deletions}</span>
+                        <span style="font-weight: bold; color: ${pr.text_color};">${pr.state_str}</span>
+                    </div>
+                </summary>
+                <div style="padding:10px 16px; border-top:1px dashed var(--border-color); background: var(--bg-surface-hover);">
+                    <div>${pr.body}</div>
+                    ${reviewerHtml}
+                </div>
+            </details>`;
+        });
+        prHtml += `</div></details>`;
+      }
+
+      // --- 2. Comments HTML ---
+      let commentHtml = "";
+      if (dayData.target_comments && dayData.target_comments.length > 0) {
+        commentHtml = `<details class="sub-collapse comments-section" open>
+            <summary style="padding:10px 16px; font-weight:600">Comments (${dayData.target_comments.length})</summary>
+            <div class="sub-content" style="padding: 16px;">`;
+
+        dayData.target_comments.forEach(c => {
+          let tagsHtml = (c.tags || []).map(t => `<span class='tag-pill' style="color: var(--link-color); font-size: 0.8em; margin-left: 6px; background: var(--badge-bg-info); padding: 2px 8px; border-radius: 12px;">${t}</span>`).join('');
+          let summaryHtml = c.summary ? `
+                <details class='comment-collapse' style="margin-top: 8px;">
+                    <summary style='font-weight:600; padding:10px; background:var(--bg-surface-muted); border-radius:4px;'>${c.summary} ${tagsHtml}</summary>
+                    <div style='padding-top:10px'>${c.body}</div>
+                </details>` : `<div style="margin-top: 8px;">${c.body}</div>`;
+
+          commentHtml += `
+                <div class="comment-card" style="margin-bottom: 12px; padding: 16px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface); box-shadow: var(--shadow-sm);">
+                    <div class="comment-header" style="display: flex; align-items: center; gap: 8px; font-weight: bold; margin-bottom: 10px;">
+                        ${c.avatar_url ? `<img src="${c.avatar_url}" class="avatar" style="width:20px; height:20px; border-radius:50%; object-fit:cover;">` : '👤'}
+                        <span>${c.author}</span>
+                        <span class="comment-time" style="color: var(--text-muted); font-size: 0.85em; font-weight: normal; margin-left: auto;">${c.time_str}</span>
+                    </div>
+                    ${summaryHtml}
+                </div>`;
+        });
+        commentHtml += `</div></details>`;
+      }
+
+      // --- 3. Wrapper Assembly ---
+      return `
+        <div class="task-block" id="panel-${ticket.key}" style="border-radius: 6px; background: var(--bg-surface); margin: 8px 0 24px 0; border: 1px solid var(--border-color); box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px dashed var(--border-color); background: var(--bg-surface-muted);">
+                <h3 style="margin: 0; font-size: 1.1em; display: flex; align-items: center; gap: 8px;">
+                    <a href="https://{{ domain }}/browse/${ticket.key}" target="_blank" style="color: var(--link-color); font-family: monospace;">[${ticket.key}]</a> 
+                    <span style="font-size: 0.85em; color: var(--text-muted); font-weight: normal;">Activity on <strong>${window.selectedDate}</strong></span> 
+                </h3>
+                <button onclick="toggleTicket('${ticket.key}')" style="cursor: pointer; background: transparent; border: none; font-size: 1.2em; color: var(--text-muted);" title="Close Panel">✖</button>
+            </div>
+            <div class="task-content" style="padding: 0;">
+                <details class="sub-collapse issue-desc" open>
+                    <summary style="padding:10px 16px; font-weight:600">Issue Description</summary>
+                    <div class="sub-content" style="padding: 16px; font-size: 0.95em; background: var(--bg-surface-hover);">
+                        ${dayData.desc_html || '<em style="color: var(--text-muted);">No description</em>'}
+                    </div>
+                </details>
+                ${prHtml}
+                ${commentHtml}
+                ${(!prHtml && !commentHtml) ? '<div style="padding: 20px; text-align: center; color: var(--text-muted); border-top: 1px dashed var(--border-color);">No PRs or Comments recorded on this specific date.</div>' : ''}
+            </div>
+        </div>
+      `;
+    }
+
+    function renderGantt() {
+      const container = document.getElementById('timeline');
+      const fDone = document.getElementById('f-done').checked;
+      const fIp = document.getElementById('f-ip').checked;
+      const fTodo = document.getElementById('f-todo').checked;
+      const sortVal = document.getElementById('s-sort').value;
+
+      // Filter Logic
+      let filtered = Object.values(window.ticketMap).filter(t => {
+        const s = t.overallStatus;
+        const isDone = (s === 'success');
+        const isIp = (s === 'info' || s === 'purple');
+        const isTodo = (s === 'todo' || s === 'warn' || s === 'danger');
+
+        if (isDone && !fDone) return false;
+        if (isIp && !fIp) return false;
+        if (isTodo && !fTodo) return false;
+        return true;
+      });
+
+      // Sort Logic
+      filtered.sort((a, b) => {
+        if (sortVal === 'type') {
+          if (a.type !== b.type) return a.type === 'Epic' ? -1 : 1;
+          return a.key.localeCompare(b.key);
+        } else if (sortVal === 'status-asc') {
+          const wa = a.overallStatus === 'success' ? 1 : (a.overallStatus === 'info' || a.overallStatus === 'purple' ? 0 : -1);
+          const wb = b.overallStatus === 'success' ? 1 : (b.overallStatus === 'info' || b.overallStatus === 'purple' ? 0 : -1);
+          if (wa !== wb) return wa - wb;
+          return a.key.localeCompare(b.key);
+        } else if (sortVal === 'status-desc') {
+          const wa = a.overallStatus === 'success' ? -1 : (a.overallStatus === 'info' || a.overallStatus === 'purple' ? 0 : 1);
+          const wb = b.overallStatus === 'success' ? -1 : (b.overallStatus === 'info' || b.overallStatus === 'purple' ? 0 : 1);
+          if (wa !== wb) return wa - wb;
+          return a.key.localeCompare(b.key);
+        }
+      });
+
+      const cols = window.dateList.length;
+      const dayLabels = window.dateList.map(d => d.slice(-2));
+
+      let html = `<div style="display: grid; grid-template-columns: 350px repeat(${cols}, minmax(35px, 1fr)); gap: 0 4px; align-items: center; min-width: max-content;">`;
+      html += `<div class="gantt-ticket-header">Ticket & Summary</div>${dayLabels.map(d => `<div class="gantt-day-header">${d}</div>`).join('')}`;
+
+      filtered.forEach(t => {
+        const duration = t.endIndex - t.startIndex + 1;
+        const startCol = t.startIndex + 1;
+        const isDone = t.overallStatus === 'success';
+
+        const bgColor = isDone ? 'var(--badge-bg-success)' : 'var(--badge-bg-info)';
+        const borderColor = isDone ? 'var(--badge-text-success)' : 'var(--badge-text-info)';
+        const statusText = isDone ? 'Done' : 'Active';
+        const icon = t.type === 'Epic' ? '🟣' : '📘';
+        const expandedClass = window.expandedTicket === t.key ? 'expanded' : '';
+
+        // Sticky Ticket Label
+        html += `
+            <div class="gantt-ticket-cell ${expandedClass}" title="[${t.key}] ${t.summary}" onclick="toggleTicket('${t.key}')">
+                <span style="font-weight: bold; font-family: monospace; color: var(--link-color);">[${t.key}]</span> 
+                <span style="font-size: 0.9em; opacity: 0.8; margin-left: 4px;">${icon} ${t.summary}</span>
+            </div>
+        `;
+
+        // Interactive Track Segments
+        let segmentsHtml = "";
+        for (let i = 0; i < duration; i++) {
+          const currentDayStr = window.dateList[t.startIndex + i];
+          const isActiveDay = !!t.days[currentDayStr];
+          const isSelected = window.expandedTicket === t.key && window.selectedDate === currentDayStr;
+
+          let segBg = "transparent";
+          if (isSelected) segBg = "rgba(0,0,0,0.15)";
+          else if (!isActiveDay) segBg = "rgba(255,255,255,0.4)";
+
+          segmentsHtml += `<div class="day-segment" style="background: ${segBg};" 
+                onmouseover="this.style.background='rgba(0,0,0,0.3)'" 
+                onmouseout="this.style.background='${segBg}'" 
+                onclick="selectDay('${t.key}', '${currentDayStr}', event)"></div>`;
+        }
+
+        html += `
+            <div class="gantt-track" style="grid-column: 2 / span ${cols}; grid-template-columns: repeat(${cols}, 1fr);">
+                <div class="gantt-bar" style="grid-column: ${startCol} / span ${duration}; background: ${bgColor}; border-left: 4px solid ${borderColor};" onclick="toggleTicket('${t.key}')">
+                    <div class="gantt-bar-label">${statusText}</div>
+                    ${segmentsHtml}
+                </div>
+            </div>
+        `;
+
+        // Full-width Detail Panel Injection
+        if (window.expandedTicket === t.key) {
+          html += `<div style="grid-column: 1 / -1;">${renderDetailPanel(t)}</div>`;
+        }
+      });
+
+      html += `</div>`;
+      container.innerHTML = html;
+
+      // Scroll to panel if we just expanded it
+      if (window.expandedTicket) {
+        setTimeout(() => {
+          const el = document.getElementById('panel-' + window.expandedTicket);
+          if (el) {
+            const y = el.getBoundingClientRect().top + window.scrollY - 100;
+            window.scrollTo({top: y, behavior: 'smooth'});
+          }
+        }, 50);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', initDashboard);
   </script>
 </body>
 
