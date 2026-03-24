@@ -17,6 +17,7 @@
       --badge-text-success: #066637;
       --badge-bg-info: #deebff;
       --badge-text-info: #0052cc;
+      --shadow-sm: 0 1px 2px rgba(9, 30, 66, 0.05);
     }
 
     @media (prefers-color-scheme: dark) {
@@ -31,6 +32,7 @@
         --badge-text-success: #3fb950;
         --badge-bg-info: rgba(56, 139, 253, 0.15);
         --badge-text-info: #58a6ff;
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
       }
     }
 
@@ -117,73 +119,73 @@
       height: 300px;
     }
 
-    /* TIMELINE STYLES */
-    .timeline-container {
-      display: flex;
-      gap: 20px;
+    /* GANTT CHART STYLES */
+    .gantt-wrapper {
       overflow-x: auto;
-      padding-bottom: 20px;
-      align-items: flex-start;
-    }
-
-    .day-column {
-      min-width: 350px;
-      max-width: 350px;
       background: var(--bg-surface);
       border: 1px solid var(--border-color);
       border-radius: 8px;
       padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
     }
 
-    .day-header {
-      font-size: 1.2em;
+    .gantt-ticket-header {
+      font-weight: bold;
+      padding: 8px;
+      border-bottom: 2px solid var(--border-color);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-size: 0.85em;
+      position: sticky;
+      left: 0;
+      background: var(--bg-surface);
+      z-index: 2;
+    }
+
+    .gantt-day-header {
       font-weight: bold;
       text-align: center;
-      margin-bottom: 10px;
-      border-bottom: 1px solid var(--border-color);
-      padding-bottom: 10px;
-    }
-
-    .ticket-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .ticket-header {
-      font-size: 0.9em;
-      font-weight: bold;
-      text-transform: uppercase;
+      padding: 8px 0;
+      border-bottom: 2px solid var(--border-color);
       color: var(--text-muted);
-    }
-
-    .ticket-card {
-      background: var(--bg-body);
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      padding: 10px;
       font-size: 0.85em;
     }
 
-    .ticket-card.active {
-      border-left: 4px solid var(--badge-text-info);
-    }
-
-    .ticket-card.done {
-      border-left: 4px solid var(--badge-text-success);
-    }
-
-    .ticket-title {
-      font-weight: 600;
-      margin-top: 4px;
+    .gantt-ticket-cell {
+      padding: 8px;
+      border-bottom: 1px dashed var(--border-color);
       overflow: hidden;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      position: sticky;
+      left: 0;
+      background: var(--bg-surface);
+      z-index: 1;
+    }
+
+    .gantt-track {
+      display: grid;
+      gap: 2px;
+      border-bottom: 1px dashed var(--border-color);
+      padding: 6px 0;
+    }
+
+    .gantt-bar {
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 0.75em;
+      color: var(--text-main);
+      font-weight: bold;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+      transition: filter 0.2s;
+    }
+
+    .gantt-bar:hover {
+      filter: brightness(0.9);
     }
   </style>
 </head>
@@ -235,8 +237,9 @@
     </div>
   </div>
 
-  <h2 style="border-bottom: 2px solid var(--border-color); padding-bottom: 10px; margin-top: 40px;">Daily Timeline</h2>
-  <div id="timeline" class="timeline-container">
+  <h2 style="border-bottom: 2px solid var(--border-color); padding-bottom: 10px; margin-top: 40px;">Workload Gantt Chart
+  </h2>
+  <div id="timeline" class="gantt-wrapper">
     <div style="color: var(--text-muted);">Loading timeline data...</div>
   </div>
 
@@ -280,40 +283,80 @@
           options: {responsive: true, maintainAspectRatio: false, plugins: {title: {display: true, text: 'PR Cycle Time Trend (Days)'}}, scales: {x: {grid: {color: gridColor}}, y: {grid: {color: gridColor}, beginAtZero: true}}}
         });
 
-        // 3. Render Timeline
+        // 3. Render Gantt Chart
         const container = document.getElementById('timeline');
         if (data.days.length === 0) {
           container.innerHTML = '<div style="color: var(--text-muted);">No reports found for this month.</div>';
           return;
         }
 
-        container.innerHTML = data.days.map(day => `
-                    <div class="day-column">
-                        <div class="day-header">${day.date}</div>
-                        
-                        <div class="ticket-list">
-                            <div class="ticket-header" style="color: var(--badge-text-info)">Active Work (${day.active.length})</div>
-                            ${day.active.map(t => `
-                                <div class="ticket-card active">
-                                    <a href="/${day.date}" target="_blank">[${t.key}]</a> <span style="opacity: 0.7; font-size: 0.9em">(${t.type})</span>
-                                    <div class="ticket-title">${t.summary}</div>
-                                </div>
-                            `).join('')}
-                            ${day.active.length === 0 ? '<em style="color: var(--text-muted); font-size: 0.85em;">No active items</em>' : ''}
-                        </div>
+        // Compile exact lifespan of each ticket based on the daily snapshots
+        const tickets = {};
+        const dateList = data.days.map(d => d.date);
+        const dayLabels = dateList.map(d => d.slice(-2));
 
-                        <div class="ticket-list">
-                            <div class="ticket-header" style="color: var(--badge-text-success)">Done / Closed (${day.done.length})</div>
-                            ${day.done.map(t => `
-                                <div class="ticket-card done">
-                                    <a href="/${day.date}" target="_blank">[${t.key}]</a> <span style="opacity: 0.7; font-size: 0.9em">(${t.type})</span>
-                                    <div class="ticket-title">${t.summary}</div>
-                                </div>
-                            `).join('')}
-                            ${day.done.length === 0 ? '<em style="color: var(--text-muted); font-size: 0.85em;">No items closed</em>' : ''}
+        data.days.forEach((day, dayIndex) => {
+          const processTicket = (t, status) => {
+            if (!tickets[t.key]) {
+              tickets[t.key] = {
+                key: t.key,
+                summary: t.summary,
+                type: t.type,
+                startIndex: dayIndex,
+                endIndex: dayIndex,
+                status: status
+              };
+            } else {
+              tickets[t.key].endIndex = dayIndex;
+              // Once a ticket is marked done, lock its status to done
+              if (status === 'done') tickets[t.key].status = 'done';
+            }
+          };
+          day.active.forEach(t => processTicket(t, 'active'));
+          day.done.forEach(t => processTicket(t, 'done'));
+        });
+
+        // Sort: Epics first, then Tasks, then alphabetically by Key
+        const ticketArray = Object.values(tickets).sort((a, b) => {
+          if (a.type !== b.type) return a.type === 'Epic' ? -1 : 1;
+          return a.key.localeCompare(b.key);
+        });
+
+        const cols = dateList.length;
+
+        let html = `
+                    <div style="display: grid; grid-template-columns: 350px repeat(${cols}, minmax(35px, 1fr)); gap: 0 4px; align-items: center; min-width: max-content;">
+                        <div class="gantt-ticket-header">Ticket & Summary</div>
+                        ${dayLabels.map(d => `<div class="gantt-day-header">${d}</div>`).join('')}
+                `;
+
+        ticketArray.forEach(t => {
+          const duration = t.endIndex - t.startIndex + 1;
+          const startGridCol = t.startIndex + 1;
+
+          const bgColor = t.status === 'done' ? 'var(--badge-bg-success)' : 'var(--badge-bg-info)';
+          const borderColor = t.status === 'done' ? 'var(--badge-text-success)' : 'var(--badge-text-info)';
+          const statusText = t.status === 'done' ? 'Done' : 'Active';
+          const icon = t.type === 'Epic' ? '🟣' : '📘';
+
+          html += `
+                        <div class="gantt-ticket-cell" title="[${t.key}] ${t.summary}">
+                            <a href="/${dateList[t.endIndex]}" target="_blank" style="font-weight: bold; font-family: monospace; color: var(--link-color);">[${t.key}]</a> 
+                            <span style="font-size: 0.9em; opacity: 0.8; margin-left: 4px;">${icon} ${t.summary}</span>
                         </div>
-                    </div>
-                `).join('');
+                        
+                        <div class="gantt-track" style="grid-column: 2 / span ${cols}; grid-template-columns: repeat(${cols}, 1fr);">
+                            <div class="gantt-bar" style="grid-column: ${startGridCol} / span ${duration}; background: ${bgColor}; border-left: 4px solid ${borderColor};" 
+                                 title="Started: ${dateList[t.startIndex]}\nEnded/Last Seen: ${dateList[t.endIndex]}\nStatus: ${statusText}"
+                                 onclick="window.open('/${dateList[t.endIndex]}', '_blank')">
+                                ${statusText} (${duration}d)
+                            </div>
+                        </div>
+                    `;
+        });
+
+        html += `</div>`;
+        container.innerHTML = html;
 
       } catch (err) {
         document.getElementById('timeline').innerHTML = '<div style="color: red;">Failed to load timeline data.</div>';
