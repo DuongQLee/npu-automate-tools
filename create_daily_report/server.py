@@ -55,6 +55,9 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
                 )
             return
 
+        # Replace your existing `if path.startswith("api/month/"):` block with this updated logic:
+
+        # --- NEW: API Endpoint for Monthly Data ---
         if path.startswith("api/month/"):
             month_prefix = path.split("/")[-1]
             files = [
@@ -69,11 +72,14 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
             total_cycle_days = 0
             closed_ticket_count = 0
             seen_done_tickets = set()
+            seen_closed_prs = set()  # Track closed PRs to prevent double counting
 
             trend_dates = []
             trend_prs_merged = []
             trend_prs_opened = []
             trend_tickets_closed = []
+            trend_ticket_cycle_time = []  # NEW: Avg ticket lifespan per day
+            trend_pr_cycle_time = []  # NEW: Avg PR lifespan per day
 
             for f in files:
                 with open(os.path.join(DIRECTORY, f), "r", encoding="utf-8") as jf:
@@ -91,6 +97,10 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
 
                     active, done = [], []
                     day_tickets_closed = 0
+                    day_cycle_sum = 0
+
+                    day_prs_closed = 0
+                    day_pr_cycle_sum = 0
 
                     today_section = next(
                         (
@@ -115,6 +125,7 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
                                         day_tickets_closed += 1
                                         total_cycle_days += epic.get("cycle_days", 1)
                                         closed_ticket_count += 1
+                                        day_cycle_sum += epic.get("cycle_days", 1)
                                 else:
                                     active.append(item)
 
@@ -131,18 +142,40 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
                                         day_tickets_closed += 1
                                         total_cycle_days += task.get("cycle_days", 1)
                                         closed_ticket_count += 1
+                                        day_cycle_sum += task.get("cycle_days", 1)
                                 else:
                                     active.append(item)
+
+                                # Process PRs nested inside this task
+                                for pr in task.get("prs", []):
+                                    if pr.get("state_str") in ["Merged", "Closed"]:
+                                        pr_url = pr.get("url")
+                                        if pr_url and pr_url not in seen_closed_prs:
+                                            seen_closed_prs.add(pr_url)
+                                            day_prs_closed += 1
+                                            day_pr_cycle_sum += pr.get("cycle_days", 1)
 
                     month_data.append(
                         {"date": day_date, "active": active, "done": done}
                     )
                     trend_dates.append(
                         day_date[-2:]
-                    )  # Just keep the 'DD' for the chart x-axis
+                    )  # Extract just DD for cleaner charts
                     trend_prs_merged.append(day_prs_merged)
                     trend_prs_opened.append(day_prs_opened)
                     trend_tickets_closed.append(day_tickets_closed)
+
+                    # Append Daily Averages. Pass None if 0 so the chart draws a continuous bridge line.
+                    trend_ticket_cycle_time.append(
+                        round(day_cycle_sum / day_tickets_closed, 1)
+                        if day_tickets_closed > 0
+                        else None
+                    )
+                    trend_pr_cycle_time.append(
+                        round(day_pr_cycle_sum / day_prs_closed, 1)
+                        if day_prs_closed > 0
+                        else None
+                    )
 
             avg_cycle_time = (
                 round(total_cycle_days / closed_ticket_count, 1)
@@ -161,6 +194,8 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
                     "prs_merged": trend_prs_merged,
                     "prs_opened": trend_prs_opened,
                     "tickets_closed": trend_tickets_closed,
+                    "ticket_cycle_time": trend_ticket_cycle_time,
+                    "pr_cycle_time": trend_pr_cycle_time,
                 },
                 "days": month_data,
             }
