@@ -1,5 +1,6 @@
 import re
 import time
+import urllib.parse
 
 import config
 import requests
@@ -29,11 +30,19 @@ def preload_github_prs(all_issues):
         query_str = " OR ".join([f'"{k}"' for k in chunk])
         params = {"q": f"repo:{config.GITHUB_REPO} is:pr {query_str}", "per_page": 100}
 
+        if config.DEBUG:
+            full_search_url = f"{search_url}?{urllib.parse.urlencode(params)}"
+            print(f"[DEBUG] GET: {full_search_url}")
+
         res = requests.get(search_url, headers=gh_headers, params=params)
 
         if res.status_code == 403:
             print("⚠️ GitHub Rate Limit. Pausing 3 seconds...")
             time.sleep(3)
+
+            if config.DEBUG:
+                print(f"[DEBUG] GET (Retry): {full_search_url}")
+
             res = requests.get(search_url, headers=gh_headers, params=params)
 
         if res.status_code == 200:
@@ -42,10 +51,17 @@ def preload_github_prs(all_issues):
                 if not pr_url:
                     continue
 
+                if config.DEBUG:
+                    print(f"[DEBUG] GET: {pr_url}")
+
                 pr_res = requests.get(pr_url, headers=gh_headers)
                 if pr_res.status_code == 200:
                     pr_data = pr_res.json()
                     reviews_url = f"{pr_url}/reviews"
+
+                    if config.DEBUG:
+                        print(f"[DEBUG] GET: {reviews_url}")
+
                     reviews_res = requests.get(reviews_url, headers=gh_headers)
                     if reviews_res.status_code == 200:
                         pr_data["reviews"] = reviews_res.json()

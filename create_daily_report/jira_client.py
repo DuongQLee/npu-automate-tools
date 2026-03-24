@@ -14,7 +14,12 @@ COMMENT_CACHE = {}
 def verify_authentication():
     print("\n" + "=" * 60)
     print("🔐 VERIFYING JIRA AUTHENTICATION...")
-    response = requests.get(f"{jira_base_url}/myself", headers=headers, auth=auth)
+
+    url = f"{jira_base_url}/myself"
+    if config.DEBUG:
+        print(f"[DEBUG] GET: {url}")
+
+    response = requests.get(url, headers=headers, auth=auth)
     if response.status_code == 200:
         print(f"✅ Auth SUCCESS! Logged in as : {response.json().get('displayName')}")
         print("=" * 60 + "\n")
@@ -31,6 +36,10 @@ def fetch_issues(jql):
         "expand": "renderedFields",
         "maxResults": 100,
     }
+
+    if config.DEBUG:
+        full_url = f"{search_url}?{urllib.parse.urlencode(params)}"
+        print(f"[DEBUG] GET: {full_url}")
 
     print(f"Calling GET: {search_url} (JQL: {jql})")
     response = requests.get(search_url, headers=headers, auth=auth, params=params)
@@ -49,6 +58,10 @@ def fetch_comments(issue_key):
 
     comments_url = f"{jira_base_url}/issue/{issue_key}/comment"
     params = {"expand": "renderedBody"}
+
+    if config.DEBUG:
+        full_url = f"{comments_url}?{urllib.parse.urlencode(params)}"
+        print(f"[DEBUG] GET: {full_url}")
 
     response = requests.get(comments_url, headers=headers, auth=auth, params=params)
     if response.status_code == 200:
