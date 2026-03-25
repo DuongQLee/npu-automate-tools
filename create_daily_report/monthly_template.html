@@ -27,6 +27,7 @@
       --pr-merged: #8250df;
       --pr-closed: #cf222e;
       --shadow-sm: 0 1px 2px rgba(9, 30, 66, 0.05);
+      --shadow-lg: 0 8px 16px rgba(9, 30, 66, 0.12);
     }
 
     @media (prefers-color-scheme: dark) {
@@ -48,6 +49,7 @@
         --badge-bg-danger: rgba(248, 81, 73, 0.15);
         --badge-text-danger: #ff7b72;
         --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+        --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.8);
       }
     }
 
@@ -59,9 +61,10 @@
       padding: 20px;
     }
 
-    .header {
+    /* HEADER & CALENDAR STYLES */
+    .header-container {
       display: flex;
-      justify-content: space-between;
+      justify-content: center;
       align-items: center;
       border-bottom: 2px solid var(--border-color);
       padding-bottom: 20px;
@@ -71,6 +74,31 @@
     a {
       color: var(--link-color);
       text-decoration: none;
+    }
+
+    .header-title {
+      position: relative;
+      cursor: pointer;
+      user-select: none;
+      text-align: center;
+    }
+
+    #dateDropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 5px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-lg);
+      z-index: 3000;
+      border-radius: 8px;
+      padding: 16px;
+      min-width: 280px;
+      text-align: left;
+      font-size: 0.95em;
+      cursor: default;
     }
 
     /* DASHBOARD STYLES */
@@ -180,13 +208,12 @@
       background: var(--bg-surface);
       border: 1px solid var(--border-color);
       border-radius: 8px;
-      padding: 0 16px 16px 16px;
       box-shadow: var(--shadow-sm);
     }
 
     .gantt-ticket-header {
       font-weight: bold;
-      padding: 12px 8px;
+      padding: 12px 16px;
       border-bottom: 2px solid var(--border-color);
       color: var(--text-muted);
       text-transform: uppercase;
@@ -196,9 +223,7 @@
       top: 0;
       background: var(--bg-surface);
       z-index: 10;
-      box-shadow: 2px 2px 0px var(--border-color);
-      margin-left: -16px;
-      padding-left: 16px;
+      box-shadow: inset -1px -2px 0px var(--border-color);
     }
 
     .gantt-day-header {
@@ -230,8 +255,14 @@
       border-bottom: 2px solid var(--link-color);
     }
 
+    .gantt-day-header.disabled-date {
+      opacity: 0.3;
+      cursor: not-allowed;
+      background: transparent !important;
+    }
+
     .gantt-ticket-cell {
-      padding: 8px;
+      padding: 8px 16px;
       border-bottom: 1px dashed var(--border-color);
       overflow: hidden;
       text-overflow: ellipsis;
@@ -242,8 +273,7 @@
       z-index: 4;
       cursor: pointer;
       transition: background 0.1s;
-      margin-left: -16px;
-      padding-left: 16px;
+      box-shadow: inset -1px 0px 0px var(--border-color);
     }
 
     .gantt-ticket-cell:hover {
@@ -273,7 +303,6 @@
       transition: filter 0.2s;
       cursor: pointer;
       min-height: 28px;
-      /* FIXED: Explicit height prevents flex children from collapsing to 0 */
     }
 
     .gantt-bar:hover {
@@ -322,6 +351,8 @@
       overflow: hidden;
       border: 1px solid var(--border-color);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      box-sizing: border-box;
     }
 
     .task-summary {
@@ -486,10 +517,12 @@
     </symbol>
   </svg>
 
-  <div class="header">
-    <a href="/" style="font-weight: bold;">�������️ Back to Daily Reports</a>
-    <h1 style="margin: 0;">Monthly Review: {{ month_str }}</h1>
-    <div></div>
+  <div class="header-container">
+    <div class="header-title" onclick="toggleCalendar(event)">
+      <h1 id="monthlyHeaderTitle" style="margin:0; font-size: 1.8em; padding-top: 5px;"
+        title="Click to jump to another date">Monthly Report 📅</h1>
+      <div id="dateDropdown"></div>
+    </div>
   </div>
 
   <div class="dashboard-grid">
@@ -560,7 +593,100 @@
     window.expandedTicket = null;
     window.selectedDate = null;
 
+    // Calendar Integration Logic
+    let calendarDates = new Set();
+    let calViewDate = new Date("{{ month_str }}-01T00:00:00");
+
+    async function toggleCalendar(e) {
+      e.stopPropagation();
+      const dropdown = document.getElementById('dateDropdown');
+      if (dropdown.style.display === 'block') {
+        dropdown.style.display = 'none';
+        return;
+      }
+      dropdown.style.display = 'block';
+      if (calendarDates.size === 0) {
+        dropdown.innerHTML = '<div style="padding: 16px; text-align: center; color: var(--text-muted);">Loading calendar...</div>';
+        try {
+          const res = await fetch('/api/available_dates');
+          const dates = await res.json();
+          calendarDates = new Set(dates);
+        } catch (err) {
+          dropdown.innerHTML = '<div style="padding: 16px; text-align: center; color: var(--badge-text-danger);">Failed to load API</div>';
+          return;
+        }
+      }
+      renderCalendar();
+    }
+
+    function changeMonth(offset) {
+      calViewDate.setMonth(calViewDate.getMonth() + offset);
+      renderCalendar();
+    }
+
+    function renderCalendar() {
+      const dropdown = document.getElementById('dateDropdown');
+      const year = calViewDate.getFullYear();
+      const month = calViewDate.getMonth();
+      const monthName = calViewDate.toLocaleString('default', {month: 'long'});
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      let html = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-weight: bold;">
+          <button onclick="changeMonth(-1)" style="background:var(--bg-surface-muted); border:1px solid var(--border-color); border-radius:4px; cursor:pointer; color:var(--text-main); width:28px; height:28px; display:flex; align-items:center; justify-content:center;">&lt;</button>
+          <span style="font-size:1.1em">${monthName} ${year}</span>
+          <button onclick="changeMonth(1)" style="background:var(--bg-surface-muted); border:1px solid var(--border-color); border-radius:4px; cursor:pointer; color:var(--text-main); width:28px; height:28px; display:flex; align-items:center; justify-content:center;">&gt;</button>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; font-size: 0.85em; margin-bottom: 6px; color: var(--text-muted); font-weight: bold;">
+          <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; font-size: 0.95em;">
+      `;
+
+      for (let i = 0; i < firstDay; i++) {html += `<div></div>`;}
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const isAvailable = calendarDates.has(dateStr);
+        let cellStyle = "padding: 6px 0; border-radius: 4px; transition: background 0.2s;";
+        let onClick = "";
+
+        if (isAvailable) {
+          cellStyle += " background: var(--badge-bg-success); color: var(--badge-text-success); font-weight: bold; cursor: pointer;";
+          onClick = `onclick="window.location.href='/${dateStr}'" onmouseover="this.style.filter='brightness(0.95)'" onmouseout="this.style.filter='none'"`;
+        } else {
+          cellStyle += " color: var(--text-muted); opacity: 0.35; cursor: not-allowed; background: transparent;";
+        }
+        html += `<div style="${cellStyle}" ${onClick}>${day}</div>`;
+      }
+      html += `</div>`;
+
+      const targetMonthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
+      html += `
+        <div style="margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 12px;">
+            <button onclick="window.location.href='/month/${targetMonthStr}'" style="width: 100%; padding: 8px; background: var(--bg-surface-muted); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-weight: bold; color: var(--text-main); transition: filter 0.2s;" onmouseover="this.style.filter='brightness(0.95)'" onmouseout="this.style.filter='none'">
+                🗓️ View Monthly Timeline
+            </button>
+        </div>
+      `;
+      dropdown.innerHTML = html;
+    }
+
+    document.addEventListener('click', (e) => {
+      const dropdown = document.getElementById('dateDropdown');
+      if (dropdown && dropdown.style.display === 'block' && !e.target.closest('.header-title')) {
+        dropdown.style.display = 'none';
+      }
+    });
+
     async function initDashboard() {
+      // Setup dynamic header title based on month parameter
+      const [yy, mm] = "{{ month_str }}".split('-');
+      const mDateObj = new Date(yy, mm - 1);
+      const displayMonth = mDateObj.toLocaleString('default', {month: 'short'});
+      document.getElementById('monthlyHeaderTitle').innerText = `Monthly Report ${displayMonth} ${yy} 📅`;
+
       try {
         const res = await fetch('/api/month/{{ month_str }}');
         window.monthData = await res.json();
@@ -632,7 +758,6 @@
         window.expandedTicket = null;
       } else {
         window.expandedTicket = key;
-        // Default to the first available date this ticket has data for in the month
         const availableDates = Object.keys(window.ticketMap[key].days).sort();
         window.selectedDate = availableDates.length > 0 ? availableDates[0] : window.dateList[window.ticketMap[key].startIndex];
       }
@@ -650,7 +775,7 @@
       const dayData = ticket.days[window.selectedDate];
 
       if (!dayData) {
-        return `<div class="task-block" style="margin: 4px 0 24px 0;"><div class="task-content" style="padding: 20px; text-align: center; color: var(--text-muted);">No activity recorded for this ticket on ${window.selectedDate}.</div></div>`;
+        return `<div class="task-block"><div class="task-content" style="padding: 20px; text-align: center; color: var(--text-muted);">No activity recorded for this ticket on ${window.selectedDate}.</div></div>`;
       }
 
       const t_bg = dayData.status_key === 'success' ? 'success' : (dayData.status_key === 'info' || dayData.status_key === 'purple' ? 'info' : (dayData.status_key === 'danger' ? 'danger' : 'todo'));
@@ -719,7 +844,7 @@
 
       // --- 3. Wrapper Assembly ---
       return `
-        <div class="task-block" id="panel-${ticket.key}" style="border: 2px solid var(--link-color); margin-top: 8px; margin-bottom: 24px;">
+        <div class="task-block" id="panel-${ticket.key}" style="border: 2px solid var(--link-color);">
             <details open>
                 <summary class="task-summary" style="background: var(--badge-bg-${t_bg}); pointer-events: none;">
                     <div class="ticket-title-wrapper">
@@ -788,18 +913,28 @@
 
       const cols = window.dateList.length;
 
-      let html = `<div style="display: grid; grid-template-columns: 350px repeat(${cols}, minmax(35px, 1fr)); gap: 0 4px; align-items: center; min-width: max-content;">`;
+      let html = `<div style="display: grid; grid-template-columns: 350px repeat(${cols}, 45px); gap: 0 4px; align-items: center; min-width: max-content;">`;
       html += `<div class="gantt-ticket-header">Ticket & Summary</div>`;
 
       // Render Date Headers
       window.dateList.forEach(dateStr => {
         const dayLabel = dateStr.slice(-2);
-        const isClickable = !!window.expandedTicket;
-        const isActiveDate = isClickable && window.selectedDate === dateStr;
+        let isClickable = false;
+        let isActiveDate = false;
+
+        if (window.expandedTicket) {
+          const ticketData = window.ticketMap[window.expandedTicket];
+          const hasData = !!ticketData.days[dateStr];
+          if (hasData) {
+            isClickable = true;
+            isActiveDate = (window.selectedDate === dateStr);
+          }
+        }
 
         let headerClass = "gantt-day-header";
         if (isClickable) headerClass += " clickable";
         if (isActiveDate) headerClass += " active-date";
+        if (window.expandedTicket && !isClickable) headerClass += " disabled-date";
 
         let clickAttr = isClickable ? `onclick="selectDay('${window.expandedTicket}', '${dateStr}', event)" title="View ${dateStr}"` : "";
 
@@ -860,7 +995,7 @@
 
         // Full-width Detail Panel Injection
         if (window.expandedTicket === t.key) {
-          html += `<div style="grid-column: 1 / -1;">${renderDetailPanel(t)}</div>`;
+          html += `<div style="grid-column: 1 / -1; min-width: 0; width: 100%; overflow: hidden;">${renderDetailPanel(t)}</div>`;
         }
       });
 
@@ -872,12 +1007,13 @@
         setTimeout(() => {
           const el = document.getElementById('panel-' + window.expandedTicket);
           if (el) {
-            const y = el.getBoundingClientRect().top + window.scrollY - 150; // Adjusted for sticky header offset
+            const y = el.getBoundingClientRect().top + window.scrollY - 120;
             window.scrollTo({top: y, behavior: 'smooth'});
           }
         }, 50);
       }
     }
+
     document.addEventListener('DOMContentLoaded', initDashboard);
   </script>
 </body>
