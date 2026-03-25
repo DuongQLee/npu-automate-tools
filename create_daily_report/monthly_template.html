@@ -211,6 +211,7 @@
       box-shadow: var(--shadow-sm);
     }
 
+    /* MODIFIED: Increased Z-Index for Headers */
     .gantt-ticket-header {
       font-weight: bold;
       padding: 12px 16px;
@@ -222,7 +223,7 @@
       left: 0;
       top: 0;
       background: var(--bg-surface);
-      z-index: 10;
+      z-index: 15;
       box-shadow: inset -1px -2px 0px var(--border-color);
     }
 
@@ -236,7 +237,7 @@
       position: sticky;
       top: 0;
       background: var(--bg-surface);
-      z-index: 5;
+      z-index: 10;
       transition: all 0.2s;
     }
 
@@ -270,7 +271,7 @@
       position: sticky;
       left: 0;
       background: var(--bg-surface);
-      z-index: 4;
+      z-index: 5;
       cursor: pointer;
       transition: background 0.1s;
       box-shadow: inset -1px 0px 0px var(--border-color);
@@ -284,6 +285,7 @@
       background: var(--badge-bg-info);
       border-left: 4px solid var(--badge-text-info);
       padding-left: 12px;
+      z-index: 6;
     }
 
     .gantt-track {
@@ -321,7 +323,7 @@
       pointer-events: none;
       display: flex;
       align-items: center;
-      z-index: 10;
+      z-index: 2;
     }
 
     .day-segment {
@@ -331,7 +333,7 @@
       border-right: 1px solid rgba(0, 0, 0, 0.05);
     }
 
-    /* DETAIL PANEL ACCORDION (Mirrored from Daily Report) */
+    /* DETAIL PANEL ACCORDION */
     summary {
       list-style: none;
       outline: none;
@@ -348,13 +350,13 @@
       border-radius: 6px;
       background: var(--bg-surface);
       margin: 8px 0 24px 0;
-      overflow: hidden;
       border: 1px solid var(--border-color);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
       width: 100%;
       box-sizing: border-box;
     }
 
+    /* MODIFIED: Detail Panel Header is now Sticky */
     .task-summary {
       padding: 12px 16px;
       font-weight: 600;
@@ -363,6 +365,10 @@
       justify-content: space-between;
       align-items: center;
       gap: 12px;
+      position: sticky;
+      top: 40px;
+      z-index: 9;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
 
     .task-content {
@@ -498,12 +504,13 @@
 <body>
   <svg style="display:none;">
     <symbol id="icon-epic" viewBox="0 0 16 16" fill="none">
-      <path d="M8.5 1L2 9h5l-1 6 7-8H8l1.5-6z" fill="#904EE2" stroke="#904EE2" stroke-width="1"
-        stroke-linejoin="round" />
+      <path d="M8.5 1L2 9h5l-1 6 7-8H8l1.5-6z" fill="#904EE2" stroke="#904EE2" stroke-width="1" stroke-linejoin="round">
+      </path>
     </symbol>
     <symbol id="icon-task" viewBox="0 0 16 16" fill="none">
-      <rect x="1" y="1" width="14" height="14" rx="3" fill="#4C9AFF" />
-      <path d="M4.5 8L7 10.5L11.5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      <rect x="1" y="1" width="14" height="14" rx="3" fill="#4C9AFF"></rect>
+      <path d="M4.5 8L7 10.5L11.5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      </path>
     </symbol>
     <symbol id="icon-git-pr" viewBox="0 0 16 16" fill="currentColor">
       <path
@@ -520,7 +527,7 @@
   <div class="header-container">
     <div class="header-title" onclick="toggleCalendar(event)">
       <h1 id="monthlyHeaderTitle" style="margin:0; font-size: 1.8em; padding-top: 5px;"
-        title="Click to jump to another date">Monthly Report 📅</h1>
+        title="Click to jump to another date">Monthly Report ���</h1>
       <div id="dateDropdown"></div>
     </div>
   </div>
@@ -589,7 +596,7 @@
   <script>
     window.monthData = null;
     window.ticketMap = {};
-    window.dateList = [];
+    window.continuousDates = [];
     window.expandedTicket = null;
     window.selectedDate = null;
 
@@ -680,6 +687,31 @@
       }
     });
 
+    // Handle Keyboard Navigation (Left/Right Arrows)
+    document.addEventListener('keydown', (e) => {
+      if (!window.expandedTicket || !window.selectedDate) return;
+
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        const ticketData = window.ticketMap[window.expandedTicket];
+        const availableDates = Object.keys(ticketData.days).sort();
+        if (availableDates.length === 0) return;
+
+        const currentIndex = availableDates.indexOf(window.selectedDate);
+        let newIndex = currentIndex;
+
+        if (e.key === "ArrowLeft" && currentIndex > 0) {
+          newIndex = currentIndex - 1;
+        } else if (e.key === "ArrowRight" && currentIndex < availableDates.length - 1) {
+          newIndex = currentIndex + 1;
+        }
+
+        if (newIndex !== currentIndex) {
+          selectDay(window.expandedTicket, availableDates[newIndex], {stopPropagation: () => { }});
+        }
+      }
+    });
+
     async function initDashboard() {
       // Setup dynamic header title based on month parameter
       const [yy, mm] = "{{ month_str }}".split('-');
@@ -733,21 +765,27 @@
     }
 
     function processTicketData() {
-      window.dateList = window.monthData.days.map(d => d.date);
+      window.continuousDates = window.monthData.continuous_dates || [];
 
-      window.monthData.days.forEach((day, dayIndex) => {
+      window.monthData.days.forEach((day) => {
+        const globalIndex = window.continuousDates.indexOf(day.date);
+        if (globalIndex === -1) return; // Skip if date is wildly out of bounds
+
         const process = (t) => {
           if (!window.ticketMap[t.key]) {
             window.ticketMap[t.key] = {
               key: t.key, summary: t.summary, type: t.type,
-              startIndex: dayIndex, endIndex: dayIndex,
+              startIndex: globalIndex, endIndex: globalIndex,
               days: {}, overallStatus: t.status_key
             };
           }
-          window.ticketMap[t.key].endIndex = dayIndex;
+          if (globalIndex > window.ticketMap[t.key].endIndex) window.ticketMap[t.key].endIndex = globalIndex;
+          if (globalIndex < window.ticketMap[t.key].startIndex) window.ticketMap[t.key].startIndex = globalIndex;
+
           window.ticketMap[t.key].days[day.date] = t;
           window.ticketMap[t.key].overallStatus = t.status_key;
         };
+
         day.active.forEach(t => process(t));
         day.done.forEach(t => process(t));
       });
@@ -759,7 +797,7 @@
       } else {
         window.expandedTicket = key;
         const availableDates = Object.keys(window.ticketMap[key].days).sort();
-        window.selectedDate = availableDates.length > 0 ? availableDates[0] : window.dateList[window.ticketMap[key].startIndex];
+        window.selectedDate = availableDates.length > 0 ? availableDates[0] : window.continuousDates[window.ticketMap[key].startIndex];
       }
       renderGantt();
     }
@@ -854,6 +892,7 @@
                     </div>
                     <div class="meta-tags">
                         <span style="font-weight: bold; color: var(--text-main); font-size: 1.1em;">Daily Snapshot: ${window.selectedDate}</span>
+                        <span style="font-size: 0.85em; opacity: 0.7; margin-left: 8px;">(Use ⟵ &nbsp; ⟶ keys to navigate)</span>
                         <button onclick="toggleTicket('${ticket.key}')" style="cursor: pointer; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 12px; margin-left: 12px; pointer-events: auto; font-weight: bold; color: var(--text-muted);">Close</button>
                     </div>
                 </summary>
@@ -911,13 +950,13 @@
         }
       });
 
-      const cols = window.dateList.length;
+      const cols = window.continuousDates.length;
 
       let html = `<div style="display: grid; grid-template-columns: 350px repeat(${cols}, 45px); gap: 0 4px; align-items: center; min-width: max-content;">`;
       html += `<div class="gantt-ticket-header">Ticket & Summary</div>`;
 
-      // Render Date Headers
-      window.dateList.forEach(dateStr => {
+      // Render Continuous Date Headers
+      window.continuousDates.forEach(dateStr => {
         const dayLabel = dateStr.slice(-2);
         let isClickable = false;
         let isActiveDate = false;
@@ -963,7 +1002,7 @@
         // Interactive Track Segments
         let segmentsHtml = "";
         for (let i = 0; i < duration; i++) {
-          const currentDayStr = window.dateList[t.startIndex + i];
+          const currentDayStr = window.continuousDates[t.startIndex + i];
           const isActiveDay = !!t.days[currentDayStr];
           const isSelected = window.expandedTicket === t.key && window.selectedDate === currentDayStr;
 
@@ -1007,7 +1046,7 @@
         setTimeout(() => {
           const el = document.getElementById('panel-' + window.expandedTicket);
           if (el) {
-            const y = el.getBoundingClientRect().top + window.scrollY - 120;
+            const y = el.getBoundingClientRect().top + window.scrollY - 150;
             window.scrollTo({top: y, behavior: 'smooth'});
           }
         }, 50);
