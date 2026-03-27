@@ -201,7 +201,7 @@
       font-weight: bold;
     }
 
-    /* GANTT CHART ENGINE */
+    /* GANTT CHART ENGINE - GAP FIXES */
     .gantt-wrapper {
       overflow: auto;
       max-height: 800px;
@@ -209,6 +209,7 @@
       border: 1px solid var(--border-color);
       border-radius: 8px;
       box-shadow: var(--shadow-sm);
+      position: relative;
     }
 
     .gantt-ticket-header {
@@ -216,7 +217,8 @@
       box-sizing: border-box;
       font-weight: bold;
       padding: 12px 16px;
-      border-bottom: 2px solid var(--border-color);
+      border-bottom: 1px solid var(--border-color);
+      border-right: 1px solid var(--border-color);
       color: var(--text-muted);
       text-transform: uppercase;
       font-size: 0.85em;
@@ -225,7 +227,6 @@
       top: 0;
       background: var(--bg-surface);
       z-index: 20;
-      box-shadow: inset -1px -2px 0px var(--border-color);
     }
 
     .gantt-day-header {
@@ -234,7 +235,8 @@
       font-weight: bold;
       text-align: center;
       padding: 12px 0;
-      border-bottom: 2px solid var(--border-color);
+      border-bottom: 1px solid var(--border-color);
+      border-right: 1px solid var(--border-color);
       color: var(--text-muted);
       font-size: 0.85em;
       position: sticky;
@@ -261,13 +263,16 @@
 
     .gantt-day-header.disabled-date {
       opacity: 0.3;
-      cursor: not-allowed;
+      pointer-events: none;
       background: transparent !important;
     }
 
     .gantt-ticket-cell {
-      padding: 8px 16px;
-      border-bottom: 1px dashed var(--border-color);
+      height: 40px;
+      box-sizing: border-box;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--border-color);
+      border-right: 1px solid var(--border-color);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -277,7 +282,6 @@
       z-index: 5;
       cursor: pointer;
       transition: background 0.1s;
-      box-shadow: inset -1px 0px 0px var(--border-color);
       display: flex;
       align-items: center;
     }
@@ -293,10 +297,10 @@
     }
 
     .gantt-track {
+      height: 40px;
+      box-sizing: border-box;
       display: grid;
-      gap: 2px;
-      border-bottom: 1px dashed var(--border-color);
-      padding: 6px 0;
+      border-bottom: 1px solid var(--border-color);
       align-items: center;
     }
 
@@ -308,7 +312,8 @@
       box-shadow: var(--shadow-sm);
       transition: filter 0.2s;
       cursor: pointer;
-      min-height: 28px;
+      height: 28px;
+      margin: 6px 0;
     }
 
     .gantt-bar:hover {
@@ -334,10 +339,10 @@
       flex: 1;
       height: 100%;
       transition: background 0.1s;
-      border-right: 1px solid rgba(0, 0, 0, 0.05);
+      border-right: 1px dashed rgba(0, 0, 0, 0.1);
     }
 
-    /* DETAIL PANEL ACCORDION */
+    /* DETAIL PANEL ACCORDION (Mirrored EXACTLY from Daily Report) */
     summary {
       list-style: none;
       outline: none;
@@ -350,12 +355,19 @@
       display: none;
     }
 
+    summary::before,
+    .collapse-icon,
+    .pr-row-icon {
+      display: none !important;
+    }
+
     .task-block {
       border-radius: 6px;
       background: var(--bg-surface);
+      margin: 0;
       overflow: hidden;
       border: 1px solid var(--border-color);
-      box-shadow: var(--shadow-lg);
+      box-shadow: var(--shadow-sm);
       width: 100%;
       box-sizing: border-box;
     }
@@ -373,28 +385,31 @@
       z-index: 15;
       background: var(--bg-surface);
       border-bottom: 1px solid var(--border-color);
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
 
     .task-content {
       padding: 0;
       background: var(--bg-surface);
-      max-height: 50vh;
+      max-height: 60vh;
       overflow-y: auto;
     }
 
     .sub-collapse {
-      border-top: 1px dashed var(--border-color);
+      border-top: 1px solid var(--border-color);
     }
 
     .sub-collapse:first-child {
       border-top: none;
     }
 
+    .sub-collapse summary:hover {
+      background: var(--bg-surface-hover);
+    }
+
     .sub-content {
       padding: 16px;
       font-size: 0.95em;
-      background: var(--bg-surface-hover);
+      background: var(--bg-body);
     }
 
     .ticket-title-wrapper {
@@ -694,7 +709,7 @@
       }
     });
 
-    // Handle Keyboard Navigation (Left/Right Arrows)
+    // Handle Keyboard Navigation (Left/Right Arrows) for Timeline jumping
     document.addEventListener('keydown', (e) => {
       if (!window.expandedTicket || !window.selectedDate) return;
 
@@ -720,6 +735,7 @@
     });
 
     async function initDashboard() {
+      // Setup dynamic header title based on month parameter
       const [yy, mm] = "{{ month_str }}".split('-');
       const mDateObj = new Date(yy, mm - 1);
       const displayMonth = mDateObj.toLocaleString('default', {month: 'short'});
@@ -822,14 +838,12 @@
         return `<div class="task-block"><div class="task-content" style="padding: 20px; text-align: center; color: var(--text-muted);">No activity recorded for this ticket on ${window.selectedDate}.</div></div>`;
       }
 
-      const t_bg = dayData.status_key === 'success' ? 'success' : (dayData.status_key === 'info' || dayData.status_key === 'purple' ? 'info' : (dayData.status_key === 'danger' ? 'danger' : 'todo'));
-
       // --- 1. Pull Requests HTML ---
       let prHtml = "";
       if (dayData.prs && dayData.prs.length > 0) {
         prHtml = `<details class="sub-collapse pr-section" open>
-            <summary style="padding:10px 16px; font-weight:600; pointer-events: auto; background: var(--bg-surface-muted);">Pull Requests (${dayData.prs.length})</summary>
-            <div class="sub-content" style="padding-top: 8px;">`;
+            <summary style="padding:10px 16px; font-weight:600; pointer-events: auto;">Pull Requests (${dayData.prs.length})</summary>
+            <div class="sub-content">`;
 
         dayData.prs.forEach(pr => {
           let reviewerHtml = pr.reviewer_badges && pr.reviewer_badges.length > 0 ?
@@ -862,8 +876,8 @@
       let commentHtml = "";
       if (dayData.target_comments && dayData.target_comments.length > 0) {
         commentHtml = `<details class="sub-collapse comments-section" open>
-            <summary style="padding:10px 16px; font-weight:600; pointer-events: auto; background: var(--bg-surface-muted);">Comments (${dayData.target_comments.length})</summary>
-            <div class="sub-content" style="padding: 16px;">`;
+            <summary style="padding:10px 16px; font-weight:600; pointer-events: auto;">Comments (${dayData.target_comments.length})</summary>
+            <div class="sub-content">`;
 
         dayData.target_comments.forEach(c => {
           let tagsHtml = (c.tags || []).map(t => `<span class='tag-pill'>${t}</span>`).join('');
@@ -887,31 +901,33 @@
       }
 
       // --- 3. Wrapper Assembly ---
+      const iconId = ticket.type === 'Epic' ? 'icon-epic' : 'icon-task';
+
       return `
-        <div class="task-block" id="panel-${ticket.key}" style="border: 2px solid var(--badge-text-${t_bg}); margin: 0; background: var(--bg-surface); box-shadow: var(--shadow-lg);">
+        <div class="task-block" id="panel-${ticket.key}">
             <details open>
-                <summary class="task-summary" style="background: var(--bg-surface); border-bottom: 1px solid var(--border-color); pointer-events: none;">
+                <summary class="task-summary" style="pointer-events: none;">
                     <div class="ticket-title-wrapper">
-                        <svg class="jira-icon"><use href="#icon-task"></use></svg>
+                        <svg class="jira-icon"><use href="#${iconId}"></use></svg>
                         <a href="https://{{ domain }}/browse/${ticket.key}" class="ticket-id" target="_blank" style="pointer-events: auto;">[${ticket.key}]</a> 
                         <span class="ticket-title-text">${ticket.summary}</span>
                     </div>
                     <div class="meta-tags">
-                        <span style="font-weight: bold; color: var(--text-main); font-size: 1.1em; background: var(--badge-bg-${t_bg}); color: var(--badge-text-${t_bg}); padding: 2px 8px; border-radius: 4px;">Snapshot: ${window.selectedDate}</span>
-                        <span style="font-size: 0.85em; opacity: 0.7; margin-left: 8px;">(Use ⟵ &nbsp; ⟶ keys)</span>
+                        <span style="font-weight: bold; color: var(--text-main); font-size: 1.1em; background: var(--badge-bg-info); color: var(--badge-text-info); padding: 2px 8px; border-radius: 4px;">Snapshot: ${window.selectedDate}</span>
+                        <span style="font-size: 0.85em; opacity: 0.7; margin-left: 8px;">(Use ��� &nbsp; ⟶ keys)</span>
                         <button onclick="toggleTicket('${ticket.key}')" style="cursor: pointer; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 12px; margin-left: 12px; pointer-events: auto; font-weight: bold; color: var(--text-muted);">Close</button>
                     </div>
                 </summary>
-                <div class="task-content" style="max-height: 50vh; overflow-y: auto;">
+                <div class="task-content">
                     <details class="sub-collapse issue-desc" open>
-                        <summary style="padding:10px 16px; font-weight:600; pointer-events: auto; background: var(--bg-surface-muted);">Issue Description</summary>
-                        <div class="sub-content" style="background: var(--bg-surface);">
+                        <summary style="padding:10px 16px; font-weight:600; pointer-events: auto;">Issue Description</summary>
+                        <div class="sub-content">
                             ${dayData.desc_html || '<em style="color: var(--text-muted);">No description</em>'}
                         </div>
                     </details>
                     ${prHtml}
                     ${commentHtml}
-                    ${(!prHtml && !commentHtml) ? '<div style="padding: 20px; text-align: center; color: var(--text-muted); border-top: 1px dashed var(--border-color);">No PRs or Comments recorded on this specific date.</div>' : ''}
+                    ${(!prHtml && !commentHtml) ? '<div style="padding: 20px; text-align: center; color: var(--text-muted); border-top: 1px solid var(--border-color);">No PRs or Comments recorded on this specific date.</div>' : ''}
                 </div>
             </details>
         </div>
@@ -958,8 +974,8 @@
 
       const cols = window.continuousDates.length;
 
-      // FIXED: align-content: start prevents the rows from stretching vertically creating gaps.
-      let html = `<div style="display: grid; grid-template-columns: 350px repeat(${cols}, 45px); gap: 0 4px; align-items: stretch; align-content: start; min-width: max-content; padding-bottom: 24px;">`;
+      // FIXED: gap: 0 0 prevents any implicit fractional stretching in CSS grid.
+      let html = `<div style="display: grid; grid-template-columns: 350px repeat(${cols}, 45px); gap: 0 0; min-width: max-content; padding-bottom: 24px;">`;
       html += `<div class="gantt-ticket-header">Ticket & Summary</div>`;
 
       // Render Continuous Date Headers
@@ -995,14 +1011,16 @@
         const bgColor = isDone ? 'var(--badge-bg-success)' : 'var(--badge-bg-info)';
         const borderColor = isDone ? 'var(--badge-text-success)' : 'var(--badge-text-info)';
         const statusText = isDone ? 'Done' : 'Active';
-        const icon = t.type === 'Epic' ? '🟣' : '����';
+        const iconId = t.type === 'Epic' ? 'icon-epic' : 'icon-task';
         const expandedClass = window.expandedTicket === t.key ? 'expanded' : '';
 
-        // Sticky Ticket Label
+        const iconHtml = `<svg class="jira-icon" style="width: 14px; height: 14px; vertical-align: middle; margin-right: 4px;"><use href="#${iconId}"></use></svg>`;
+
+        // Fixed height ticket label cell
         html += `
             <div class="gantt-ticket-cell ${expandedClass}" title="[${t.key}] ${t.summary}" onclick="toggleTicket('${t.key}')">
                 <span style="font-weight: bold; font-family: monospace; color: var(--link-color);">[${t.key}]</span> 
-                <span style="font-size: 0.9em; opacity: 0.8; margin-left: 4px;">${icon} ${t.summary}</span>
+                <span style="font-size: 0.9em; opacity: 0.8; margin-left: 4px;">${iconHtml} ${t.summary}</span>
             </div>
         `;
 
@@ -1014,7 +1032,7 @@
           const isSelected = window.expandedTicket === t.key && window.selectedDate === currentDayStr;
 
           let segBg = "transparent";
-          let borderStyle = "border-right: 1px solid rgba(0,0,0,0.05);";
+          let borderStyle = "border-right: 1px dashed rgba(0,0,0,0.1);";
 
           if (isSelected) {
             segBg = "rgba(0,0,0,0.2)";
@@ -1030,6 +1048,7 @@
                 onclick="selectDay('${t.key}', '${currentDayStr}', event)" title="${currentDayStr}"></div>`;
         }
 
+        // Fixed height track container spanning 1fr (exactly matches parent 45px because of gap:0)
         html += `
             <div class="gantt-track" style="grid-column: 2 / span ${cols}; grid-template-columns: repeat(${cols}, 1fr);">
                 <div class="gantt-bar" style="grid-column: ${startCol} / span ${duration}; background: ${bgColor}; border-left: 4px solid ${borderColor};" onclick="toggleTicket('${t.key}')">
@@ -1039,11 +1058,11 @@
             </div>
         `;
 
-        // FIXED: Wrap detail panel in a sticky container to prevent horizontal overflow and fit viewport perfectly
+        // FIXED: Detail Panel Injection inside a sticky container locking it to the viewport width
         if (window.expandedTicket === t.key) {
           html += `
-            <div style="grid-column: 1 / -1; width: 100%; border-bottom: 1px dashed var(--border-color); background: var(--bg-surface-hover);">
-                <div style="position: sticky; left: 0; width: calc(100vw - 80px); max-width: 1400px; padding: 16px; box-sizing: border-box; z-index: 8;">
+            <div style="grid-column: 1 / -1; width: 100%; border-bottom: 2px solid var(--link-color); background: var(--bg-body); position: relative; z-index: 1;">
+                <div style="position: sticky; left: 0; width: 100vw; max-width: 1000px; padding: 16px 16px 16px 20px; box-sizing: border-box;">
                     ${renderDetailPanel(t)}
                 </div>
             </div>

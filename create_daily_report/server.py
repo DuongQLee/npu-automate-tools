@@ -231,38 +231,33 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
                         else None
                     )
 
-            # --- NEW: CALCULATE CONTINUOUS GANTT CALENDAR ---
+            # --- CALCULATE CONTINUOUS GANTT CALENDAR ---
             import calendar
             from datetime import timedelta
 
             try:
-                # E.g., month_prefix = "2026-03"
                 yr, mo = map(int, month_prefix.split("-"))
-
-                # 1. Find the exact first and last day of this month
                 _, last_day = calendar.monthrange(yr, mo)
                 start_dt = datetime(yr, mo, 1).replace(tzinfo=timezone.utc)
                 end_dt = datetime(yr, mo, last_day).replace(tzinfo=timezone.utc)
 
-                # 2. Pad start to the previous Monday (if not already Monday)
-                start_pad = start_dt.weekday()  # Monday is 0
+                # Pad to previous Monday
+                start_pad = start_dt.weekday()
                 gantt_start = start_dt - timedelta(days=start_pad)
 
-                # 3. Pad end to the upcoming Sunday (if not already Sunday)
-                end_pad = 6 - end_dt.weekday()  # Sunday is 6
+                # Pad to upcoming Sunday
+                end_pad = 6 - end_dt.weekday()
                 gantt_end = end_dt + timedelta(days=end_pad)
 
-                # 4. Generate the full continuous array of date strings
                 continuous_dates = []
                 current_dt = gantt_start
                 while current_dt <= gantt_end:
                     continuous_dates.append(current_dt.strftime("%Y-%m-%d"))
                     current_dt += timedelta(days=1)
-
             except Exception as e:
                 print(f"Error calculating continuous dates: {e}")
-                continuous_dates = trend_dates  # Fallback
-            # --------------------------------------------------
+                continuous_dates = trend_dates
+            # -------------------------------------------
 
             # --- CALCULATIONS: ELITE MONTHLY AVERAGES ---
             active_devs = len(unique_authors) if len(unique_authors) > 0 else 1
