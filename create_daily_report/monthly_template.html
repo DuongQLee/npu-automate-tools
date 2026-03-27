@@ -1058,8 +1058,8 @@
         // FIXED: Detail Panel Injection inside a sticky container locking it to the viewport width
         if (window.expandedTicket === t.key) {
           html += `
-            <div style="grid-column: 1 / -1; width: 100%; border-bottom: 2px solid var(--link-color); background: var(--bg-body); position: relative; z-index: 1;">
-                <div style="position: sticky; left: 0; width: 100vw; max-width: 1000px; padding: 16px 16px 16px 20px; box-sizing: border-box;">
+            <div style="grid-column: 1 / -1; width: inherit; border-bottom: 2px solid var(--link-color); background: var(--bg-body); position: relative; z-index: 1;">
+                <div style="position: sticky; left: 0; width: 100vw; max-width: 100vw; padding: 16px 16px 16px 20px; box-sizing: border-box;">
                     ${renderDetailPanel(t)}
                 </div>
             </div>
