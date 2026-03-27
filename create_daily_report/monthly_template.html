@@ -201,7 +201,7 @@
       font-weight: bold;
     }
 
-    /* GANTT CHART ENGINE - GAP FIXES */
+    /* GANTT CHART ENGINE */
     .gantt-wrapper {
       overflow: auto;
       max-height: 800px;
@@ -308,7 +308,6 @@
       position: relative;
       border-radius: 4px;
       display: flex;
-      overflow: hidden;
       box-shadow: var(--shadow-sm);
       transition: filter 0.2s;
       cursor: pointer;
@@ -332,14 +331,14 @@
       pointer-events: none;
       display: flex;
       align-items: center;
-      z-index: 2;
+      z-index: 10;
     }
 
     .day-segment {
       flex: 1;
       height: 100%;
       transition: background 0.1s;
-      border-right: 1px dashed rgba(0, 0, 0, 0.1);
+      box-sizing: border-box;
     }
 
     /* DETAIL PANEL ACCORDION (Mirrored EXACTLY from Daily Report) */
@@ -600,7 +599,7 @@
     <div class="filter-group">
       <label><input type="checkbox" id="f-done" checked onchange="renderGantt()"> ✅ Done/Closed</label>
       <label><input type="checkbox" id="f-ip" checked onchange="renderGantt()"> ⏳ In Progress</label>
-      <label><input type="checkbox" id="f-todo" checked onchange="renderGantt()"> 📋 To Do / On Hold</label>
+      <label><input type="checkbox" id="f-todo" checked onchange="renderGantt()"> �� To Do / On Hold</label>
     </div>
     <div class="sort-group" style="margin-left: auto;">
       <select id="s-sort" onchange="renderGantt()">
@@ -838,16 +837,18 @@
         return `<div class="task-block"><div class="task-content" style="padding: 20px; text-align: center; color: var(--text-muted);">No activity recorded for this ticket on ${window.selectedDate}.</div></div>`;
       }
 
+      const t_bg = dayData.status_key === 'success' ? 'success' : (dayData.status_key === 'info' || dayData.status_key === 'purple' ? 'info' : (dayData.status_key === 'danger' ? 'danger' : 'todo'));
+
       // --- 1. Pull Requests HTML ---
       let prHtml = "";
       if (dayData.prs && dayData.prs.length > 0) {
         prHtml = `<details class="sub-collapse pr-section" open>
-            <summary style="padding:10px 16px; font-weight:600; pointer-events: auto;">Pull Requests (${dayData.prs.length})</summary>
-            <div class="sub-content">`;
+            <summary style="padding:10px 16px; font-weight:600; pointer-events: auto; background: var(--bg-surface-muted);">Pull Requests (${dayData.prs.length})</summary>
+            <div class="sub-content" style="padding-top: 8px;">`;
 
         dayData.prs.forEach(pr => {
           let reviewerHtml = pr.reviewer_badges && pr.reviewer_badges.length > 0 ?
-            `<div style="font-size: 0.85em; color: var(--text-muted); padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--border-color);">👀 Reviewers: ${pr.reviewer_badges.join(', ')}</div>` : '';
+            `<div style="font-size: 0.85em; color: var(--text-muted); padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--border-color);">�� Reviewers: ${pr.reviewer_badges.join(', ')}</div>` : '';
 
           prHtml += `
             <details class="pr-collapse searchable-item ${pr.is_draft ? 'draft-pr' : ''}" style="margin-bottom: 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface);">
@@ -876,8 +877,8 @@
       let commentHtml = "";
       if (dayData.target_comments && dayData.target_comments.length > 0) {
         commentHtml = `<details class="sub-collapse comments-section" open>
-            <summary style="padding:10px 16px; font-weight:600; pointer-events: auto;">Comments (${dayData.target_comments.length})</summary>
-            <div class="sub-content">`;
+            <summary style="padding:10px 16px; font-weight:600; pointer-events: auto; background: var(--bg-surface-muted);">Comments (${dayData.target_comments.length})</summary>
+            <div class="sub-content" style="padding: 16px;">`;
 
         dayData.target_comments.forEach(c => {
           let tagsHtml = (c.tags || []).map(t => `<span class='tag-pill'>${t}</span>`).join('');
@@ -904,30 +905,30 @@
       const iconId = ticket.type === 'Epic' ? 'icon-epic' : 'icon-task';
 
       return `
-        <div class="task-block" id="panel-${ticket.key}">
+        <div class="task-block" id="panel-${ticket.key}" style="border: 2px solid var(--badge-text-${t_bg}); margin: 0; background: var(--bg-surface); box-shadow: var(--shadow-lg);">
             <details open>
-                <summary class="task-summary" style="pointer-events: none;">
+                <summary class="task-summary" style="background: var(--bg-surface); border-bottom: 1px solid var(--border-color); pointer-events: none;">
                     <div class="ticket-title-wrapper">
                         <svg class="jira-icon"><use href="#${iconId}"></use></svg>
                         <a href="https://{{ domain }}/browse/${ticket.key}" class="ticket-id" target="_blank" style="pointer-events: auto;">[${ticket.key}]</a> 
                         <span class="ticket-title-text">${ticket.summary}</span>
                     </div>
                     <div class="meta-tags">
-                        <span style="font-weight: bold; color: var(--text-main); font-size: 1.1em; background: var(--badge-bg-info); color: var(--badge-text-info); padding: 2px 8px; border-radius: 4px;">Snapshot: ${window.selectedDate}</span>
-                        <span style="font-size: 0.85em; opacity: 0.7; margin-left: 8px;">(Use ��� &nbsp; ⟶ keys)</span>
+                        <span style="font-weight: bold; color: var(--text-main); font-size: 1.1em; background: var(--badge-bg-${t_bg}); color: var(--badge-text-${t_bg}); padding: 2px 8px; border-radius: 4px;">Snapshot: ${window.selectedDate}</span>
+                        <span style="font-size: 0.85em; opacity: 0.7; margin-left: 8px;">(Use ⟵ &nbsp; ⟶ keys)</span>
                         <button onclick="toggleTicket('${ticket.key}')" style="cursor: pointer; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 12px; margin-left: 12px; pointer-events: auto; font-weight: bold; color: var(--text-muted);">Close</button>
                     </div>
                 </summary>
-                <div class="task-content">
+                <div class="task-content" style="max-height: 50vh; overflow-y: auto;">
                     <details class="sub-collapse issue-desc" open>
-                        <summary style="padding:10px 16px; font-weight:600; pointer-events: auto;">Issue Description</summary>
-                        <div class="sub-content">
+                        <summary style="padding:10px 16px; font-weight:600; pointer-events: auto; background: var(--bg-surface-muted);">Issue Description</summary>
+                        <div class="sub-content" style="background: var(--bg-surface);">
                             ${dayData.desc_html || '<em style="color: var(--text-muted);">No description</em>'}
                         </div>
                     </details>
                     ${prHtml}
                     ${commentHtml}
-                    ${(!prHtml && !commentHtml) ? '<div style="padding: 20px; text-align: center; color: var(--text-muted); border-top: 1px solid var(--border-color);">No PRs or Comments recorded on this specific date.</div>' : ''}
+                    ${(!prHtml && !commentHtml) ? '<div style="padding: 20px; text-align: center; color: var(--text-muted); border-top: 1px dashed var(--border-color);">No PRs or Comments recorded on this specific date.</div>' : ''}
                 </div>
             </details>
         </div>
@@ -1024,26 +1025,22 @@
             </div>
         `;
 
-        // Interactive Track Segments
+        // Interactive Track Segments (Invisible hitboxes to keep the bar looking solid)
         let segmentsHtml = "";
         for (let i = 0; i < duration; i++) {
           const currentDayStr = window.continuousDates[t.startIndex + i];
-          const isActiveDay = !!t.days[currentDayStr];
           const isSelected = window.expandedTicket === t.key && window.selectedDate === currentDayStr;
 
           let segBg = "transparent";
-          let borderStyle = "border-right: 1px dashed rgba(0,0,0,0.1);";
+          let borderStyle = "";
 
           if (isSelected) {
-            segBg = "rgba(0,0,0,0.2)";
-            borderStyle = "border: 2px solid var(--text-main); border-radius: 4px;";
-          }
-          else if (!isActiveDay) {
-            segBg = "rgba(255,255,255,0.4)";
+            segBg = "rgba(0,0,0,0.15)";
+            borderStyle = "border: 2px solid var(--text-main); border-radius: 4px; box-sizing: border-box; z-index: 6;";
           }
 
           segmentsHtml += `<div class="day-segment" style="background: ${segBg}; ${borderStyle} position: relative; z-index: 5;" 
-                onmouseover="this.style.background='rgba(0,0,0,0.3)'" 
+                onmouseover="this.style.background='rgba(0,0,0,0.1)'" 
                 onmouseout="this.style.background='${segBg}'" 
                 onclick="selectDay('${t.key}', '${currentDayStr}', event)" title="${currentDayStr}"></div>`;
         }
