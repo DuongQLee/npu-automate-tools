@@ -294,6 +294,7 @@
       border-radius: 8px;
       box-shadow: var(--shadow-sm);
       position: relative;
+      container-type: inline-size;
     }
 
     .gantt-ticket-header {
@@ -1173,8 +1174,8 @@
         // FIXED: Detail Panel Injection inside a sticky container locking it to the viewport width
         if (window.expandedTicket === t.key) {
           html += `
-            <div style="grid-column: 1 / -1; width: inherit; border-bottom: 2px solid var(--link-color); background: var(--bg-body); position: relative; z-index: 1;">
-                <div style="position: sticky; left: 0; width: 95%; max-width: inherit; padding: 16px 16px; box-sizing: border-box; margin: 0 0 auto;">
+            <div style="grid-column: 1 / -1; border-bottom: 2px solid var(--link-color); background: var(--bg-body); position: relative; z-index: 1;">
+                <div style="position: sticky; left: 0; width: calc(100vw - 60px); width: calc(100cqw - 10px); padding: 16px; box-sizing: border-box;">
                     ${renderDetailPanel(t)}
                 </div>
             </div>
