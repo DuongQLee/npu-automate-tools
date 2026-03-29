@@ -162,43 +162,128 @@
       height: 300px;
     }
 
-    /* GANTT CONTROLS */
+    /* GANTT CONTROLS (Modernized) */
     .controls-bar {
       display: flex;
-      gap: 20px;
+      justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
-      padding: 12px;
+      margin-bottom: 16px;
+      padding: 12px 16px;
       background: var(--bg-surface);
       border: 1px solid var(--border-color);
       border-radius: 8px;
       box-shadow: var(--shadow-sm);
     }
 
-    .filter-group {
+    .toolbar-group {
       display: flex;
-      gap: 16px;
-      font-size: 0.9em;
-      font-weight: bold;
-      color: var(--text-main);
+      gap: 12px;
+      align-items: center;
     }
 
-    .filter-group label {
+    .modern-dropdown {
+      position: relative;
+    }
+
+    .dropdown-btn,
+    .modern-select {
+      appearance: none;
+      -webkit-appearance: none;
+      background: var(--bg-surface-muted);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 0.9em;
+      font-weight: 600;
       cursor: pointer;
-      display: flex;
+      display: inline-flex;
       align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+      outline: none;
+      user-select: none;
+    }
+
+    .dropdown-btn:hover,
+    .modern-select:hover {
+      background: var(--bg-surface-hover);
+      border-color: var(--text-muted);
+    }
+
+    .modern-select {
+      padding-right: 32px;
+      /* Make room for custom arrow */
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235e6c84' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-radius;
+      background-position: right 10px center;
+    }
+
+    .dropdown-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      box-shadow: var(--shadow-lg);
+      padding: 8px;
+      min-width: 220px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
       gap: 4px;
     }
 
-    .sort-group select {
-      padding: 6px 12px;
-      border-radius: 4px;
-      border: 1px solid var(--border-color);
-      background: var(--bg-body);
-      color: var(--text-main);
-      outline: none;
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 6px;
       cursor: pointer;
-      font-weight: bold;
+      transition: background 0.1s;
+      font-size: 0.9em;
+      color: var(--text-main);
+      font-weight: 500;
+    }
+
+    .dropdown-item:hover {
+      background: var(--bg-surface-hover);
+    }
+
+    .dropdown-item input[type="checkbox"] {
+      accent-color: var(--link-color);
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      cursor: pointer;
+    }
+
+    .status-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .status-indicator.done {
+      background: var(--badge-bg-success);
+      border: 1px solid var(--badge-text-success);
+    }
+
+    .status-indicator.ip {
+      background: var(--badge-bg-info);
+      border: 1px solid var(--badge-text-info);
+    }
+
+    .status-indicator.todo {
+      background: var(--badge-bg-warn);
+      border: 1px solid var(--badge-text-warn);
+    }
+
+    .modern-dropdown summary::-webkit-details-marker {
+      display: none;
     }
 
     /* GANTT CHART ENGINE */
@@ -596,13 +681,34 @@
   </h2>
 
   <div class="controls-bar">
-    <div class="filter-group">
-      <label><input type="checkbox" id="f-done" checked onchange="renderGantt()"> ✅ Done/Closed</label>
-      <label><input type="checkbox" id="f-ip" checked onchange="renderGantt()"> ⏳ In Progress</label>
-      <label><input type="checkbox" id="f-todo" checked onchange="renderGantt()"> �� To Do / On Hold</label>
+    <div class="toolbar-group">
+      <details class="modern-dropdown" id="statusFilterDropdown">
+        <summary class="dropdown-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+          </svg>
+          Filter: Status
+        </summary>
+        <div class="dropdown-menu">
+          <label class="dropdown-item">
+            <input type="checkbox" id="f-done" checked onchange="renderGantt()">
+            <span class="status-indicator done"></span> Done / Closed
+          </label>
+          <label class="dropdown-item">
+            <input type="checkbox" id="f-ip" checked onchange="renderGantt()">
+            <span class="status-indicator ip"></span> In Progress
+          </label>
+          <label class="dropdown-item">
+            <input type="checkbox" id="f-todo" checked onchange="renderGantt()">
+            <span class="status-indicator todo"></span> To Do / On Hold
+          </label>
+        </div>
+      </details>
     </div>
-    <div class="sort-group" style="margin-left: auto;">
-      <select id="s-sort" onchange="renderGantt()">
+
+    <div class="toolbar-group">
+      <select id="s-sort" class="modern-select" onchange="renderGantt()">
         <option value="status-asc">Sort: Status (Active &rarr; Done)</option>
         <option value="status-desc">Sort: Status (Done &rarr; Active)</option>
         <option value="type">Sort: Type (Epic &rarr; Task)</option>
@@ -705,6 +811,14 @@
       const dropdown = document.getElementById('dateDropdown');
       if (dropdown && dropdown.style.display === 'block' && !e.target.closest('.header-title')) {
         dropdown.style.display = 'none';
+      }
+    });
+
+    // Close the Status filter dropdown if clicked outside
+    document.addEventListener('click', (e) => {
+      const statusDropdown = document.getElementById('statusFilterDropdown');
+      if (statusDropdown && statusDropdown.hasAttribute('open') && !statusDropdown.contains(e.target)) {
+        statusDropdown.removeAttribute('open');
       }
     });
 
@@ -1059,7 +1173,7 @@
         if (window.expandedTicket === t.key) {
           html += `
             <div style="grid-column: 1 / -1; width: inherit; border-bottom: 2px solid var(--link-color); background: var(--bg-body); position: relative; z-index: 1;">
-                <div style="position: sticky; left: 0; width: 95%; max-width: inherit; padding: 16px 16px; box-sizing: border-box; margin: 0 auto;">
+                <div style="position: sticky; left: 0; width: 95%; max-width: inherit; padding: 16px 16px; box-sizing: border-box; margin: 0 0 auto;">
                     ${renderDetailPanel(t)}
                 </div>
             </div>
