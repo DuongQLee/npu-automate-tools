@@ -285,6 +285,32 @@
       display: none;
     }
 
+    .today-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--badge-text-danger);
+      z-index: 25;
+      pointer-events: none;
+      opacity: 0.8;
+    }
+
+    .today-line::before {
+      content: 'TODAY';
+      position: absolute;
+      top: 14px;
+      /* Centers it nicely inside the 46px header */
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--badge-text-danger);
+      color: #fff;
+      font-size: 9px;
+      font-weight: bold;
+      padding: 2px 6px;
+      border-radius: 10px;
+    }
+
     /* GANTT CHART ENGINE */
     .gantt-wrapper {
       overflow: auto;
@@ -749,7 +775,7 @@
     window.continuousDates = [];
     window.expandedTicket = null;
     window.selectedDate = null;
-
+    window.hasCenteredToday = false;
     // Calendar Integration Logic
     let calendarDates = new Set();
     let calViewDate = new Date("{{ month_str }}-01T00:00:00");
@@ -1065,7 +1091,7 @@
                     </div>
                     <div class="meta-tags">
                         <span style="font-weight: bold; color: var(--text-main); font-size: 1.1em; background: var(--badge-bg-${t_bg}); color: var(--badge-text-${t_bg}); padding: 2px 8px; border-radius: 4px;">Snapshot: ${window.selectedDate}</span>
-                        <span style="font-size: 0.85em; opacity: 0.7; margin-left: 8px;">(Use ���� &nbsp; ⟶ keys)</span>
+                        <span style="font-size: 0.85em; opacity: 0.7; margin-left: 8px;">(Use ���������������� &nbsp; ⟶ keys)</span
                         <button onclick="toggleTicket('${ticket.key}')" style="cursor: pointer; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 12px; margin-left: 12px; pointer-events: auto; font-weight: bold; color: var(--text-muted);">Close</button>
                     </div>
                 </summary>
@@ -1127,9 +1153,20 @@
       });
       const cols = window.continuousDates.length;
 
-      // FIXED: gap: 0 0 prevents any implicit fractional stretching in CSS grid.
-      let html = `<div style="display: grid; grid-template-columns: 350px repeat(${cols}, 45px); gap: 0 0; min-width: max-content; padding-bottom: 24px;">`;
+      // Calculate exactly where "Today" is
+      const todayObj = new Date();
+      const todayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
+      const todayIdx = window.continuousDates.indexOf(todayStr);
+
+      // ADDED: position: relative; to the main grid wrapper so absolute lines stick to it
+      let html = `<div style="display: grid; grid-template-columns: 350px repeat(${cols}, 45px); gap: 0 0; min-width: max-content; padding-bottom: 24px; position: relative;">`;
       html += `<div class="gantt-ticket-header">Ticket & Summary</div>`;
+
+      // Inject the Today line if today exists in the current timeline view
+      if (todayIdx !== -1) {
+        const leftOffset = 350 + (todayIdx * 45) + 22; // 350px offset + (index * column width) + half a column to center it
+        html += `<div class="today-line" style="left: ${leftOffset}px;"></div>`;
+      }
 
       // Render Continuous Date Headers
       window.continuousDates.forEach(dateStr => {
@@ -1222,7 +1259,17 @@
       html += `</div>`;
       container.innerHTML = html;
 
-      // Scroll to panel if we just expanded it
+      // Auto-Center horizontally on Today (Only runs once on initial load)
+      if (!window.hasCenteredToday && todayIdx !== -1) {
+        setTimeout(() => {
+          const leftOffset = 350 + (todayIdx * 45) + 22;
+          const centerPos = leftOffset - (container.clientWidth / 2);
+          container.scrollTo({left: centerPos, behavior: 'smooth'});
+          window.hasCenteredToday = true;
+        }, 100); // Slight delay allows the DOM/Grid to finish rendering widths
+      }
+
+      // Scroll vertically to panel if we just expanded it
       if (window.expandedTicket) {
         setTimeout(() => {
           const el = document.getElementById('panel-' + window.expandedTicket);
