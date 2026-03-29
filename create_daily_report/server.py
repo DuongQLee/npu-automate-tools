@@ -44,7 +44,11 @@ class ReportHandler(http.server.SimpleHTTPRequestHandler):
             template_path = os.path.join(config.script_dir, "monthly_template.html")
             if os.path.exists(template_path):
                 with open(template_path, "r", encoding="utf-8") as f:
-                    html_content = f.read().replace("{{ month_str }}", month_prefix)
+                    html_content = (
+                        f.read()
+                        .replace("{{ month_str }}", month_prefix)
+                        .replace("{{ domain }}", config.ATLASSIAN_DOMAIN)
+                    )
                 self.send_response(200)
                 self.send_header("Content-type", "text/html; charset=utf-8")
                 self.end_headers()
