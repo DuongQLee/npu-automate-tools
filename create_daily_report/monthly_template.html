@@ -481,21 +481,17 @@
     }
 
     .sub-collapse {
-      border-top: 1px solid var(--border-color);
+      border-top: 1px dashed var(--border-color);
     }
 
     .sub-collapse:first-child {
       border-top: none;
     }
 
-    .sub-collapse summary:hover {
-      background: var(--bg-surface-hover);
-    }
-
     .sub-content {
       padding: 16px;
       font-size: 0.95em;
-      background: var(--bg-body);
+      background: var(--bg-surface-hover);
     }
 
     .ticket-title-wrapper {
@@ -684,6 +680,30 @@
 
   <div class="controls-bar">
     <div class="toolbar-group">
+      <details class="modern-dropdown" id="typeFilterDropdown">
+        <summary class="dropdown-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+          </svg>
+          Filter: Type
+        </summary>
+        <div class="dropdown-menu">
+          <label class="dropdown-item">
+            <input type="checkbox" id="f-type-epic" checked onchange="renderGantt()">
+            <svg class="jira-icon" style="width: 14px; height: 14px;">
+              <use href="#icon-epic"></use>
+            </svg> Epic
+          </label>
+          <label class="dropdown-item">
+            <input type="checkbox" id="f-type-task" checked onchange="renderGantt()">
+            <svg class="jira-icon" style="width: 14px; height: 14px;">
+              <use href="#icon-task"></use>
+            </svg> Task / Story
+          </label>
+        </div>
+      </details>
+
       <details class="modern-dropdown" id="statusFilterDropdown">
         <summary class="dropdown-btn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -711,9 +731,10 @@
 
     <div class="toolbar-group">
       <select id="s-sort" class="modern-select" onchange="renderGantt()">
-        <option value="status-asc">Sort: Status (Active &rarr; Done)</option>
-        <option value="status-desc">Sort: Status (Done &rarr; Active)</option>
-        <option value="type">Sort: Type (Epic &rarr; Task)</option>
+        <option value="key-asc">Sort: Key (Ascending)</option>
+        <option value="key-desc">Sort: Key (Descending)</option>
+        <option value="start-asc">Sort: Start Date (Oldest &rarr; Newest)</option>
+        <option value="start-desc">Sort: Start Date (Newest &rarr; Oldest)</option>
       </select>
     </div>
   </div>
@@ -821,6 +842,19 @@
       const statusDropdown = document.getElementById('statusFilterDropdown');
       if (statusDropdown && statusDropdown.hasAttribute('open') && !statusDropdown.contains(e.target)) {
         statusDropdown.removeAttribute('open');
+      }
+    });
+
+    // Close the Filter dropdowns if clicked outside
+    document.addEventListener('click', (e) => {
+      const statusDropdown = document.getElementById('statusFilterDropdown');
+      if (statusDropdown && statusDropdown.hasAttribute('open') && !statusDropdown.contains(e.target)) {
+        statusDropdown.removeAttribute('open');
+      }
+
+      const typeDropdown = document.getElementById('typeFilterDropdown');
+      if (typeDropdown && typeDropdown.hasAttribute('open') && !typeDropdown.contains(e.target)) {
+        typeDropdown.removeAttribute('open');
       }
     });
 
@@ -959,7 +993,7 @@
       let prHtml = "";
       if (dayData.prs && dayData.prs.length > 0) {
         prHtml = `<details class="sub-collapse pr-section" open>
-            <summary style="padding:10px 16px; font-weight:600; pointer-events: auto; background: var(--bg-surface-muted);">Pull Requests (${dayData.prs.length})</summary>
+            <summary style="padding:10px 16px; font-weight:600; pointer-events: auto;">Pull Requests (${dayData.prs.length})</summary>
             <div class="sub-content" style="padding-top: 8px;">`;
 
         dayData.prs.forEach(pr => {
@@ -993,7 +1027,7 @@
       let commentHtml = "";
       if (dayData.target_comments && dayData.target_comments.length > 0) {
         commentHtml = `<details class="sub-collapse comments-section" open>
-            <summary style="padding:10px 16px; font-weight:600; pointer-events: auto; background: var(--bg-surface-muted);">Comments (${dayData.target_comments.length})</summary>
+            <summary style="padding:10px 16px; font-weight:600; pointer-events: auto;">Comments (${dayData.target_comments.length})</summary>
             <div class="sub-content" style="padding: 16px;">`;
 
         dayData.target_comments.forEach(c => {
@@ -1031,15 +1065,15 @@
                     </div>
                     <div class="meta-tags">
                         <span style="font-weight: bold; color: var(--text-main); font-size: 1.1em; background: var(--badge-bg-${t_bg}); color: var(--badge-text-${t_bg}); padding: 2px 8px; border-radius: 4px;">Snapshot: ${window.selectedDate}</span>
-                        <span style="font-size: 0.85em; opacity: 0.7; margin-left: 8px;">(Use ⟵ &nbsp; ⟶ keys)</span>
+                        <span style="font-size: 0.85em; opacity: 0.7; margin-left: 8px;">(Use ���� &nbsp; ⟶ keys)</span>
                         <button onclick="toggleTicket('${ticket.key}')" style="cursor: pointer; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 12px; margin-left: 12px; pointer-events: auto; font-weight: bold; color: var(--text-muted);">Close</button>
                     </div>
                 </summary>
                 <div class="task-content" style="max-height: 50vh; overflow-y: auto;">
                     <details class="sub-collapse issue-desc" open>
-                        <summary style="padding:10px 16px; font-weight:600; pointer-events: auto; background: var(--bg-surface-muted);">Issue Description</summary>
-                        <div class="sub-content" style="background: var(--bg-surface);">
-                            ${dayData.desc_html || '<em style="color: var(--text-muted);">No description</em>'}
+                        <summary style="padding:10px 16px; font-weight:600; pointer-events: auto;">Issue Description</summary>
+                        <div class="sub-content">
+                            ${dayData.desc_html || '<em style="color: var(--text-muted);">No description provided.</em>'}
                         </div>
                     </details>
                     ${prHtml}
@@ -1056,6 +1090,8 @@
       const fDone = document.getElementById('f-done').checked;
       const fIp = document.getElementById('f-ip').checked;
       const fTodo = document.getElementById('f-todo').checked;
+      const fTypeEpic = document.getElementById('f-type-epic').checked;
+      const fTypeTask = document.getElementById('f-type-task').checked;
       const sortVal = document.getElementById('s-sort').value;
 
       // Filter Logic
@@ -1068,27 +1104,27 @@
         if (isDone && !fDone) return false;
         if (isIp && !fIp) return false;
         if (isTodo && !fTodo) return false;
+
+        if (t.type === 'Epic' && !fTypeEpic) return false;
+        if (t.type === 'Task' && !fTypeTask) return false;
+
         return true;
       });
 
-      // Sort Logic
+      // Sort Logic with Alphanumeric parsing (MV-9 before MV-10)
       filtered.sort((a, b) => {
-        if (sortVal === 'type') {
-          if (a.type !== b.type) return a.type === 'Epic' ? -1 : 1;
-          return a.key.localeCompare(b.key);
-        } else if (sortVal === 'status-asc') {
-          const wa = a.overallStatus === 'success' ? 1 : (a.overallStatus === 'info' || a.overallStatus === 'purple' ? 0 : -1);
-          const wb = b.overallStatus === 'success' ? 1 : (b.overallStatus === 'info' || b.overallStatus === 'purple' ? 0 : -1);
-          if (wa !== wb) return wa - wb;
-          return a.key.localeCompare(b.key);
-        } else if (sortVal === 'status-desc') {
-          const wa = a.overallStatus === 'success' ? -1 : (a.overallStatus === 'info' || a.overallStatus === 'purple' ? 0 : 1);
-          const wb = b.overallStatus === 'success' ? -1 : (b.overallStatus === 'info' || b.overallStatus === 'purple' ? 0 : 1);
-          if (wa !== wb) return wa - wb;
-          return a.key.localeCompare(b.key);
+        if (sortVal === 'key-asc') {
+          return a.key.localeCompare(b.key, undefined, {numeric: true});
+        } else if (sortVal === 'key-desc') {
+          return b.key.localeCompare(a.key, undefined, {numeric: true});
+        } else if (sortVal === 'start-asc') {
+          if (a.startIndex !== b.startIndex) return a.startIndex - b.startIndex;
+          return a.key.localeCompare(b.key, undefined, {numeric: true});
+        } else if (sortVal === 'start-desc') {
+          if (a.startIndex !== b.startIndex) return b.startIndex - a.startIndex;
+          return a.key.localeCompare(b.key, undefined, {numeric: true});
         }
       });
-
       const cols = window.continuousDates.length;
 
       // FIXED: gap: 0 0 prevents any implicit fractional stretching in CSS grid.
