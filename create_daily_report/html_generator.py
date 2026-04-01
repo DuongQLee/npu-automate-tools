@@ -181,8 +181,8 @@ def map_issue_data(issue, target_date_str):
     status_raw = status_name.lower()
     resolution_date = fields.get("resolutiondate")
     created_at = fields.get("created")
+    updated_at = fields.get("updated")
 
-    # --- NEW: Initialize the historical update flag ---
     has_today_update = False
 
     if calculate_days_ago(created_at, target_date_str) == 0:
@@ -190,7 +190,9 @@ def map_issue_data(issue, target_date_str):
 
     if resolution_date and calculate_days_ago(resolution_date, target_date_str) == 0:
         has_today_update = True
-    # ------------------------------------------------
+
+    if updated_at and calculate_days_ago(updated_at, target_date_str) == 0:
+        has_today_update = True
 
     # Retroactive Status Override
     if resolution_date:
