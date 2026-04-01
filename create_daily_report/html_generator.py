@@ -1,4 +1,3 @@
-import html
 import re
 from datetime import datetime, timezone
 
@@ -181,6 +180,17 @@ def map_issue_data(issue, target_date_str):
     status_name = fields.get("status", {}).get("name", "")
     status_raw = status_name.lower()
     resolution_date = fields.get("resolutiondate")
+    created_at = fields.get("created")
+
+    # --- NEW: Initialize the historical update flag ---
+    has_today_update = False
+
+    if calculate_days_ago(created_at, target_date_str) == 0:
+        has_today_update = True
+
+    if resolution_date and calculate_days_ago(resolution_date, target_date_str) == 0:
+        has_today_update = True
+    # ------------------------------------------------
 
     # Retroactive Status Override
     if resolution_date:
@@ -213,9 +223,6 @@ def map_issue_data(issue, target_date_str):
     )
     priority = fields.get("priority", {}).get("name", "")
 
-    created_at = fields.get("created")
-    updated_at = fields.get("updated")
-
     # Calculate general age. Clamp to 1 minimum for display purposes.
     cycle_days = max(1, calculate_days_ago(created_at, target_date_str))
     is_blocker = status_key == "danger" or priority in ["Highest", "High"]
@@ -246,6 +253,7 @@ def map_issue_data(issue, target_date_str):
         if c_date_str == target_date_str:
             target_comments.append(comment_obj)
             has_recent_comment = True
+            has_today_update = True  # <-- NEW: Commented today
         elif c_date_str < target_date_str:
             hist_comments.append(comment_obj)
             # If a historical comment was made within the last 3 days of the target date, ticket is not stale
@@ -313,6 +321,12 @@ def map_issue_data(issue, target_date_str):
         pr_last_valid_update_ago = calculate_days_ago(
             best_historical_update, target_date_str, is_github=True
         )
+
+        # --- NEW: PR Updated Today ---
+        if pr_last_valid_update_ago == 0:
+            has_today_update = True
+        # -----------------------------
+
         if state == "open":
             if pr_last_valid_update_ago < 3:
                 pr_stale = False
@@ -424,14 +438,11 @@ def map_issue_data(issue, target_date_str):
             }
         )
 
-    # --- TRUE TASK STALENESS LOGIC ---
     task_age = calculate_days_ago(created_at, target_date_str)
 
     if status_key in ["info", "todo", "purple"]:
-        # If it was created within the last 3 days, it's inherently fresh.
         if task_age < 3:
             is_stale = False
-            # Otherwise, check if a comment was made recently, or if a PR is active.
         elif not pr_is_active and not has_recent_comment:
             is_stale = True
         else:
@@ -454,6 +465,7 @@ def map_issue_data(issue, target_date_str):
         "target_comments": target_comments,
         "hist_comments": hist_comments[-config.MAX_HISTORY_COMMENTS :],
         "prs": prs,
+        "has_today_update": has_today_update,  # <-- Pass the flag down
     }
 
 
@@ -463,6 +475,9 @@ def map_section_data(epics, tasks, target_date_str):
         epic_data = map_issue_data(e, target_date_str)
         epic_data["tasks"] = []
         epic_data["epic_updates"] = 0
+        epic_data["epic_has_today_update"] = epic_data[
+            "has_today_update"
+        ]  # <-- Initialize Epic flag
         emap[e["key"]] = epic_data
 
     emap["OTHER"] = {
@@ -472,6 +487,7 @@ def map_section_data(epics, tasks, target_date_str):
         "status_key": "todo",
         "tasks": [],
         "epic_updates": 0,
+        "epic_has_today_update": False,
     }
 
     for t in tasks:
@@ -481,9 +497,15 @@ def map_section_data(epics, tasks, target_date_str):
         if parent_key and parent_key in emap:
             emap[parent_key]["tasks"].append(task_data)
             emap[parent_key]["epic_updates"] += task_data["updates"]
+            if task_data["has_today_update"]:
+                emap[parent_key]["epic_has_today_update"] = True  # <-- Roll up to Epic
         else:
             emap["OTHER"]["tasks"].append(task_data)
             emap["OTHER"]["epic_updates"] += task_data["updates"]
+            if task_data["has_today_update"]:
+                emap["OTHER"]["epic_has_today_update"] = (
+                    True  # <-- Roll up to 'OTHER' Epic
+                )
 
     for epic_data in emap.values():
         if epic_data["key"] == "OTHER":

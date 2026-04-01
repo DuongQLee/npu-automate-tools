@@ -290,12 +290,25 @@
       top: 0;
       bottom: 0;
       width: 2px;
-      background: var(--link-color);
-      /* Changes the line to blue */
+      background: var(--badge-text-danger);
       z-index: 25;
       pointer-events: none;
-      opacity: 0.4;
-      /* Makes it translucent so the date number is clearly visible */
+      opacity: 0.8;
+    }
+
+    .today-line::before {
+      content: 'TODAY';
+      position: absolute;
+      top: 14px;
+      /* Centers it nicely inside the 46px header */
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--badge-text-danger);
+      color: #fff;
+      font-size: 9px;
+      font-weight: bold;
+      padding: 2px 6px;
+      border-radius: 10px;
     }
 
     /* GANTT CHART ENGINE */
