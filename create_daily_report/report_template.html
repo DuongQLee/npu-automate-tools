@@ -1495,7 +1495,7 @@
       <label
         style="font-size: 0.9em; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; color: var(--text-main);">
         <input type="checkbox" id="toggle-updates-today" onchange="filterUpdatesToday(this.checked)">
-        🔥 Show Only Updates Today
+        Show updates Today
       </label>
       {% endif %}
     </div>
@@ -1506,7 +1506,7 @@
     {% for epic in section.epics %}
     <details class="epic-block" {{ 'open' if not section.is_yesterday else '' }}
       style="border-top: 4px solid var(--badge-text-{{ epic.status_key }});"
-      data-has-today-update="{{ 'true' if epic.epic_has_today_update else 'false' }}">
+      data-has-today-update="{{ 'true' if (epic.target_comments|length > 0 or epic.epic_updates > 0) else 'false' }}">
       <summary class="epic-summary searchable-item" data-type="epic" data-key="{{ epic.key }}"
         data-title="{{ epic.summary }}" style="background:var(--badge-bg-{{ epic.status_key }})">
         <div class="ticket-title-wrapper">
@@ -1537,7 +1537,7 @@
         {% set t_bg = 'success' if task.status_key == 'success' else 'info' if task.status_key in ['info', 'purple']
         else
         'warn' if task.status_key in ['warn', 'danger'] else 'todo' %}
-        <div class="task-block" data-has-today-update="{{ 'true' if task.has_today_update else 'false' }}">
+        <div class="task-block" data-has-today-update="{{ 'true' if task.target_comments|length > 0 else 'false' }}">
           <details>
             <summary class="task-summary searchable-item" data-type="issue" data-key="{{ task.key }}"
               data-title="{{ task.summary }}" style="background: var(--badge-bg-{{ t_bg }});">
@@ -1674,7 +1674,7 @@
     {% for epic in pending_epics %}
     {% set pen_status = "warn" if epic.status_key == "warn" else "todo" %}
     <details class="epic-block" style="border-top: 4px solid var(--badge-text-{{ pen_status }}); margin-bottom: 10px;"
-      data-has-today-update="{{ 'true' if epic.has_today_update else 'false' }}">
+      data-has-today-update="{{ 'true' if epic.target_comments|length > 0 else 'false' }}">
       <summary class="epic-summary searchable-item" data-type="epic" data-key="{{ epic.key }}"
         style="background: var(--badge-bg-{{ pen_status }});">
         <div class="ticket-title-wrapper">
