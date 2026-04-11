@@ -693,6 +693,21 @@
       border-radius: 6px;
       background: var(--bg-surface);
       box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      word-wrap: break-word;
+    }
+
+    .comment-card pre,
+    .preformattedContent pre {
+      overflow-x: auto;
+      max-width: 100%;
+      white-space: pre;
+      box-sizing: border-box;
+    }
+
+    .comment-card img {
+      max-width: 100%;
+      height: auto;
     }
 
     .comment-header {
@@ -831,7 +846,7 @@
     </div>
     <div class="nav-right">
       <div style="display: flex; gap: 10px;">
-        <button id="nextBtn" onclick="goToReport('{{ next_str }}')" class="nav-btn">Next ��️</button>
+        <button id="nextBtn" onclick="goToReport('{{ next_str }}')" class="nav-btn">Next ➡️</button>
         <button id="refreshBtn" onclick="handleRefresh()" class="nav-btn" title="Refresh Page">
           <svg width="18" height="18" viewBox="0 0 24 24">
             <path
@@ -1550,8 +1565,8 @@
                 <span class="ticket-title-text">{{ task.summary }}</span>
               </div>
               <div class="meta-tags">
-                <span title="In Progress for {{ task.cycle_days }} days">��� {{ task.cycle_days }}d</span>
-                {% if task.is_stale %}<span class="stale-badge" title="No updates in 3+ days">���️ STALE</span>{% endif
+                <span title="In Progress for {{ task.cycle_days }} days">⏳ {{ task.cycle_days }}d</span>
+                {% if task.is_stale %}<span class="stale-badge" title="No updates in 3+ days">⚠️ STALE</span>{% endif
                 %}
                 <div style="display: flex; align-items: center; gap: 4px; font-weight: 600; color: var(--text-main);">
                   {% if task.assignee_avatar %}<img src="{{ task.assignee_avatar }}" class="avatar"
