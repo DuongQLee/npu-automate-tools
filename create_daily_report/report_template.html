@@ -699,9 +699,13 @@
 
     .comment-card pre,
     .preformattedContent pre {
-      overflow-x: auto;
       max-width: 100%;
-      white-space: pre;
+      white-space: pre-wrap;
+      /* Forces text to wrap to the next line */
+      word-wrap: break-word;
+      /* Breaks long words if necessary */
+      overflow-wrap: anywhere;
+      /* Ensures long file paths or hashes break properly */
       box-sizing: border-box;
     }
 
